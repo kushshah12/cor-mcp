@@ -20,12 +20,12 @@ import {
 } from './dom.js';
 
 const LABEL_MAX = 50;
-const label = (text) => {
+export const label = (text) => {
   const s = squash(text);
   return s ? clip(s, LABEL_MAX) : null;
 };
 
-const LANDMARKS = [
+export const LANDMARKS = [
   ['dialog', 'dialog,[role="dialog"],[role="alertdialog"]'],
   ['navigation', 'nav,[role="navigation"]'],
   ['header', 'header,[role="banner"]'],
@@ -35,11 +35,11 @@ const LANDMARKS = [
   ['group', 'fieldset'],
   ['region', 'section[aria-label],section[aria-labelledby],[role="region"][aria-label],[role="region"][aria-labelledby]'],
 ];
-const TABLE = 'table,[role="table"],[role="grid"],[role="treegrid"]';
-const CELL = 'td,th,[role="cell"],[role="gridcell"],[role="columnheader"],[role="rowheader"]';
-const ITEM = 'li,[role="listitem"]';
+export const TABLE = 'table,[role="table"],[role="grid"],[role="treegrid"]';
+export const CELL = 'td,th,[role="cell"],[role="gridcell"],[role="columnheader"],[role="rowheader"]';
+export const ITEM = 'li,[role="listitem"]';
 
-function ariaLabel(el) {
+export function ariaLabel(el) {
   const own = el.getAttribute('aria-label');
   if (own) return label(own);
   const ids = el.getAttribute('aria-labelledby');
@@ -48,7 +48,7 @@ function ariaLabel(el) {
 }
 
 /** First short visible line of text in `el` that belongs to `el` — not to a control inside it, nor to a nested `own`. */
-function ownText(el, own = null) {
+export function ownText(el, own = null) {
   const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
   for (let t = walker.nextNode(); t; t = walker.nextNode()) {
     const parent = t.parentElement;
@@ -71,7 +71,7 @@ function cellName(cell) {
   return (heading && label(heading.textContent)) || ariaLabel(cell) || label(ownText(cell));
 }
 
-function rowKey(row) {
+export function rowKey(row) {
   for (const cell of row.children) {
     const text = ownText(cell) ?? label(cell.querySelector(HEADING)?.textContent);
     if (text) return text;
@@ -80,7 +80,7 @@ function rowKey(row) {
 }
 
 // ── headings: which ones title this element ─────────────────────────────────
-const headingLevel = (h) => Number(/^H([1-6])$/.exec(h.tagName)?.[1] ?? h.getAttribute('aria-level') ?? 2);
+export const headingLevel = (h) => Number(/^H([1-6])$/.exec(h.tagName)?.[1] ?? h.getAttribute('aria-level') ?? 2);
 
 /**
  * `h` titles `leaf` if, where their ancestries meet, h's branch holds no
@@ -119,7 +119,7 @@ function sectionHeadings(leaf, headings) {
 }
 
 /** The containers that identify `leaf`, outermost first. */
-function containersFor(leaf, headings) {
+export function containersFor(leaf, headings) {
   const ancestors = [];
   for (let n = composedParent(leaf); n && n !== document.body && n !== document.documentElement; n = composedParent(n)) {
     ancestors.unshift(n);
@@ -166,7 +166,7 @@ function containersFor(leaf, headings) {
 }
 
 // ── signals only COR has (U14) ──────────────────────────────────────────────
-function statesOf(el) {
+export function statesOf(el) {
   const states = [];
   if (el.disabled || el.getAttribute('aria-disabled') === 'true') states.push('disabled');
   const checked = el.getAttribute('aria-checked')

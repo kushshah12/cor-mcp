@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { callPage } from '../page-runtime.js';
-import { renderInspect, renderSnapshot } from '../format.js';
-import { checkRef, goneError } from './refs.js';
+import { renderAmbiguousScope, renderInspect, renderScoped, renderSnapshot } from '../format.js';
+import { REF, checkRef, goneError } from './refs.js';
 import { applyIdVerdicts, checkIds, numberedIds } from '../id-stability.js';
 
 export const FRAMEWORKS = ['playwright', 'cypress', 'selenium', 'webdriverio', 'nightwatch', 'testcafe', 'puppeteer'];
@@ -35,18 +35,44 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
           'landmarks, sections by heading, tables (column / row), list items. Pick the element you need, then pass its ref to cor_inspect. ' +
           'Markers: ✓id test attribute, +N hidden lookalikes, [disabled]/[checked]/[expanded]/[selected], [unstable id]. ' +
           'Take a new snapshot after any navigation or act call — earlier refs expire.',
-        inputSchema: {},
+        inputSchema: {
+          within: z.string().optional().describe(
+            'Show one region in full instead — every line of text, prices and labels included. ' +
+            'A ref (its region: the card, row, column or section that identifies it) or a region\'s name ' +
+            '(a heading, a landmark label, a list item or table row\'s text). A name matching several regions returns the choices.',
+          ),
+        },
       },
-      handler: async () => {
+      handler: async ({ within }) => {
         const page = await openPage();
-        const snapshot = await callPage(page, 'snapshot');
-        session.issueRefs(snapshot.count);
         // U14: mark ids U7's reload check already found regenerated — cached
         // verdicts only; a snapshot never triggers a reload.
         const unstableIds = new Set(
           [...idCache].filter(([key, v]) => v.status === 'regenerated' && key.startsWith(`${page.url()}#`)).map(([key]) => key.slice(page.url().length + 1)),
         );
-        return text(renderSnapshot(snapshot, { unstableIds }));
+        if (!within) {
+          const snapshot = await callPage(page, 'snapshot');
+          session.issueRefs(snapshot.live);
+          return text(renderSnapshot(snapshot, { unstableIds }));
+        }
+
+        // U15. Current refs are kept, so the default snapshot's still resolve.
+        const byRef = REF.test(within.trim());
+        if (byRef) checkRef(session, within.trim());
+        const keep = Boolean(session.refs && !session.refs.staleBecause);
+        const scoped = await callPage(page, 'scoped', byRef ? { ref: within.trim(), keep } : { text: within, keep });
+        session.issueRefs(scoped.live);
+        if (scoped.error === 'gone') throw goneError(within.trim());
+        if (scoped.error === 'no-region') {
+          throw new Error(
+            scoped.reason === 'element'
+              ? `${within} is not inside any section, table, list or landmark — cor_snapshot without within shows it in the page outline.`
+              : `No region is named "${within}". Headings on this page: ${scoped.headings.map((h) => `"${h}"`).join(', ') || 'none'}. ` +
+                'Or pass a ref from inside the region you want.',
+          );
+        }
+        if (scoped.error === 'ambiguous') return text(renderAmbiguousScope(scoped, within));
+        return text(renderScoped(scoped, within, { unstableIds }));
       },
     },
     {

@@ -24,7 +24,7 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
   let queue = Promise.resolve();
   // What the last cor_snapshot issued. Refs name elements in one page state;
   // any navigation or act call ends that state and they must not be resolved.
-  let refs = null; // { count, staleBecause }
+  let refs = null; // { issued: Set<ref>, staleBecause }
 
   async function launch() {
     // Lazy import keeps `createServer()` free of a browser until a tool needs one.
@@ -107,7 +107,8 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
     getPage,
     close,
     invalidateRefs,
-    issueRefs(count) { refs = { count, staleBecause: null }; },
+    /** The refs the page now resolves — the whole set, after a full or scoped snapshot. */
+    issueRefs(live) { refs = { issued: new Set(live), staleBecause: null }; },
     get refs() { return refs; },
     get browser() { return browser; },
     get browserLabel() { return browserLabel; },

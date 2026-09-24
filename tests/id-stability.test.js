@@ -112,10 +112,9 @@ test('grade: a selector on a regenerated id reads "Breaks on reload" and gets a 
 test("the probe leaves the agent's page and refs alone, and runs once per URL", async (t) => {
   await fresh(t);
   const loadsBefore = loads;
+  await call('cor_fill', { target: 'input', value: 'kept@x.co' });
   const snap = await call('cor_snapshot');
   const ref = snap.text.match(/textbox "Email" \[ref=(e\d+)\]/)[1];
-  await call('cor_fill', { target: 'input', value: 'kept@x.co' });
-  await call('cor_snapshot');
   const first = await call('cor_inspect', { ref });
   assert.equal(first.isError, false);
   const second = await call('cor_inspect', { ref });

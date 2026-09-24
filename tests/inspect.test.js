@@ -271,6 +271,22 @@ test('a ref is stale after navigation and after an act call, and never resolves 
   assert.equal(await (await session.getPage()).inputValue('#email'), 'a@b.co');
 });
 
+test('refs are never renumbered: a ref from an earlier snapshot is old, never another element', async (t) => {
+  const call = await connect(t);
+  const first = await openAndSnapshot(call, 'shapes.html');
+  const old = first.refOf(/textbox "Email"/);
+  const second = await openAndSnapshot(call, 'shapes.html'); // same URL, new page load: numbering restarts with the document
+  assert.equal(second.refOf(/textbox "Email"/), old, 'a fresh document starts at e1 again');
+
+  const again = await call('cor_snapshot'); // same document: new numbers
+  const renumbered = again.text.match(/textbox "Email" \[ref=(e\d+)\]/)[1];
+  assert.notEqual(renumbered, old);
+  const stale = await call('cor_inspect', { ref: old });
+  assert.equal(stale.isError, true);
+  assert.match(stale.text, /is from an earlier cor_snapshot of this page/);
+  assert.equal((await call('cor_inspect', { ref: renumbered })).isError, false);
+});
+
 test('a ref that never existed returns an actionable message', async (t) => {
   const call = await connect(t);
   const { lines } = await openAndSnapshot(call, 'shapes.html');

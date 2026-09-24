@@ -275,3 +275,31 @@ export function renderGrade({ input, graded, candidates, note, uncountable }) {
   );
   return out.join('\n');
 }
+
+// ── scoped snapshot (U15) ───────────────────────────────────────────────────
+const regionText = (r) => `${r.kind}${r.label ? ` "${r.label}"` : ''}`;
+
+/** One region in full: headings, text, images and controls, in page order. */
+export function renderScoped(scoped, within, { unstableIds = new Set() } = {}) {
+  const head = `${scoped.title ? `"${scoped.title}" ` : ''}${scoped.url} — ${regionText(scoped.region)} in full (within: ${within})`;
+  const note = 'All text in this region, in page order. Its refs are added to the current snapshot\'s; refs expire on navigation and any act.';
+  const lines = scoped.lines.map((line) => {
+    if (line.kind === 'leaf') return `- ${leafText(line, unstableIds)}`;
+    return `- ${line.kind} "${line.text}"`;
+  });
+  if (scoped.truncated) lines.push(`… ${scoped.truncated} more lines — pass a narrower region as within.`);
+  return [head, note, '', ...lines].join('\n');
+}
+
+/** A name that fits several regions: the candidates, each with a ref to pass back. */
+export function renderAmbiguousScope(scoped, within) {
+  const lines = scoped.candidates.map((c, i) => {
+    const sample = c.sample ? `${c.sample.role}${c.sample.name ? ` "${c.sample.name}"` : ''} [ref=${c.sample.ref}]` : 'no control inside';
+    return `${i + 1}. ${c.where || regionText(c)} — e.g. ${sample}`;
+  });
+  if (scoped.more) lines.push(`…and ${scoped.more} more.`);
+  return [
+    `"${within}" names ${scoped.candidates.length + (scoped.more ?? 0)} regions. Pick one and pass a ref from inside it as within:`,
+    ...lines,
+  ].join('\n');
+}

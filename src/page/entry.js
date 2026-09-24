@@ -4,8 +4,10 @@
 import { LocatorEngine, computeFingerprint, extractElementInfo, scoreLocator } from '@corlabs/engine/core';
 import { INTERACTIVE, deepQueryAll, hintsFor, isVisible, roleAndName } from './dom.js';
 import { buildOutline } from './outline.js';
+import { scopedSnapshot } from './scope.js';
 
-let refs = new Map(); // ref -> element, replaced on every snapshot
+let refs = new Map(); // ref -> element, replaced on every full snapshot
+let nextRef = 1; // per page load: refs are never renumbered
 
 /**
  * Other visible elements an agent could have meant: same role, same name, so
@@ -36,12 +38,30 @@ function lookalikes(target) {
 /** The outline snapshot (src/page/outline.js); refs issued here are what inspect and act tools resolve. */
 function snapshot() {
   refs = new Map();
-  const outline = buildOutline((el) => {
-    const ref = `e${refs.size + 1}`;
-    refs.set(ref, el);
-    return ref;
-  });
-  return { url: location.href, title: document.title, ...outline };
+  const outline = buildOutline(issueRef);
+  return { url: location.href, title: document.title, ...outline, live: [...refs.keys()] };
+}
+
+/**
+ * One region in full (U15). Keeps the current refs when they are live (`keep`),
+ * so the default snapshot's refs still resolve; otherwise starts a fresh set.
+ */
+function scoped({ ref, text, keep }) {
+  if (!keep) refs = new Map();
+  const result = scopedSnapshot({ ref, text, refs, issueRef });
+  return { url: location.href, title: document.title, ...result, live: [...refs.keys()] };
+}
+
+/**
+ * The element's ref: its current one if it has one, else the next number.
+ * Numbers are never reused within a page load, so a ref the agent kept from
+ * an earlier snapshot can only ever be unknown — never another element.
+ */
+function issueRef(el) {
+  for (const [ref, known] of refs) if (known === el) return ref;
+  const ref = `e${nextRef++}`;
+  refs.set(ref, el);
+  return ref;
 }
 
 /** Resolve a ref or a selector to exactly one element. */
@@ -146,4 +166,4 @@ function grade({ element: el, value, framework, matchCount }) {
 /** The element a ref or selector names, for act tools; null when it does not resolve. */
 const element = (target) => resolveTarget(target).el ?? null;
 
-window.__corMcp = { snapshot, inspect, element, grade };
+window.__corMcp = { snapshot, scoped, inspect, element, grade };

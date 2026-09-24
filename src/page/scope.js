@@ -1,0 +1,180 @@
+// Scoped snapshot (U15): full detail for one region — prices, labels, every
+// line of text — without enlarging the default snapshot. Runs in the page.
+//
+// `within` is a ref (the region that identifies that element) or a region's
+// name: a heading, a landmark's label, a list item's or table row's text.
+// A name that fits several regions is not guessed at — the candidates come
+// back, each with a ref inside it, for the agent to choose.
+import { DEFAULT_TEST_ID_ATTRIBUTES } from '@corlabs/engine/core';
+import { HEADING, INTERACTIVE, clip, isVisible, roleAndName, squash } from './dom.js';
+import {
+  CELL, ITEM, LANDMARKS, TABLE, ariaLabel, containersFor, headingLevel, label, ownText, rowKey, statesOf,
+} from './outline.js';
+
+const MAX_LINES = 80;
+const TEXT_MAX = 120;
+const LANDMARK_SELECTOR = LANDMARKS.map(([, s]) => s).join(',');
+
+const visibleHeadings = () => [...document.querySelectorAll(HEADING)].filter(isVisible);
+
+/**
+ * A heading's region: the smallest ancestor that holds a control and no other
+ * heading of the same or a higher level — a plan card for its <h3>, a table
+ * header cell for the <h3> inside it. Where no ancestor fits (a page-level
+ * <h2> among siblings), the heading's outline section: what follows it up to
+ * the next heading of the same or a higher level.
+ */
+function headingRegion(h) {
+  const level = headingLevel(h);
+  const rivals = visibleHeadings().filter((o) => o !== h && headingLevel(o) <= level);
+  for (let a = h.parentElement; a && a !== document.body; a = a.parentElement) {
+    if (rivals.some((o) => a.contains(o))) break;
+    if (a.querySelector(INTERACTIVE)) return { root: a, contains: (el) => a.contains(el) };
+  }
+  const next = visibleHeadings().find((o) => o !== h && headingLevel(o) <= level && (h.compareDocumentPosition(o) & Node.DOCUMENT_POSITION_FOLLOWING));
+  const root = h.parentElement ?? document.body;
+  return {
+    root,
+    contains: (el) => el === h || h.contains(el) || (root.contains(el)
+      && !!(h.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING)
+      && (!next || !!(el.compareDocumentPosition(next) & Node.DOCUMENT_POSITION_FOLLOWING))),
+  };
+}
+
+const nodeRegion = (root) => ({ root, contains: (el) => root.contains(el) });
+
+/** The innermost region that identifies an element — the same containers the outline shows. */
+function regionOfElement(el) {
+  const kept = containersFor(el, visibleHeadings());
+  const inner = kept.at(-1);
+  if (!inner) return null;
+  const region = inner.type === 'section' ? headingRegion(inner.node) : nodeRegion(inner.node);
+  return { ...region, kind: inner.type, label: inner.label };
+}
+
+/** Every region whose name is `query`: exact matches, else those containing it. */
+function regionsNamed(query) {
+  const want = squash(query).toLowerCase();
+  const named = [];
+  for (const h of visibleHeadings()) named.push({ text: squash(h.textContent), make: () => ({ ...headingRegion(h), kind: 'section' }) });
+  for (const n of document.querySelectorAll(LANDMARK_SELECTOR)) {
+    if (isVisible(n)) named.push({ text: ariaLabel(n) ?? '', make: () => ({ ...nodeRegion(n), kind: LANDMARKS.find(([, s]) => n.matches(s))[0] }) });
+  }
+  for (const n of document.querySelectorAll(ITEM)) {
+    if (isVisible(n)) named.push({ text: ownText(n, ITEM) ?? '', make: () => ({ ...nodeRegion(n), kind: 'item' }) });
+  }
+  for (const row of document.querySelectorAll('tr,[role="row"]')) {
+    if (isVisible(row) && row.closest(TABLE)) named.push({ text: rowKey(row) ?? '', make: () => ({ ...nodeRegion(row), kind: 'row' }) });
+  }
+  const pick = (match) => named.filter((n) => n.text && match(n.text.toLowerCase()));
+  const hits = pick((t) => t === want);
+  const chosen = hits.length ? hits : pick((t) => t.includes(want));
+  // Two names can resolve to one region (a column header cell's own heading).
+  const regions = [];
+  for (const n of chosen) {
+    const region = { ...n.make(), label: clip(n.text, 50) };
+    if (!regions.some((r) => r.root === region.root && r.kind === region.kind)) regions.push(region);
+  }
+  return regions;
+}
+
+const hiddenForText = (el) => {
+  if (el.getAttribute('aria-hidden') === 'true' || el.hasAttribute('hidden')) return true;
+  const style = getComputedStyle(el);
+  return style.display === 'none' || style.visibility === 'hidden';
+};
+
+/** The region's content in page order: headings, controls (with refs), images, and text. */
+function contentOf(region, issueRef) {
+  const testIdSelector = DEFAULT_TEST_ID_ATTRIBUTES.map((a) => `[${a}]`).join(',');
+  const lines = [];
+  let buffer = '';
+  const flush = () => {
+    const text = squash(buffer);
+    buffer = '';
+    if (text && lines.at(-1)?.text !== text) lines.push({ kind: 'text', text: clip(text, TEXT_MAX) });
+  };
+  const walk = (node) => {
+    // Children of a horizontal flex row read as one line ("$ 375 / month"),
+    // though the browser reports each as a block.
+    const row = node.nodeType === 1 && (() => {
+      const style = getComputedStyle(node);
+      return style.display.includes('flex') && style.flexDirection.startsWith('row');
+    })();
+    for (const child of node.childNodes) {
+      if (child.nodeType === 3) {
+        if (region.contains(child.parentElement) || region.contains(child)) buffer += child.nodeValue;
+        continue;
+      }
+      if (child.nodeType !== 1 || hiddenForText(child)) continue;
+      const inside = region.contains(child);
+      if (inside && child.matches(INTERACTIVE) && isVisible(child)) {
+        flush();
+        const { role, name } = roleAndName(child);
+        lines.push({
+          kind: 'leaf', ref: issueRef(child), role, name, testId: child.matches(testIdSelector), states: statesOf(child), hidden: 0,
+          id: /\d$/.test(child.id) ? child.id : null,
+          value: child.tagName === 'SELECT' ? label(child.selectedOptions[0]?.textContent) : null,
+        });
+        continue;
+      }
+      if (inside && child.matches(HEADING)) {
+        flush();
+        lines.push({ kind: 'heading', text: clip(squash(child.textContent), TEXT_MAX) });
+        continue;
+      }
+      if (inside && child.tagName === 'IMG' && child.getAttribute('alt')) {
+        flush();
+        lines.push({ kind: 'img', text: clip(squash(child.getAttribute('alt')), TEXT_MAX) });
+        continue;
+      }
+      const block = !row && !getComputedStyle(child).display.startsWith('inline');
+      if (block) flush();
+      else if (row) buffer += ' '; // flex items are separate boxes; plain inline text runs on ("Hel<b>lo</b>")
+      walk(child);
+      if (block) flush();
+      else if (row) buffer += ' ';
+    }
+  };
+  walk(region.root);
+  flush();
+  return { lines: lines.slice(0, MAX_LINES), truncated: Math.max(0, lines.length - MAX_LINES) };
+}
+
+/** The first visible control inside a region — a ref the agent can pass back as `within`. */
+function sampleIn(region) {
+  return [...region.root.querySelectorAll(INTERACTIVE)].find((el) => region.contains(el) && isVisible(el)) ?? null;
+}
+
+/**
+ * @param {{ ref?: string, text?: string, refs: Map, issueRef: Function }} args
+ */
+export function scopedSnapshot({ ref, text, refs, issueRef }) {
+  let regions;
+  if (ref) {
+    const el = refs.get(ref);
+    if (!el || !el.isConnected) return { error: 'gone' };
+    const region = regionOfElement(el);
+    if (!region) return { error: 'no-region', reason: 'element' };
+    regions = [region];
+  } else {
+    regions = regionsNamed(text);
+    if (!regions.length) {
+      return { error: 'no-region', reason: 'name', headings: [...new Set(visibleHeadings().map((h) => clip(squash(h.textContent), 50)))].slice(0, 12) };
+    }
+  }
+  if (regions.length > 1) {
+    return {
+      error: 'ambiguous',
+      candidates: regions.slice(0, 8).map((r) => {
+        const sample = sampleIn(r);
+        const where = sample ? containersFor(sample, visibleHeadings()).map((c) => `${c.type}${c.label ? ` "${c.label}"` : ''}`).join(' › ') : null;
+        const leaf = sample ? { ref: issueRef(sample), ...roleAndName(sample) } : null;
+        return { kind: r.kind, label: r.label, where, sample: leaf };
+      }),
+      more: Math.max(0, regions.length - 8),
+    };
+  }
+  const [region] = regions;
+  return { region: { kind: region.kind, label: region.label }, ...contentOf(region, issueRef) };
+}
