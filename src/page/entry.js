@@ -4,6 +4,8 @@
 import {
   LocatorEngine,
   DEFAULT_TEST_ID_ATTRIBUTES,
+  extractElementInfo,
+  scoreLocator,
   getAccessibleName,
   getImplicitRole,
 } from '@corlabs/engine/core';
@@ -110,8 +112,12 @@ function resolveTarget({ ref, selector }) {
 function inspect({ ref, selector, framework, max }) {
   const target = resolveTarget({ ref, selector });
   if (target.error) return target;
+  return candidatesFor(target.el, framework, max);
+}
+
+function candidatesFor(el, framework, max) {
   const engine = new LocatorEngine({ framework });
-  const result = engine.generateLocatorsForAI(target.el, { maxLocators: max });
+  const result = engine.generateLocatorsForAI(el, { maxLocators: max });
   // Drop fields the renderer does not use; everything left is plain JSON.
   return {
     element: result.element_summary,
@@ -137,7 +143,36 @@ function inspect({ ref, selector, framework, max }) {
   };
 }
 
+/**
+ * Score a selector someone else wrote. Node has already counted it with
+ * Playwright and hands over the element when exactly one matched; the
+ * candidates generated for that element are what "better" is measured against.
+ */
+function grade({ element: el, value, framework, matchCount }) {
+  const health = scoreLocator(
+    { value, matchCount },
+    { element: el, elementInfo: el ? extractElementInfo(el) : null, framework, matchCount },
+  );
+  const negative = health.signals.filter((s) => s.direction === 'negative');
+  return {
+    graded: {
+      value,
+      code: value,
+      score: health.score,
+      tier: health.tier,
+      tierLabel: health.tierLabel,
+      matchCount,
+      resolution: health.resolution,
+      primaryRisk: health.primaryRisk,
+      signals: health.signals.map(({ id, direction, message, points }) => ({ id, direction, message, points })),
+      warnings: negative.map((s) => (s.evidence?.length ? `${s.message} (${s.evidence.join(', ')})` : s.message)),
+      recommendations: health.recommendations,
+    },
+    candidates: el ? candidatesFor(el, framework, 6) : null,
+  };
+}
+
 /** The element a ref or selector names, for act tools; null when it does not resolve. */
 const element = (target) => resolveTarget(target).el ?? null;
 
-window.__corMcp = { snapshot, inspect, element };
+window.__corMcp = { snapshot, inspect, element, grade };

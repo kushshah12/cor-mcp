@@ -6,8 +6,12 @@ const SUB_FLOOR = new Set(['risky', 'unstable']);
 
 const clause = (message) => String(message ?? '').split(' — ')[0];
 
+// Facts about this page at this moment, not about the locator string — they
+// belong in the point-in-time half and never in the durable line.
+const RESOLUTION_SIGNALS = new Set(['unique-match', 'no-match', 'multiple-matches', 'unverified-match', 'wrong-element', 'target-hidden-from-api']);
+
 function pointInTime(l) {
-  const count = l.matchCount === null || l.matchCount === undefined ? 'match count unknown'
+  const count = l.matchCount === null || l.matchCount === undefined || l.matchCount < 0 ? 'match count unknown'
     : `${l.matchCount} match${l.matchCount === 1 ? '' : 'es'}`;
   return `${l.score} ${l.tierLabel ?? l.tier ?? 'unscored'} · ${count}`;
 }
@@ -40,7 +44,9 @@ export function durableLine(result) {
   const parts = [];
   const anchor = anchorOf(best);
   if (anchor) parts.push(`anchored on ${anchor.replace(/^(Anchored on|Targets the element by) /i, '')}`);
-  const risk = best.primaryRisk;
+  const risk = RESOLUTION_SIGNALS.has(best.primaryRisk?.signalId)
+    ? best.signals.filter((s) => s.direction === 'negative' && !RESOLUTION_SIGNALS.has(s.id)).sort((a, b) => a.points - b.points)[0]
+    : best.primaryRisk;
   parts.push(risk ? `risk: ${clause(risk.message).toLowerCase()}` : 'no known risk');
   const rejected = result.locators.reduce((a, b) => (b.score > a.score ? b : a));
   if (rejected !== best) {
@@ -119,4 +125,75 @@ export function renderSnapshot(snapshot) {
   const head = `${snapshot.title ? `"${snapshot.title}" ` : ''}${snapshot.url} — ${snapshot.count} interactive element${snapshot.count === 1 ? '' : 's'}`;
   const legend = '✓id = carries a test attribute. Pass a ref to cor_inspect (or to an act tool as `ref`). Refs expire on navigation and after any act call.';
   return [head, legend, '', ...snapshot.lines].join('\n');
+}
+
+const REIDENTIFY = 'Re-identify the element: cor_snapshot, then cor_inspect its ref.';
+const DURABILITY_ONLY = 'The score below rates how durable the string is; whether it resolves is the verdict above.';
+
+function gradedBlock(graded, input) {
+  const lines = [`Graded: ${input}`, `  Point-in-time — true on this page now: ${pointInTime(graded)}`];
+  for (const s of graded.signals) {
+    if (s.points) lines.push(`  ${s.direction === 'positive' ? '+' : '-'} ${clause(s.message)}`);
+  }
+  return lines;
+}
+
+/**
+ * The grade verdict. The first line is the diagnosis, because in repair the
+ * question is "is the locator why the test failed?" — and for a healthy
+ * locator the answer is no, and the right move is to stop.
+ */
+export function renderGrade({ input, graded, candidates, note, uncountable }) {
+  const out = [];
+  const count = graded.matchCount;
+  // Every candidate that resolves and scores higher, in the framework's ranked
+  // order — not just rank 1, which under Playwright can be a role locator
+  // scoring below a test id further down.
+  const higher = (candidates?.locators ?? []).filter((l) => l.matchCount === 1 && l.score > graded.score);
+  const better = higher.find((l) => !SUB_FLOOR.has(l.tier)) ?? null;
+
+  if (uncountable) {
+    out.push(`Match count unknown — the selector was understood but could not be counted on this page (${uncountable}). The score below reflects durability only.`);
+  } else if (count === 0) {
+    out.push('Broken — matches no element on this page. A test using it fails here because of the locator.', REIDENTIFY, DURABILITY_ONLY);
+  } else if (count > 1) {
+    out.push(
+      `Ambiguous — matches ${count} elements, so it is not usable as written. Playwright throws a strict-mode error; other frameworks act on the first match, which may not be the intended element.`,
+      REIDENTIFY,
+      DURABILITY_ONLY,
+    );
+  } else if (SUB_FLOOR.has(graded.tier)) {
+    const risk = graded.primaryRisk ? `: ${clause(graded.primaryRisk.message).toLowerCase()}` : '';
+    out.push(
+      `Resolves to exactly one element, but fragile (${graded.tierLabel})${risk}. It is not why a test fails today; it is likely to break on a future change.`,
+    );
+  } else {
+    out.push(
+      'Healthy — resolves to exactly one element. If a test using it failed, the cause is in the product or the assertion, not this locator. Stop repairing the locator.',
+    );
+  }
+
+  out.push('', ...gradedBlock(graded, input));
+  if (note) out.push(`  (${note})`);
+
+  // An alternative is offered only where replacing is the point: a fragile
+  // locator. A healthy one gets none (AE8), even if a higher score exists.
+  if (count === 1 && SUB_FLOOR.has(graded.tier) && !uncountable) {
+    if (better) {
+      out.push('', `More durable alternative for the same element (${candidates.framework}):`, locatorBlock(better, 1).replace(/^1\. /, '  '));
+    } else {
+      const fix = addTestId(candidates ?? { locators: [] }) ?? addTestId({ locators: [graded] });
+      out.push('', 'No durable locator exists for this element. Recommendation: change the application.');
+      if (fix) out.push(`Add a test attribute (this requires an application change):`, `  ${fix.snippet}`);
+    }
+  } else if (count === 1 && !uncountable) {
+    out.push('', higher.length ? 'Not a repair case: the locator works. A higher-scoring form exists — cor_inspect this element only if the user wants a durability upgrade.' : 'No generated candidate scores higher.');
+  }
+
+  out.push(
+    '',
+    'Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:',
+    durableLine({ framework: candidates?.framework, locators: [graded] }),
+  );
+  return out.join('\n');
 }
