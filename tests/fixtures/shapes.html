@@ -1,0 +1,28 @@
+<!doctype html>
+<title>Shapes</title>
+<form>
+  <label for="email">Email</label>
+  <input id="email" data-cy="email-input" name="email">
+</form>
+<button data-testid="checkout-icon" aria-label="Checkout"><svg width="10" height="10"></svg></button>
+<!-- a cart with nothing but position and text to tell rows apart (the trap
+     page's cart has data-sku, which gives the engine a unique anchor) -->
+<ul id="plain-cart">
+  <li><span>Red Hat</span> <button class="rm">Remove</button></li>
+  <li><span>Blue Cap</span> <button class="rm">Remove</button></li>
+  <li><span>Green Tee</span> <button class="rm">Remove</button></li>
+</ul>
+<!-- no id, no test attribute, no text, build-generated classes -->
+<section>
+  <div class="Grid_root__x7Yq2">
+    <div class="css-1x7f2k"><div class="css-9q8w7e" style="width:10px;height:10px"></div></div>
+    <div class="css-1x7f2k"><div class="css-9q8w7e" style="width:10px;height:10px"></div></div>
+    <div class="css-1x7f2k"><div class="css-9q8w7e" id="subfloor" style="width:10px;height:10px"></div></div>
+  </div>
+</section>
+<!-- must not appear in the snapshot -->
+<button style="display:none">Hidden</button>
+<button style="width:0;height:0;padding:0;border:0;overflow:hidden"></button>
+<a>Anchor without href</a>
+<a href="/next">Next page</a>
+<script>document.getElementById('subfloor').removeAttribute('id');</script>

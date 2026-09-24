@@ -1,0 +1,34 @@
+<!doctype html>
+<!-- The nine locator hazards from docs/2026-09-09-playwright-mcp-teardown.md §2,
+     rebuilt as a checked-in fixture (the original lived in a scratchpad). -->
+<title>Traps</title>
+<header><a href="/terms">Terms of service</a></header>
+<main>
+  <!-- build-hash class -->
+  <button class="css-1x7f2k">Continue</button>
+  <!-- three identical Remove buttons in a cart -->
+  <ul id="cart">
+    <li data-sku="AA-11"><span>Red Hat</span> <button class="rm">Remove</button></li>
+    <li data-sku="BB-22"><span>Blue Shirt</span> <button class="rm">Remove</button></li>
+    <li data-sku="CC-33"><span>Green Scarf</span> <button class="rm">Remove</button></li>
+  </ul>
+  <!-- server-generated id -->
+  <label>Promo code <input id="input-a7f3e91b" name="promo" placeholder="Promo code"></label>
+  <!-- same name, only one carries a test id -->
+  <div class="row">
+    <button data-testid="apply-promo">Apply</button>
+    <button>Apply</button>
+  </div>
+  <!-- icon-only button among many buttons -->
+  <div class="toolbar">
+    <button class="icon-btn" aria-hidden="false"><svg width="12" height="12"><rect width="12" height="12"/></svg></button>
+    <button>Bold</button><button>Italic</button><button>Underline</button><button>Strike</button>
+  </div>
+  <!-- identical siblings -->
+  <div>
+    <div><button>Select</button></div>
+    <div><button>Select</button></div>
+  </div>
+  <!-- clean control -->
+  <button data-testid="place-order">Place order</button>
+</main>

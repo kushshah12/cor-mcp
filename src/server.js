@@ -2,12 +2,13 @@ import { readFileSync } from 'node:fs';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createSession } from './session.js';
 import { sessionTools } from './tools/session-tools.js';
+import { inspectTools } from './tools/inspect.js';
 
 const { name, version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
-// Tools join this list as they are implemented (U6–U8). No placeholders: an
+// Tools join this list as they are implemented (U7–U8). No placeholders: an
 // agent must never be offered a tool that cannot work.
-export const defaultTools = (session) => [...sessionTools(session)];
+export const defaultTools = (session) => [...sessionTools(session), ...inspectTools(session)];
 
 /**
  * Build the server. Needs no credentials, env vars or config file — COR's

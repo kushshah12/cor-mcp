@@ -22,6 +22,9 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
   let browserLabel = null;
   let idleTimer = null;
   let queue = Promise.resolve();
+  // What the last cor_snapshot issued. Refs name elements in one page state;
+  // any navigation or act call ends that state and they must not be resolved.
+  let refs = null; // { count, staleBecause }
 
   async function launch() {
     // Lazy import keeps `createServer()` free of a browser until a tool needs one.
@@ -38,8 +41,13 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
     throw new Error(NO_BROWSER);
   }
 
+  function invalidateRefs(reason) {
+    if (refs && !refs.staleBecause) refs.staleBecause = reason;
+  }
+
   function reset() {
     browser = context = page = null;
+    refs = null;
     clearTimeout(idleTimer);
   }
 
@@ -77,7 +85,13 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
       context = await browser.newContext(storageState ? { storageState } : {});
       storageStatePath = storageState ?? null;
     }
-    if (!page || page.isClosed()) page = await context.newPage();
+    if (!page || page.isClosed()) {
+      const opened = await context.newPage();
+      opened.on('framenavigated', (frame) => {
+        if (frame === opened.mainFrame()) invalidateRefs('the page navigated');
+      });
+      page = opened;
+    }
     touch(); // after reset() above, which clears the timer
     return page;
   }
@@ -92,6 +106,9 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
   return {
     getPage,
     close,
+    invalidateRefs,
+    issueRefs(count) { refs = { count, staleBecause: null }; },
+    get refs() { return refs; },
     get browser() { return browser; },
     get browserLabel() { return browserLabel; },
     get isOpen() { return Boolean(browser?.isConnected()); },

@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { handleFromPage } from '../page-runtime.js';
+import { checkRef, goneError } from './refs.js';
 
 // Act tools only reach a page state so an element can be inspected; nothing
 // here asserts. So they use raw DOM calls through evaluate rather than
@@ -6,7 +8,8 @@ import { z } from 'zod';
 // A click that does not land shows up as the element still being absent,
 // which the agent sees and retries.
 
-const target = z.string().min(1).describe('CSS selector for the element. Must match exactly one element.');
+const target = z.string().min(1).optional().describe('CSS selector for the element — must match exactly one. Alternative to ref.');
+const ref = z.string().optional().describe('Element ref from the latest cor_snapshot, e.g. "e4". Alternative to target.');
 
 const text = (value) => ({ content: [{ type: 'text', text: value }] });
 
@@ -24,21 +27,32 @@ async function settle(page) {
     .catch(() => {});
 }
 
-/** Run `fn(element, arg)` in the page on the single element `selector` names. */
-async function onElement(page, selector, fn, arg) {
-  let handles;
-  try {
-    handles = await page.$$(selector);
-  } catch (error) {
-    throw new Error(`"${selector}" could not be used: ${error.message.split('\n')[0]}`);
-  }
-  if (handles.length === 0) throw new Error(`No element matches "${selector}" on ${page.url()}.`);
-  if (handles.length > 1) {
-    throw new Error(`"${selector}" matches ${handles.length} elements — narrow it to exactly one before acting.`);
+/** Run `fn(element, arg)` in the page on the one element a ref or selector names. */
+async function onElement(session, page, { ref, target: selector }, fn, arg) {
+  if (Boolean(ref) === Boolean(selector)) throw new Error('Pass exactly one of ref (from cor_snapshot) or target (a CSS selector).');
+  let handle;
+  if (ref) {
+    checkRef(session, ref);
+    handle = (await handleFromPage(page, 'element', { ref })).asElement();
+    if (!handle) throw goneError(ref);
+  } else {
+    let handles;
+    try {
+      handles = await page.$$(selector);
+    } catch (error) {
+      throw new Error(`"${selector}" could not be used: ${error.message.split('\n')[0]}`);
+    }
+    if (handles.length === 0) throw new Error(`No element matches "${selector}" on ${page.url()}.`);
+    if (handles.length > 1) {
+      throw new Error(`"${selector}" matches ${handles.length} elements — narrow it to exactly one before acting.`);
+    }
+    [handle] = handles;
   }
   // Handle evaluation goes through the protocol, so a page CSP without
   // 'unsafe-eval' does not block it.
-  const outcome = await handles[0].evaluate(fn, arg);
+  const outcome = await handle.evaluate(fn, arg);
+  // Any act ends the page state the refs described, whether or not it visibly changed anything.
+  session.invalidateRefs(`a ${ref ?? selector} act call changed the page`);
   if (outcome?.error) throw new Error(outcome.error);
 }
 
@@ -93,7 +107,11 @@ export function sessionTools(session) {
       },
       handler: async ({ url, storageState }) => {
         const page = await session.getPage({ storageState });
-        const response = await page.goto(url, { waitUntil: 'domcontentloaded' });
+        const response = await page.goto(url, { waitUntil: 'load' });
+        // Client-rendered apps (React, Next) paint after `load`; snapshotting
+        // then lists nothing. Wait for the network to go quiet, capped.
+        // ponytail: 3 s cap; a page that polls forever just costs the cap.
+        await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
         const status = response ? ` (HTTP ${response.status()})` : '';
         return text(`${await pageState(page)}${status}. Browser: ${session.browserLabel}.`);
       },
@@ -103,13 +121,13 @@ export function sessionTools(session) {
       config: {
         title: 'Click an element',
         description: 'Click an element to reach a page state — open a menu, go to the next step. Does not assert anything.',
-        inputSchema: { target },
+        inputSchema: { ref, target },
       },
-      handler: async ({ target: selector }) => {
+      handler: async (args) => {
         const page = await openPage();
-        await onElement(page, selector, click);
+        await onElement(session, page, args, click);
         await settle(page);
-        return text(`Clicked ${selector}. ${await pageState(page)}`);
+        return text(`Clicked ${args.ref ?? args.target}. ${await pageState(page)}`);
       },
     },
     {
@@ -117,29 +135,31 @@ export function sessionTools(session) {
       config: {
         title: 'Fill a field',
         description: 'Set the value of an input, textarea, select or editable element, firing input and change events.',
-        inputSchema: { target, value: z.string().describe('Value to set.') },
+        inputSchema: { ref, target, value: z.string().describe('Value to set.') },
       },
-      handler: async ({ target: selector, value }) => {
+      handler: async (args) => {
         const page = await openPage();
-        await onElement(page, selector, fill, value);
-        return text(`Filled ${selector}.`);
+        await onElement(session, page, args, fill, args.value);
+        return text(`Filled ${args.ref ?? args.target}.`);
       },
     },
     {
       name: 'cor_press',
       config: {
         title: 'Press a key',
-        description: 'Press a key, e.g. Enter, Escape, Tab, ArrowDown. With a target, that element is focused first.',
+        description: 'Press a key, e.g. Enter, Escape, Tab, ArrowDown. With a ref or target, that element is focused first.',
         inputSchema: {
           key: z.string().min(1).describe('Key name as Playwright spells it: Enter, Escape, Tab, ArrowDown, a, Shift+Tab.'),
-          target: target.optional(),
+          ref,
+          target,
         },
       },
-      handler: async ({ key, target: selector }) => {
+      handler: async ({ key, ref: r, target: selector }) => {
         const page = await openPage();
-        if (selector) await onElement(page, selector, focus);
+        if (r || selector) await onElement(session, page, { ref: r, target: selector }, focus);
         // A real key event, so Enter submits a form and Escape closes a dialog.
         await page.keyboard.press(key);
+        session.invalidateRefs(`pressing ${key} changed the page`);
         await settle(page);
         return text(`Pressed ${key}. ${await pageState(page)}`);
       },
