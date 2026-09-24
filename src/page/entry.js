@@ -5,8 +5,10 @@ import { LocatorEngine, computeFingerprint, extractElementInfo, scoreLocator } f
 import { INTERACTIVE, deepQueryAll, hintsFor, isVisible, roleAndName } from './dom.js';
 import { buildOutline } from './outline.js';
 import { scopedSnapshot } from './scope.js';
+import { beginAct, endAct, identityOf, revalidate, structuralPath } from './acts.js';
 
 let refs = new Map(); // ref -> element, replaced on every full snapshot
+const meta = new Map(); // ref -> { identity, path } — what the ref was issued for (U16)
 let nextRef = 1; // per page load: refs are never renumbered
 
 /**
@@ -38,6 +40,7 @@ function lookalikes(target) {
 /** The outline snapshot (src/page/outline.js); refs issued here are what inspect and act tools resolve. */
 function snapshot() {
   refs = new Map();
+  meta.clear();
   const outline = buildOutline(issueRef);
   return { url: location.href, title: document.title, ...outline, live: [...refs.keys()] };
 }
@@ -47,7 +50,10 @@ function snapshot() {
  * so the default snapshot's refs still resolve; otherwise starts a fresh set.
  */
 function scoped({ ref, text, keep }) {
-  if (!keep) refs = new Map();
+  if (!keep) {
+    refs = new Map();
+    meta.clear();
+  }
   const result = scopedSnapshot({ ref, text, refs, issueRef });
   return { url: location.href, title: document.title, ...result, live: [...refs.keys()] };
 }
@@ -61,7 +67,18 @@ function issueRef(el) {
   for (const [ref, known] of refs) if (known === el) return ref;
   const ref = `e${nextRef++}`;
   refs.set(ref, el);
+  meta.set(ref, { identity: identityOf(el), path: structuralPath(el) });
   return ref;
+}
+
+/**
+ * After an act (U16 + U17): re-check every live ref, then report what changed.
+ * Controls that appeared get refs, so the agent can use them without a snapshot.
+ */
+function afterAct() {
+  const refsResult = revalidate(refs, meta);
+  const diff = endAct(issueRef);
+  return { ...diff, refs: refsResult, live: [...refs.keys()] };
 }
 
 /** Resolve a ref or a selector to exactly one element. */
@@ -80,19 +97,6 @@ function resolveTarget({ ref, selector }) {
   }
   if (matches.length !== 1) return { error: 'match-count', count: matches.length };
   return { el: matches[0] };
-}
-
-/**
- * The element's place in the tree, tags and positions only — a record key for
- * fingerprints that no id or class can change between inspects.
- */
-function structuralPath(el) {
-  const steps = [];
-  for (let n = el; n && n.parentElement; n = n.parentElement) {
-    const same = [...n.parentElement.children].filter((c) => c.tagName === n.tagName);
-    steps.unshift(`${n.tagName.toLowerCase()}:nth-of-type(${same.indexOf(n) + 1})`);
-  }
-  return steps.join(' > ');
 }
 
 function inspect({ ref, selector, framework, max }) {
@@ -166,4 +170,4 @@ function grade({ element: el, value, framework, matchCount }) {
 /** The element a ref or selector names, for act tools; null when it does not resolve. */
 const element = (target) => resolveTarget(target).el ?? null;
 
-window.__corMcp = { snapshot, scoped, inspect, element, grade };
+window.__corMcp = { snapshot, scoped, inspect, element, grade, beginAct, afterAct };

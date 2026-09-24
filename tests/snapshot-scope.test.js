@@ -103,11 +103,11 @@ test('an unknown name is an actionable error listing the headings; a stale ref i
 
   const full = await call('cor_snapshot');
   const ref = refIn(full.text, /button "Choose"/);
-  await call('cor_click', { target: '#plain-box' });
+  await open('pricing.html'); // a navigation expires every ref
   const stale = await call('cor_snapshot', { within: ref });
   assert.equal(stale.isError, true);
   assert.match(stale.text, /is stale/);
-  // A name still works after an act, with a fresh set of refs.
+  // A name still works, with a fresh set of refs.
   assert.equal((await call('cor_snapshot', { within: 'Users' })).isError, false);
 });
 

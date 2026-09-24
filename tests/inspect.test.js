@@ -229,13 +229,17 @@ test('without a current snapshot, lookalikes are described but their refs are no
   assert.match(bySelector.text, /You inspected: in "Team Ultimate" \(table\)\n  Also:          in "Team Ultimate"\n/);
   assert.match(bySelector.text, /call cor_snapshot for current refs/);
 
-  // Refs a later act has made stale are not offered either.
+  // Refs that survive an act (U16) are still offered…
   const { refOf } = await openAndSnapshot(call, 'pricing.html');
   const card = refOf(/^section "Team Ultimate" › button "Choose"/);
   await call('cor_fill', { target: 'select', value: '5 users | $75 per user' });
-  const stale = await call('cor_inspect', { selector: 'table input[type="submit"]' });
-  assert.doesNotMatch(stale.text.split('Best locator')[0], new RegExp(`\\b${card}\\b`));
-  assert.match(stale.text, /call cor_snapshot for current refs/);
+  const kept = await call('cor_inspect', { selector: 'table input[type="submit"]' });
+  assert.match(kept.text.split('Best locator')[0], new RegExp(`Also: +${card} in "Team Ultimate"`));
+  // …refs a navigation expired are not.
+  await call('cor_open', { url: `${base}/pricing.html` });
+  const expired = await call('cor_inspect', { selector: 'table input[type="submit"]' });
+  assert.doesNotMatch(expired.text.split('Best locator')[0], new RegExp(`\\b${card}\\b`));
+  assert.match(expired.text, /call cor_snapshot for current refs/);
 });
 
 test('many lookalikes: five are listed and the rest counted', async (t) => {
@@ -250,7 +254,7 @@ test('many lookalikes: five are listed and the rest counted', async (t) => {
 });
 
 // ── refs ────────────────────────────────────────────────────────────────────
-test('a ref is stale after navigation and after an act call, and never resolves to another element', async (t) => {
+test('a ref is stale after navigation; an act that leaves its element alone keeps it (U16)', async (t) => {
   const call = await connect(t);
   let { refOf } = await openAndSnapshot(call, 'shapes.html');
   const email = refOf(/textbox "Email"/);
@@ -264,10 +268,9 @@ test('a ref is stale after navigation and after an act call, and never resolves 
 
   ({ refOf } = await openAndSnapshot(call, 'shapes.html'));
   const fresh = refOf(/textbox "Email"/);
-  await call('cor_fill', { ref: fresh, value: 'a@b.co' }); // act by ref works, then ends the snapshot
-  const afterAct = await call('cor_inspect', { ref: fresh });
-  assert.equal(afterAct.isError, true);
-  assert.match(afterAct.text, /stale: .*act call changed the page/);
+  const filled = await call('cor_fill', { ref: fresh, value: 'a@b.co' }); // act by ref works…
+  assert.match(filled.text, /Refs: \d+ still valid\./);
+  assert.equal((await call('cor_inspect', { ref: fresh })).isError, false, '…and the ref survives it');
   assert.equal(await (await session.getPage()).inputValue('#email'), 'a@b.co');
 });
 

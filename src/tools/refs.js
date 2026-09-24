@@ -14,6 +14,9 @@ export function checkRef(session, ref) {
     throw new Error(`Ref ${ref} is stale: ${refs.staleBecause} since the last cor_snapshot. Call cor_snapshot again and use the new refs.`);
   }
   if (refs.issued.has(ref)) return;
+  if (refs.dropped?.[ref]) {
+    throw new Error(`Ref ${ref} is stale: its element ${refs.dropped[ref]} after an act. Call cor_snapshot again (or use a ref the act response listed).`);
+  }
   const issued = [...refs.issued].map(num).sort((a, b) => a - b);
   if (!issued.length) throw new Error(`Ref ${ref} does not exist — the last cor_snapshot issued no refs (the page had no interactive elements).`);
   const range = `e${issued[0]}–e${issued.at(-1)}`;

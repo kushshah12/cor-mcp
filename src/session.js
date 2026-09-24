@@ -24,7 +24,8 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
   let queue = Promise.resolve();
   // What the last cor_snapshot issued. Refs name elements in one page state;
   // any navigation or act call ends that state and they must not be resolved.
-  let refs = null; // { issued: Set<ref>, staleBecause }
+  let refs = null; // { issued: Set<ref>, staleBecause, dropped: { ref: reason } }
+  let navigations = 0; // main-frame navigations, so an act can tell it navigated
 
   async function launch() {
     // Lazy import keeps `createServer()` free of a browser until a tool needs one.
@@ -88,7 +89,10 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
     if (!page || page.isClosed()) {
       const opened = await context.newPage();
       opened.on('framenavigated', (frame) => {
-        if (frame === opened.mainFrame()) invalidateRefs('the page navigated');
+        if (frame === opened.mainFrame()) {
+          navigations++;
+          invalidateRefs('the page navigated');
+        }
       });
       page = opened;
     }
@@ -108,7 +112,12 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
     close,
     invalidateRefs,
     /** The refs the page now resolves — the whole set, after a full or scoped snapshot. */
-    issueRefs(live) { refs = { issued: new Set(live), staleBecause: null }; },
+    issueRefs(live) { refs = { issued: new Set(live), staleBecause: null, dropped: {} }; },
+    /** After an act (U16): the page's re-checked live set, plus why any ref was dropped. */
+    rebindRefs(live, dropped) {
+      refs = { issued: new Set(live), staleBecause: null, dropped: { ...(refs?.dropped ?? {}), ...dropped } };
+    },
+    get navigations() { return navigations; },
     get refs() { return refs; },
     get browser() { return browser; },
     get browserLabel() { return browserLabel; },

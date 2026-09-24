@@ -1,0 +1,36 @@
+<!doctype html>
+<title>Acts</title>
+<!-- A click that only toggles a class somewhere else. -->
+<button id="highlight" onclick="document.getElementById('box').classList.toggle('on')">Highlight</button>
+<div id="box">Box</div>
+<!-- Rows that remove themselves. -->
+<ul id="people">
+  <li><span>Alice</span> <button onclick="this.closest('li').remove()">Remove</button></li>
+  <li><span>Bob</span> <button onclick="this.closest('li').remove()">Remove</button></li>
+</ul>
+<!-- Index-keyed rendering: the nodes stay, the data moves up a row. -->
+<ul id="queue">
+  <li><span>Red Hat</span> <button>Buy</button></li>
+  <li><span>Blue Shirt</span> <button>Buy</button></li>
+</ul>
+<button id="shift" onclick="const s=[...document.querySelectorAll('#queue span')]; s[0].textContent=s[1].textContent; s[1].closest('li').remove();">Sell first</button>
+<!-- A unique control re-rendered: same markup, new node. -->
+<div id="draft"><button>Save draft</button></div>
+<button id="rerender" onclick="document.getElementById('draft').innerHTML='<button>Save draft</button>'">Refresh draft</button>
+<!-- The same control re-rendered one position later: not re-bound (position is part of identity). -->
+<div id="moved"><button>Export</button></div>
+<button id="move" onclick="document.getElementById('moved').innerHTML='<button>Import</button><button>Export</button>'">Refresh export</button>
+<!-- A control appearing inside a section that already exists. -->
+<section><h2>Cart</h2><button id="addnote" onclick="this.insertAdjacentHTML('afterend','<button>Undo</button>')">Add note</button></section>
+<!-- Identical twins re-rendered: never re-bound. -->
+<div id="twins"><button>Add</button><button>Add</button></div>
+<button id="rerender-twins" onclick="document.getElementById('twins').innerHTML='<button>Add</button><button>Add</button>'">Refresh twins</button>
+<!-- A dialog that opens and closes. -->
+<button id="checkout" onclick="document.getElementById('dlg').showModal()">Checkout</button>
+<dialog id="dlg" aria-label="Checkout"><label>Email <input id="email"></label><button onclick="document.getElementById('dlg').close()">Pay</button></dialog>
+<!-- State, a no-op, and a flood of new controls. -->
+<label><input type="checkbox" id="agree"> Agree</label>
+<button id="noop">Does nothing</button>
+<button id="flood" onclick="for (let i = 1; i <= 20; i++) document.body.insertAdjacentHTML('beforeend', '<button>Extra ' + i + '</button>')">Flood</button>
+<button id="tab" onclick="history.pushState({}, '', '?tab=2'); document.getElementById('box').textContent = 'Tab 2'">Tab 2</button>
+<a id="away" href="/next">Leave</a>

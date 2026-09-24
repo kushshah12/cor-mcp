@@ -1,5 +1,6 @@
 import { z } from 'zod';
-import { handleFromPage } from '../page-runtime.js';
+import { callPage, handleFromPage } from '../page-runtime.js';
+import { renderActResult } from '../format.js';
 import { checkRef, goneError } from './refs.js';
 
 // Act tools only reach a page state so an element can be inspected; nothing
@@ -27,32 +28,61 @@ async function settle(page) {
     .catch(() => {});
 }
 
-/** Run `fn(element, arg)` in the page on the one element a ref or selector names. */
-async function onElement(session, page, { ref, target: selector }, fn, arg) {
+/** The one element a ref or selector names. */
+async function resolveElement(session, page, { ref, target: selector }) {
   if (Boolean(ref) === Boolean(selector)) throw new Error('Pass exactly one of ref (from cor_snapshot) or target (a CSS selector).');
-  let handle;
   if (ref) {
     checkRef(session, ref);
-    handle = (await handleFromPage(page, 'element', { ref })).asElement();
+    const handle = (await handleFromPage(page, 'element', { ref })).asElement();
     if (!handle) throw goneError(ref);
-  } else {
-    let handles;
-    try {
-      handles = await page.$$(selector);
-    } catch (error) {
-      throw new Error(`"${selector}" could not be used: ${error.message.split('\n')[0]}`);
-    }
-    if (handles.length === 0) throw new Error(`No element matches "${selector}" on ${page.url()}.`);
-    if (handles.length > 1) {
-      throw new Error(`"${selector}" matches ${handles.length} elements — narrow it to exactly one before acting.`);
-    }
-    [handle] = handles;
+    return handle;
   }
+  let handles;
+  try {
+    handles = await page.$$(selector);
+  } catch (error) {
+    throw new Error(`"${selector}" could not be used: ${error.message.split('\n')[0]}`);
+  }
+  if (handles.length === 0) throw new Error(`No element matches "${selector}" on ${page.url()}.`);
+  if (handles.length > 1) {
+    throw new Error(`"${selector}" matches ${handles.length} elements — narrow it to exactly one before acting.`);
+  }
+  return handles[0];
+}
+
+/**
+ * Run an act and report what it did (U16 + U17): snapshot the visible
+ * controls, act, settle, then re-check every ref and diff the controls.
+ * A navigation ends the page the refs described — every ref expires.
+ */
+async function act(session, page, perform) {
+  const navigationsBefore = session.navigations;
+  await callPage(page, 'beginAct').catch(() => {});
+  await perform();
+  await settle(page);
+  if (session.navigations !== navigationsBefore) {
+    // Playwright reports a pushState/hash change as a navigation, but the DOM
+    // (and our injected runtime) survives it: BrowserStack's Monthly toggle
+    // rewrites the URL in place. Only a new document expires the refs.
+    const sameDocument = await page.evaluate(() => Boolean(window.__corMcp)).catch(() => false);
+    if (!sameDocument) return { navigated: true };
+  }
+  try {
+    const after = await callPage(page, 'afterAct');
+    session.rebindRefs(after.live, after.refs.dropped);
+    return after;
+  } catch {
+    // The page changed under us (a late navigation): nothing to re-check.
+    session.invalidateRefs('the page changed during the act');
+    return { navigated: true };
+  }
+}
+
+/** Run `fn(element, arg)` in the page on `handle`; throws the page-side error message if it returns one. */
+async function onHandle(handle, fn, arg) {
   // Handle evaluation goes through the protocol, so a page CSP without
   // 'unsafe-eval' does not block it.
   const outcome = await handle.evaluate(fn, arg);
-  // Any act ends the page state the refs described, whether or not it visibly changed anything.
-  session.invalidateRefs(`a ${ref ?? selector} act call changed the page`);
   if (outcome?.error) throw new Error(outcome.error);
 }
 
@@ -125,9 +155,9 @@ export function sessionTools(session) {
       },
       handler: async (args) => {
         const page = await openPage();
-        await onElement(session, page, args, click);
-        await settle(page);
-        return text(`Clicked ${args.ref ?? args.target}. ${await pageState(page)}`);
+        const handle = await resolveElement(session, page, args);
+        const result = await act(session, page, () => onHandle(handle, click));
+        return text(`Clicked ${args.ref ?? args.target}. ${await pageState(page)}\n${renderActResult(result)}`);
       },
     },
     {
@@ -139,8 +169,9 @@ export function sessionTools(session) {
       },
       handler: async (args) => {
         const page = await openPage();
-        await onElement(session, page, args, fill, args.value);
-        return text(`Filled ${args.ref ?? args.target}.`);
+        const handle = await resolveElement(session, page, args);
+        const result = await act(session, page, () => onHandle(handle, fill, args.value));
+        return text(`Filled ${args.ref ?? args.target}.\n${renderActResult(result)}`);
       },
     },
     {
@@ -156,12 +187,13 @@ export function sessionTools(session) {
       },
       handler: async ({ key, ref: r, target: selector }) => {
         const page = await openPage();
-        if (r || selector) await onElement(session, page, { ref: r, target: selector }, focus);
-        // A real key event, so Enter submits a form and Escape closes a dialog.
-        await page.keyboard.press(key);
-        session.invalidateRefs(`pressing ${key} changed the page`);
-        await settle(page);
-        return text(`Pressed ${key}. ${await pageState(page)}`);
+        const handle = r || selector ? await resolveElement(session, page, { ref: r, target: selector }) : null;
+        const result = await act(session, page, async () => {
+          if (handle) await onHandle(handle, focus);
+          // A real key event, so Enter submits a form and Escape closes a dialog.
+          await page.keyboard.press(key);
+        });
+        return text(`Pressed ${key}. ${await pageState(page)}\n${renderActResult(result)}`);
       },
     },
     {

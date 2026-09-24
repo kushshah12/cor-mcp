@@ -303,3 +303,40 @@ export function renderAmbiguousScope(scoped, within) {
     ...lines,
   ].join('\n');
 }
+
+// ── act results (U16 + U17) ─────────────────────────────────────────────────
+const leafBrief = (l) => `${l.role}${l.name ? ` "${l.name}"` : ''}${l.value ? ` = "${l.value}"` : ''}${l.ref ? ` [ref=${l.ref}]` : ''}`;
+
+/** What an act changed, and what happened to the refs. */
+export function renderActResult(result) {
+  if (result.navigated) return 'The page navigated: earlier refs expired — call cor_snapshot.';
+  const out = [];
+  if (!result.changes?.length) {
+    out.push('No visible change. If you expected one, the act may not have landed — check the target, or try cor_press.');
+  } else {
+    out.push('Changes:');
+    for (const c of result.changes) {
+      if (c.kind === 'appeared') {
+        const leaves = c.leaves.slice(0, 6).map(leafBrief).join(', ');
+        const more = c.leaves.length > 6 ? `, …${c.leaves.length - 6} more` : '';
+        out.push(c.container ? `+ ${c.container}: ${leaves}${more}` : `+ ${leaves}${more}`);
+      } else if (c.kind === 'disappeared') {
+        out.push(`- ${c.role}${c.name ? ` "${c.name}"` : ''}`);
+      } else {
+        const parts = [];
+        if (c.was.name !== c.is.name) parts.push(`"${c.was.name}" → "${c.is.name}"`);
+        if (c.was.states !== c.is.states) parts.push(c.is.states ? `now ${c.is.states}` : `no longer ${c.was.states}`);
+        if (c.was.value !== c.is.value) parts.push(`"${c.was.value ?? ''}" → "${c.is.value ?? ''}"`);
+        out.push(`~ ${c.role}${c.name ? ` "${c.name}"` : ''}: ${parts.join('; ')}`);
+      }
+    }
+    if (result.more) out.push(`…and ${result.more} more changes — cor_snapshot for the whole page.`);
+  }
+  const { kept, rebound, dropped } = result.refs ?? { kept: 0, rebound: [], dropped: {} };
+  const stale = Object.entries(dropped);
+  const refParts = [`${kept} still valid`];
+  if (rebound.length) refParts.push(`${rebound.join(', ')} re-bound to the re-rendered element`);
+  if (stale.length) refParts.push(`stale: ${stale.map(([ref, why]) => `${ref} (${why})`).join(', ')}`);
+  out.push(`Refs: ${refParts.join('; ')}.`);
+  return out.join('\n');
+}
