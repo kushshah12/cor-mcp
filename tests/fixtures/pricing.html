@@ -22,5 +22,15 @@
   <li><span>Alice</span> <button>Delete</button></li>
   <li><span>Bob</span> <button>Delete</button></li>
 </ul>
+<!-- Headings differ; the nearest text (the price) must not win over them. -->
+<div><div><span>$10</span><h3>Basic</h3><button>Buy</button></div></div>
+<div><div><span>$20</span><h3>Pro</h3><button>Buy</button></div></div>
+<!-- Same heading and the same text on each card: only position differs,
+     and the repeated text must not be shown as if it named one of them. -->
+<div><div><span>Enterprise</span><h4>Extras</h4><button>Scroll</button></div></div>
+<div><div><span>Enterprise</span><h4>Extras</h4><button>Scroll</button></div></div>
+<!-- One has local text, the other none: the other must not borrow page-level text. -->
+<div><div><span>Card A</span> <button>Share</button></div></div>
+<div><button>Share</button></div>
 <!-- Truly identical: nothing but position differs. -->
 <div><button>Help</button></div><div><button>Help</button></div>

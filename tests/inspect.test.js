@@ -157,8 +157,14 @@ test('same-named elements are told apart by heading, then region, then row text,
   assert.deepEqual(hints('Contact Sales'), ['in "Volume"', 'in "Volume" (table)']);
   // One heading over several rows: the row text decides, the heading is kept.
   assert.deepEqual(hints('Delete'), ['in "Alice" under "Users"', 'in "Bob" under "Users"']);
+  // Headings decide even when nearer text differs too.
+  assert.deepEqual(hints('Buy'), ['in "Basic"', 'in "Pro"']);
+  // Repeated text is not shown when only position tells them apart.
+  assert.deepEqual(hints('Scroll'), ['in "Extras" (1 of 2)', 'in "Extras" (2 of 2)']);
+  // Text found only at page level is not "near": the second Share gets none.
+  assert.deepEqual(hints('Share'), ['in "Card A" under "Extras"', 'in "Extras"']);
   // Nothing differs: position.
-  assert.deepEqual(hints('Help'), ['in "Users" (1 of 2)', 'in "Users" (2 of 2)']);
+  assert.deepEqual(hints('Help'), ['in "Extras" (1 of 2)', 'in "Extras" (2 of 2)']);
 });
 
 // ── refs ────────────────────────────────────────────────────────────────────

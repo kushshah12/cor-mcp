@@ -69,8 +69,8 @@ function nearestHeading(el) {
 /**
  * Nearest short text in an ancestor that is not the element's own — the
  * fallback where there is no heading ("Red Hat" beside a cart row's Remove).
- * Bounded: four ancestors below <body>, one line, HINT_MAX chars, never heading
- * text; otherwise omitted rather
+ * Bounded: four ancestors below <body>, one line, HINT_MAX chars; otherwise
+ * omitted rather
  * than returning a whole list's concatenated text.
  */
 function nearbyText(el, ownName) {
@@ -79,8 +79,7 @@ function nearbyText(el, ownName) {
   for (let depth = 0; node && node !== document.body && depth < 4; depth++, node = node.parentElement) {
     const walker = document.createTreeWalker(node, NodeFilter.SHOW_TEXT);
     for (let t = walker.nextNode(); t; t = walker.nextNode()) {
-      // Headings are nearestHeading()'s job.
-      if (el.contains(t) || t.parentElement.closest(HEADING)) continue;
+      if (el.contains(t)) continue;
       const raw = t.nodeValue.trim();
       if (!raw || raw.includes('\n')) continue;
       const text = squash(raw);
