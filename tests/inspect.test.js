@@ -147,6 +147,20 @@ test('elements sharing a name are told apart — by context hint, and by the ✓
   assert.ok(!lines.some((l) => /"Continue".* in "/.test(l)), 'no hint on a unique name');
 });
 
+test('same-named elements are told apart by heading, then region, then row text, then position', async (t) => {
+  const call = await connect(t);
+  const { lines } = await openAndSnapshot(call, 'pricing.html');
+  const hints = (name) => lines.filter((l) => l.includes(`"${name}" [ref=`)).map((l) => l.replace(/^.*\[ref=e\d+\]/, '').trim());
+  // The BrowserStack case: same heading, different region.
+  assert.deepEqual(hints('Choose'), ['in "Team Ultimate"', 'in "Team Ultimate" (table)']);
+  // Headings alone differ.
+  assert.deepEqual(hints('Contact Sales'), ['in "Volume"', 'in "Volume" (table)']);
+  // One heading over several rows: the row text decides, the heading is kept.
+  assert.deepEqual(hints('Delete'), ['in "Alice" under "Users"', 'in "Bob" under "Users"']);
+  // Nothing differs: position.
+  assert.deepEqual(hints('Help'), ['in "Users" (1 of 2)', 'in "Users" (2 of 2)']);
+});
+
 // ── refs ────────────────────────────────────────────────────────────────────
 test('a ref is stale after navigation and after an act call, and never resolves to another element', async (t) => {
   const call = await connect(t);
