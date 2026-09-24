@@ -2,13 +2,24 @@ import { z } from 'zod';
 import { callPage } from '../page-runtime.js';
 import { renderInspect, renderSnapshot } from '../format.js';
 import { checkRef, goneError } from './refs.js';
+import { applyIdVerdicts, checkIds, numberedIds } from '../id-stability.js';
 
 export const FRAMEWORKS = ['playwright', 'cypress', 'selenium', 'webdriverio', 'nightwatch', 'testcafe', 'puppeteer'];
 
 const text = (value) => ({ content: [{ type: 'text', text: value }] });
 
+/**
+ * Ids ending in a number are checked against a fresh load before they are
+ * recommended (see id-stability.js); volatile ones are flagged and ranked last.
+ */
+export async function verifyNumberedIds(page, locators, cache) {
+  const ids = [...new Set(locators.flatMap((l) => numberedIds(l.value)))];
+  if (!ids.length) return;
+  applyIdVerdicts(locators, await checkIds(page, ids, cache));
+}
+
 /** @param {ReturnType<import('../session.js').createSession>} session */
-export function inspectTools(session) {
+export function inspectTools(session, idCache = new Map()) {
   const openPage = () => {
     if (!session.isOpen) throw new Error('No page is open — call cor_open with a URL first.');
     return session.getPage();
@@ -61,6 +72,12 @@ export function inspectTools(session) {
               ? `No element matches "${selector}". Call cor_snapshot and pass a ref instead.`
               : `"${selector}" matches ${result.count} elements — narrow it to one, or call cor_snapshot and pass a ref.`,
           );
+        }
+        await verifyNumberedIds(page, result.locators, idCache);
+        const top = result.locators.reduce((a, b) => (b.score > a.score ? b : a), result.locators[0]);
+        if (top?.volatileId && top !== result.locators[0]) {
+          const [best] = result.locators;
+          result.rankingNote = `Demoted ${top.value} (score ${top.score}) — its id changes on every page load (${top.volatileId.id} was ${top.volatileId.seen} on a fresh load). Ranked ${best.value} first.`;
         }
         return text(renderInspect(result));
       },

@@ -24,6 +24,7 @@ function anchorOf(l) {
 }
 
 function demotionReason(best, rejected, framework) {
+  if (rejected.volatileId) return 'its id changes on every page load';
   if (rejected.resolution?.usable === false) {
     const status = rejected.resolution.status;
     if (status === 'ambiguous') return 'it matches more than one element';
@@ -42,12 +43,14 @@ function demotionReason(best, rejected, framework) {
 export function durableLine(result) {
   const [best] = result.locators;
   const parts = [];
-  const anchor = anchorOf(best);
+  // The engine's id signals call it "stable" from one DOM; a reload overruled that.
+  const anchor = best.volatileId && /\bid\b/i.test(anchorOf(best) ?? '') ? 'an element id' : anchorOf(best);
   if (anchor) parts.push(`anchored on ${anchor.replace(/^(Anchored on|Targets the element by) /i, '')}`);
   const risk = RESOLUTION_SIGNALS.has(best.primaryRisk?.signalId)
     ? best.signals.filter((s) => s.direction === 'negative' && !RESOLUTION_SIGNALS.has(s.id)).sort((a, b) => a.points - b.points)[0]
     : best.primaryRisk;
-  parts.push(risk ? `risk: ${clause(risk.message).toLowerCase()}` : 'no known risk');
+  if (best.volatileId) parts.push('risk: its id changes on every page load');
+  else parts.push(risk ? `risk: ${clause(risk.message).toLowerCase()}` : 'no known risk');
   const rejected = result.locators.reduce((a, b) => (b.score > a.score ? b : a));
   if (rejected !== best) {
     parts.push(`chosen over ${rejected.code || rejected.value} because ${demotionReason(best, rejected, result.framework)}`);
@@ -135,6 +138,8 @@ function gradedBlock(graded, input) {
   for (const s of graded.signals) {
     if (s.points) lines.push(`  ${s.direction === 'positive' ? '+' : '-'} ${clause(s.message)}`);
   }
+  // The engine judged the id from one DOM; the reload overrules it.
+  if (graded.volatileId) lines.push(`  ! Not stable: a fresh load gave this element id ${graded.volatileId.seen} — the score above assumes it was a name`);
   return lines;
 }
 
@@ -149,8 +154,13 @@ export function renderGrade({ input, graded, candidates, note, uncountable }) {
   // Every candidate that resolves and scores higher, in the framework's ranked
   // order — not just rank 1, which under Playwright can be a role locator
   // scoring below a test id further down.
-  const higher = (candidates?.locators ?? []).filter((l) => l.matchCount === 1 && l.score > graded.score);
-  const better = higher.find((l) => !SUB_FLOOR.has(l.tier)) ?? null;
+  const usable = (candidates?.locators ?? []).filter((l) => l.matchCount === 1 && !l.volatileId);
+  const higher = usable.filter((l) => l.score > graded.score);
+  const volatile = graded.volatileId && count === 1;
+  // A volatile id breaks on the next load whatever it scores, so any durable
+  // candidate is better than it.
+  const better = (volatile ? usable : higher).find((l) => !SUB_FLOOR.has(l.tier)) ?? null;
+  const replace = count === 1 && !uncountable && (volatile || SUB_FLOOR.has(graded.tier));
 
   if (uncountable) {
     out.push(`Match count unknown — the selector was understood but could not be counted on this page (${uncountable}). The score below reflects durability only.`);
@@ -161,6 +171,11 @@ export function renderGrade({ input, graded, candidates, note, uncountable }) {
       `Ambiguous — matches ${count} elements, so it is not usable as written. Playwright throws a strict-mode error; other frameworks act on the first match, which may not be the intended element.`,
       REIDENTIFY,
       DURABILITY_ONLY,
+    );
+  } else if (volatile) {
+    const { id, seen } = graded.volatileId;
+    out.push(
+      `Breaks on reload — resolves to exactly one element now, but its id changes on every page load (${id} was ${seen} on a fresh load). A test using it fails on the next load; this is the locator's fault.`,
     );
   } else if (SUB_FLOOR.has(graded.tier)) {
     const risk = graded.primaryRisk ? `: ${clause(graded.primaryRisk.message).toLowerCase()}` : '';
@@ -178,7 +193,7 @@ export function renderGrade({ input, graded, candidates, note, uncountable }) {
 
   // An alternative is offered only where replacing is the point: a fragile
   // locator. A healthy one gets none (AE8), even if a higher score exists.
-  if (count === 1 && SUB_FLOOR.has(graded.tier) && !uncountable) {
+  if (replace) {
     if (better) {
       out.push('', `More durable alternative for the same element (${candidates.framework}):`, locatorBlock(better, 1).replace(/^1\. /, '  '));
     } else {

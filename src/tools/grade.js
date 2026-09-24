@@ -2,12 +2,13 @@ import { z } from 'zod';
 import { callPage } from '../page-runtime.js';
 import { renderGrade } from '../format.js';
 import { parseGradable, NotGradable, SUPPORTED_FORMS } from '../grade-parse.js';
-import { FRAMEWORKS } from './inspect.js';
+import { FRAMEWORKS, verifyNumberedIds } from './inspect.js';
+import { checkIds, numberedIds } from '../id-stability.js';
 
 const text = (value) => ({ content: [{ type: 'text', text: value }] });
 
 /** @param {ReturnType<import('../session.js').createSession>} session */
-export function gradeTools(session) {
+export function gradeTools(session, idCache = new Map()) {
   return [
     {
       name: 'cor_grade',
@@ -58,6 +59,13 @@ export function gradeTools(session) {
         }
 
         const { graded, candidates } = await callPage(page, 'grade', { element, value: parsed.scoreValue, framework: fw, matchCount });
+        if (matchCount === 1) {
+          const ids = numberedIds(parsed.scoreValue);
+          const verdicts = await checkIds(page, ids, idCache);
+          const regenerated = ids.map((id) => ({ id, ...verdicts.get(id) })).find((v) => v.status === 'regenerated');
+          if (regenerated) graded.volatileId = { id: regenerated.id, seen: regenerated.seen };
+          if (candidates) await verifyNumberedIds(page, candidates.locators, idCache);
+        }
         return text(renderGrade({ input: selector, graded, candidates, note: parsed.note, uncountable }));
       },
     },

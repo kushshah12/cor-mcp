@@ -9,7 +9,10 @@ const { name, version } = JSON.parse(readFileSync(new URL('../package.json', imp
 
 // Tools join this list as they are implemented (U8). No placeholders: an
 // agent must never be offered a tool that cannot work.
-export const defaultTools = (session) => [...sessionTools(session), ...inspectTools(session), ...gradeTools(session)];
+export function defaultTools(session) {
+  const idCache = new Map(); // id-stability verdicts, shared by inspect and grade
+  return [...sessionTools(session), ...inspectTools(session, idCache), ...gradeTools(session, idCache)];
+}
 
 /**
  * Build the server. Needs no credentials, env vars or config file — COR's
