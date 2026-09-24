@@ -79,7 +79,8 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
           const [best] = result.locators;
           result.rankingNote = `Demoted ${top.value} (score ${top.score}) — its id changes on every page load (${top.volatileId.id} was ${top.volatileId.seen} on a fresh load). Ranked ${best.value} first.`;
         }
-        const response = text(renderInspect(result));
+        const refsLive = Boolean(session.refs && !session.refs.staleBecause);
+        const response = text(renderInspect(result, { refsLive }));
         if (fingerprints && result.locators.length) {
           fingerprints.record({ url: page.url(), ...result.capture, locators: result.locators.map((l) => l.value) });
         }

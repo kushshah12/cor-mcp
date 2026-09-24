@@ -142,6 +142,40 @@ function hintsFor(group) {
   });
 }
 
+/** What a snapshot line shows for an element — and so what makes two look alike. */
+function roleAndName(el) {
+  return {
+    role: el.getAttribute('role') || getImplicitRole(el) || el.tagName.toLowerCase(),
+    name: clip(squash(getAccessibleName(el)), NAME_MAX),
+  };
+}
+
+/**
+ * Other visible elements an agent could have meant: same role, same name, so
+ * the same snapshot line apart from the hint. The agent picks from those
+ * lines, and a wrong pick gets a perfect locator for the wrong element — so
+ * inspect says so up front (measured: BrowserStack pricing, two "Choose"
+ * buttons for Team Ultimate, the agent inspected the comparison table's).
+ * Interactive targets only: those are what the snapshot lists.
+ */
+function lookalikes(target) {
+  if (!target.matches(INTERACTIVE)) return null;
+  const { role, name } = roleAndName(target);
+  const same = (el) => {
+    const other = roleAndName(el);
+    return other.role === role && other.name === name;
+  };
+  const group = [...document.querySelectorAll(INTERACTIVE)].filter((el) => el === target || (isVisible(el) && same(el)));
+  if (group.length < 2) return null;
+  const hints = hintsFor(group.map((el) => ({ el, name })));
+  const refOf = new Map([...refs].map(([r, el]) => [el, r]));
+  return {
+    role,
+    name,
+    items: group.map((el, i) => ({ ref: refOf.get(el) ?? null, hint: hints[i].trim(), target: el === target })),
+  };
+}
+
 /** Flat, interactive-only, visible-only listing with refs. */
 function snapshot() {
   refs = new Map();
@@ -151,8 +185,7 @@ function snapshot() {
     if (!isVisible(el)) continue;
     const ref = `e${items.length + 1}`;
     refs.set(ref, el);
-    const role = el.getAttribute('role') || getImplicitRole(el) || el.tagName.toLowerCase();
-    const name = clip(squash(getAccessibleName(el)), NAME_MAX);
+    const { role, name } = roleAndName(el);
     items.push({ el, ref, role, name, testId: el.matches(testIdSelector) });
   }
 
@@ -213,6 +246,7 @@ function inspect({ ref, selector, framework, max }) {
   if (target.error) return target;
   return {
     ...candidatesFor(target.el, framework, max),
+    lookalikes: lookalikes(target.el),
     // For silent capture (src/fingerprints.js) — never rendered.
     capture: { fingerprint: computeFingerprint(target.el), elementKey: structuralPath(target.el) },
   };

@@ -167,6 +167,65 @@ test('same-named elements are told apart by heading, then region, then row text,
   assert.deepEqual(hints('Help'), ['in "Extras" (1 of 2)', 'in "Extras" (2 of 2)']);
 });
 
+// ── lookalike guard ─────────────────────────────────────────────────────────
+test('inspecting one of two lookalikes leads with the other and its ref (the BrowserStack case)', async (t) => {
+  const call = await connect(t);
+  const { refOf } = await openAndSnapshot(call, 'pricing.html');
+  const card = refOf(/"Choose" \[ref=e\d+\] in "Team Ultimate"$/);
+  const table = refOf(/"Choose" \[ref=e\d+\] in "Team Ultimate" \(table\)$/);
+
+  const out = await call('cor_inspect', { ref: table });
+  assert.deepEqual(out.text.split('\n').slice(0, 5), [
+    '⚠ Check this is the element you meant: 1 other visible element looks the same — button "Choose".',
+    `  You inspected: ${table} in "Team Ultimate" (table)`,
+    `  Also:          ${card} in "Team Ultimate"`,
+    '  If you meant another one, cor_inspect its ref instead.',
+    '',
+  ]);
+  assert.match(out.text, /\nBest locator \(playwright\):/, 'the verdict still follows');
+
+  const back = await call('cor_inspect', { ref: card });
+  assert.match(back.text, new RegExp(`You inspected: ${card} in "Team Ultimate"\n  Also:          ${table} in "Team Ultimate" \\(table\\)`));
+});
+
+test('a unique element gets no warning, nor does a target the snapshot never listed', async (t) => {
+  const call = await connect(t);
+  const { refOf } = await openAndSnapshot(call, 'pricing.html');
+  const out = await call('cor_inspect', { ref: refOf(/combobox/) });
+  assert.match(out.text, /^Best locator/);
+  const box = await call('cor_inspect', { selector: '#plain-box' });
+  assert.equal(box.isError, false);
+  assert.match(box.text, /^(Best locator|Recommendation)/, 'nameless focusable divs are not lookalikes of a plain div');
+});
+
+test('without a current snapshot, lookalikes are described but their refs are not offered', async (t) => {
+  const call = await connect(t);
+  await call('cor_open', { url: `${base}/pricing.html` });
+  const bySelector = await call('cor_inspect', { selector: 'table input[type="submit"]' });
+  assert.match(bySelector.text, /^⚠ Check this is the element you meant/);
+  assert.match(bySelector.text, /You inspected: in "Team Ultimate" \(table\)\n  Also:          in "Team Ultimate"\n/);
+  assert.match(bySelector.text, /call cor_snapshot for current refs/);
+
+  // Refs a later act has made stale are not offered either.
+  const { refOf } = await openAndSnapshot(call, 'pricing.html');
+  const card = refOf(/"Choose" \[ref=e\d+\] in "Team Ultimate"$/);
+  await call('cor_fill', { target: 'select', value: '5 users | $75 per user' });
+  const stale = await call('cor_inspect', { selector: 'table input[type="submit"]' });
+  assert.doesNotMatch(stale.text.split('Best locator')[0], new RegExp(`\\b${card}\\b`));
+  assert.match(stale.text, /call cor_snapshot for current refs/);
+});
+
+test('many lookalikes: five are listed and the rest counted', async (t) => {
+  const call = await connect(t);
+  const { refOf } = await openAndSnapshot(call, 'pricing.html');
+  const out = await call('cor_inspect', { ref: refOf(/"Add" \[ref=e\d+\] in "Item 4"/) });
+  const head = out.text.split('\n\n')[0].split('\n');
+  assert.equal(head[0], '⚠ Check this is the element you meant: 6 other visible elements look the same — button "Add".');
+  assert.match(head[1], /You inspected: e\d+ in "Item 4"/);
+  assert.equal(head.filter((l) => l.startsWith('  Also:')).length, 5);
+  assert.ok(head.includes('  …and 1 more.'));
+});
+
 // ── refs ────────────────────────────────────────────────────────────────────
 test('a ref is stale after navigation and after an act call, and never resolves to another element', async (t) => {
   const call = await connect(t);

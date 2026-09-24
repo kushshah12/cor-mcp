@@ -81,8 +81,37 @@ function profileLine(profile) {
     : `No framework convention applied — ${profile.reason}.`;
 }
 
-export function renderInspect(result) {
-  const out = [];
+const LOOKALIKES_SHOWN = 5;
+
+/**
+ * Leads the inspect response when the element has visible lookalikes, so a
+ * wrong pick is caught before its (perfectly good) locator is used.
+ * `refsLive` is false when no snapshot is current — its refs would mislead.
+ */
+function lookalikeWarning(lookalikes, refsLive) {
+  const { role, name, items } = lookalikes;
+  const others = items.filter((i) => !i.target);
+  const target = items.find((i) => i.target);
+  const what = `${role}${name ? ` "${name}"` : ''}`;
+  const place = (i) => [refsLive && i.ref, i.hint || '(no heading or text nearby)'].filter(Boolean).join(' ');
+  const n = others.length;
+  const lines = [
+    `⚠ Check this is the element you meant: ${n} other visible element${n === 1 ? ' looks' : 's look'} the same — ${what}.`,
+    `  You inspected: ${place(target)}`,
+    ...others.slice(0, LOOKALIKES_SHOWN).map((i) => `  Also:          ${place(i)}`),
+  ];
+  if (others.length > LOOKALIKES_SHOWN) lines.push(`  …and ${others.length - LOOKALIKES_SHOWN} more.`);
+  lines.push(
+    refsLive
+      ? '  If you meant another one, cor_inspect its ref instead.'
+      : '  If you meant another one, call cor_snapshot for current refs and cor_inspect it.',
+    '',
+  );
+  return lines;
+}
+
+export function renderInspect(result, { refsLive = false } = {}) {
+  const out = result.lookalikes ? lookalikeWarning(result.lookalikes, refsLive) : [];
   const [best, ...alternatives] = result.locators;
 
   if (!best) {

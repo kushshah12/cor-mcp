@@ -9,6 +9,8 @@
     <p>$375 / month</p><input type="submit" value="Choose" data-plan-name="Testing Toolkit - Team Ultimate"></div>
   <div class="card"><h3>Volume</h3><button>Contact Sales</button></div>
 </section>
+<!-- A hidden copy, as the real page has dozens: not a lookalike the agent could have picked. -->
+<div hidden><h3>Team Ultimate</h3><input type="submit" value="Choose"></div>
 <div>Detailed Plans Comparison</div>
 <table><tbody><tr>
   <th><h3>Feature List</h3></th>
@@ -32,5 +34,12 @@
 <!-- One has local text, the other none: the other must not borrow page-level text. -->
 <div><div><span>Card A</span> <button>Share</button></div></div>
 <div><button>Share</button></div>
+<!-- Many lookalikes: the warning lists a few and counts the rest. -->
+<ol id="shop"><li>Item 1 <button>Add</button></li><li>Item 2 <button>Add</button></li><li>Item 3 <button>Add</button></li>
+  <li>Item 4 <button>Add</button></li><li>Item 5 <button>Add</button></li><li>Item 6 <button>Add</button></li><li>Item 7 <button>Add</button></li></ol>
+<!-- A plain box beside two nameless focusable boxes: inspecting the box must not
+     call the focusable ones its lookalikes — the snapshot never listed the box. -->
+<div id="plain-box" style="width:20px;height:20px"></div>
+<div tabindex="0" style="width:20px;height:20px"></div><div tabindex="0" style="width:20px;height:20px"></div>
 <!-- Truly identical: nothing but position differs. -->
 <div><button>Help</button></div><div><button>Help</button></div>
