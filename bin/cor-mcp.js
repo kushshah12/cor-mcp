@@ -4,11 +4,13 @@ import { parseArgs } from 'node:util';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createServer } from '../src/server.js';
 import { createSession, DEFAULT_IDLE_MS } from '../src/session.js';
+import { createFingerprintStore } from '../src/fingerprints.js';
 
 const { values } = parseArgs({
   options: {
     headless: { type: 'boolean', default: false },
     'idle-minutes': { type: 'string' },
+    'no-fingerprints': { type: 'boolean', default: false },
   },
 });
 const idleMinutes = Number(values['idle-minutes']);
@@ -25,4 +27,9 @@ process.stdin.on('end', shutdown);
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
-await createServer({ session }).connect(new StdioServerTransport());
+// Silent capture to .cor/fingerprints.json in the project directory; see the README.
+const fingerprints = createFingerprintStore({
+  enabled: !values['no-fingerprints'] && process.env.COR_FINGERPRINTS !== 'off',
+});
+
+await createServer({ session, fingerprints }).connect(new StdioServerTransport());

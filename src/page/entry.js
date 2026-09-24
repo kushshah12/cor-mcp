@@ -4,6 +4,7 @@
 import {
   LocatorEngine,
   DEFAULT_TEST_ID_ATTRIBUTES,
+  computeFingerprint,
   extractElementInfo,
   scoreLocator,
   getAccessibleName,
@@ -109,10 +110,27 @@ function resolveTarget({ ref, selector }) {
   return { el: matches[0] };
 }
 
+/**
+ * The element's place in the tree, tags and positions only — a record key for
+ * fingerprints that no id or class can change between inspects.
+ */
+function structuralPath(el) {
+  const steps = [];
+  for (let n = el; n && n.parentElement; n = n.parentElement) {
+    const same = [...n.parentElement.children].filter((c) => c.tagName === n.tagName);
+    steps.unshift(`${n.tagName.toLowerCase()}:nth-of-type(${same.indexOf(n) + 1})`);
+  }
+  return steps.join(' > ');
+}
+
 function inspect({ ref, selector, framework, max }) {
   const target = resolveTarget({ ref, selector });
   if (target.error) return target;
-  return candidatesFor(target.el, framework, max);
+  return {
+    ...candidatesFor(target.el, framework, max),
+    // For silent capture (src/fingerprints.js) — never rendered.
+    capture: { fingerprint: computeFingerprint(target.el), elementKey: structuralPath(target.el) },
+  };
 }
 
 function candidatesFor(el, framework, max) {

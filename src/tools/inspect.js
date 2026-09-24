@@ -19,7 +19,7 @@ export async function verifyNumberedIds(page, locators, cache) {
 }
 
 /** @param {ReturnType<import('../session.js').createSession>} session */
-export function inspectTools(session, idCache = new Map()) {
+export function inspectTools(session, idCache = new Map(), fingerprints = null) {
   const openPage = () => {
     if (!session.isOpen) throw new Error('No page is open — call cor_open with a URL first.');
     return session.getPage();
@@ -79,7 +79,11 @@ export function inspectTools(session, idCache = new Map()) {
           const [best] = result.locators;
           result.rankingNote = `Demoted ${top.value} (score ${top.score}) — its id changes on every page load (${top.volatileId.id} was ${top.volatileId.seen} on a fresh load). Ranked ${best.value} first.`;
         }
-        return text(renderInspect(result));
+        const response = text(renderInspect(result));
+        if (fingerprints && result.locators.length) {
+          fingerprints.record({ url: page.url(), ...result.capture, locators: result.locators.map((l) => l.value) });
+        }
+        return response;
       },
     },
   ];

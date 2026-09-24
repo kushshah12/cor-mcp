@@ -9,9 +9,9 @@ const { name, version } = JSON.parse(readFileSync(new URL('../package.json', imp
 
 // Tools join this list as they are implemented (U8). No placeholders: an
 // agent must never be offered a tool that cannot work.
-export function defaultTools(session) {
+export function defaultTools(session, fingerprints = null) {
   const idCache = new Map(); // id-stability verdicts, shared by inspect and grade
-  return [...sessionTools(session), ...inspectTools(session, idCache), ...gradeTools(session, idCache)];
+  return [...sessionTools(session), ...inspectTools(session, idCache, fingerprints), ...gradeTools(session, idCache)];
 }
 
 /**
@@ -20,10 +20,15 @@ export function defaultTools(session) {
  *
  * @param {{
  *   session?: ReturnType<typeof createSession>,
+ *   fingerprints?: ReturnType<typeof import('./fingerprints.js').createFingerprintStore> | null,
  *   tools?: Array<{ name: string, config: object, handler: Function }>,
  * }} [options]
  */
-export function createServer({ session = createSession(), tools = defaultTools(session) } = {}) {
+export function createServer({
+  session = createSession(),
+  fingerprints = null, // capture is the bin's decision (bin/cor-mcp.js), not a library default
+  tools = defaultTools(session, fingerprints),
+} = {}) {
   const server = new McpServer({ name, version });
   // The client going away must not leave a Chrome process behind.
   server.server.onclose = () => session.close().catch(() => {});
