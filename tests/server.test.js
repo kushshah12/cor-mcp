@@ -8,7 +8,8 @@ import { fileURLToPath } from 'node:url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
-import { createServer, TOOLS } from '../src/server.js';
+import { createServer, defaultTools } from '../src/server.js';
+import { createSession } from '../src/session.js';
 
 const pkgDir = fileURLToPath(new URL('..', import.meta.url));
 const pkg = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8'));
@@ -24,7 +25,8 @@ async function connect(t, server) {
 test('lists exactly the registered tools — no placeholders', async (t) => {
   const client = await connect(t, createServer());
   const { tools } = await client.listTools();
-  assert.deepEqual(tools.map((t) => t.name), TOOLS.map((t) => t.name));
+  assert.deepEqual(tools.map((t) => t.name), defaultTools(createSession()).map((t) => t.name));
+  assert.deepEqual(tools.map((t) => t.name), ['cor_open', 'cor_click', 'cor_fill', 'cor_press', 'cor_close']);
 });
 
 test('a throwing tool returns an error result and the session survives', async (t) => {
