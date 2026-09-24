@@ -153,10 +153,44 @@ export function renderInspect(result, { refsLive = false } = {}) {
   return out.join('\n');
 }
 
-export function renderSnapshot(snapshot) {
+const SNAPSHOT_LEGEND =
+  'Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ' +
+  '✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload.';
+
+function leafText(leaf, unstableIds) {
+  let text = `${leaf.role}${leaf.name ? ` "${leaf.name}"` : ''}${leaf.value ? ` = "${leaf.value}"` : ''} [ref=${leaf.ref}]`;
+  if (leaf.testId) text += ' ✓id';
+  for (const state of leaf.states) text += ` [${state}]`;
+  if (leaf.hidden) text += ` +${leaf.hidden} hidden`;
+  if (leaf.id && unstableIds.has(leaf.id)) text += ' [unstable id]';
+  if (leaf.hint) text += ` ${leaf.hint}`;
+  return text;
+}
+
+const containerText = (c) => `${c.type}${c.label ? ` "${c.label}"` : ''}`;
+
+/** Chains of single-child containers fold into one line: `section "Team Ultimate" › button "Choose"`. */
+function renderNodes(nodes, depth, unstableIds, out) {
+  for (let node of nodes) {
+    const prefix = [];
+    while (node.kind === 'container' && node.children.length === 1) {
+      prefix.push(containerText(node));
+      node = node.children[0];
+    }
+    const own = node.kind === 'leaf' ? leafText(node, unstableIds) : containerText(node);
+    out.push(`${'  '.repeat(depth)}- ${[...prefix, own].join(' › ')}`);
+    if (node.kind === 'container') renderNodes(node.children, depth + 1, unstableIds, out);
+  }
+  return out;
+}
+
+/**
+ * @param {{ url: string, title: string, count: number, tree: object[] }} snapshot
+ * @param {{ unstableIds?: Set<string> }} [options]  ids U7's reload check found regenerated
+ */
+export function renderSnapshot(snapshot, { unstableIds = new Set() } = {}) {
   const head = `${snapshot.title ? `"${snapshot.title}" ` : ''}${snapshot.url} — ${snapshot.count} interactive element${snapshot.count === 1 ? '' : 's'}`;
-  const legend = '✓id = carries a test attribute. Pass a ref to cor_inspect (or to an act tool as `ref`). Refs expire on navigation and after any act call.';
-  return [head, legend, '', ...snapshot.lines].join('\n');
+  return [head, SNAPSHOT_LEGEND, '', ...renderNodes(snapshot.tree, 0, unstableIds, [])].join('\n');
 }
 
 const REIDENTIFY = 'Re-identify the element: cor_snapshot, then cor_inspect its ref.';

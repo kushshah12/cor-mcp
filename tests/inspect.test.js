@@ -53,11 +53,29 @@ async function connect(t) {
   };
 }
 
-/** Open a fixture and snapshot it; returns the snapshot lines keyed by ref. */
+/**
+ * Each element line of an outline snapshot with its full path, e.g.
+ * `table › column "Team Ultimate" › button "Choose" [ref=e4] +1 hidden`.
+ */
+function outlinePaths(text) {
+  const stack = [];
+  const out = [];
+  for (const line of text.split('\n')) {
+    const m = /^( *)- (.*)$/.exec(line);
+    if (!m) continue;
+    const depth = m[1].length / 2;
+    stack.length = depth;
+    stack.push(m[2]);
+    if (/\[ref=e\d+\]/.test(m[2])) out.push(stack.join(' › '));
+  }
+  return out;
+}
+
+/** Open a fixture and snapshot it; `lines` are element paths, `refOf` finds one by pattern. */
 async function openAndSnapshot(call, page) {
   await call('cor_open', { url: `${base}/${page}` });
   const snap = await call('cor_snapshot');
-  const lines = snap.text.split('\n').filter((l) => l.startsWith('- '));
+  const lines = outlinePaths(snap.text);
   const refOf = (pattern) => {
     const line = lines.find((l) => pattern.test(l));
     assert.ok(line, `no snapshot line matches ${pattern}\n${snap.text}`);
@@ -84,7 +102,7 @@ test('a well-marked element ranks its test id first, Excellent, where the framew
 test('AE1: an ambiguous element gets a uniquely-resolving top pick and says what was demoted', async (t) => {
   const call = await connect(t);
   const { refOf } = await openAndSnapshot(call, 'shapes.html');
-  const out = await call('cor_inspect', { ref: refOf(/"Remove".*in "Blue Cap"/) });
+  const out = await call('cor_inspect', { ref: refOf(/item "Blue Cap" › button "Remove"/) });
   assert.match(out.text, /Point-in-time — true on this page now: \d+ \w+ · 1 match\n/);
   assert.match(out.text, /Why this order: Demoted .*Matches 3 elements/);
 });
@@ -122,8 +140,8 @@ test('the snapshot lists only visible interactive elements and is much smaller t
   assert.ok(lines.some((l) => /link "Next page"/.test(l)));
   assert.ok(!lines.some((l) => /Hidden/.test(l)), 'display:none omitted');
   assert.ok(!lines.some((l) => /Anchor without href/.test(l)), 'non-interactive omitted');
-  assert.ok(!lines.some((l) => /^- button \[ref=/.test(l)), 'the nameless zero-size button is omitted');
-  assert.ok(lines.some((l) => /^- button "Checkout"/.test(l)), 'the icon button with an aria-label is kept');
+  assert.ok(!lines.some((l) => /(^| › )button \[ref=/.test(l)), 'the nameless zero-size button is omitted');
+  assert.ok(lines.some((l) => /(^| › )button "Checkout"/.test(l)), 'the icon button with an aria-label is kept');
 
   const prose = await openAndSnapshot(call, 'prose.html');
   const aria = await (await session.getPage()).locator('body').ariaSnapshot();
@@ -133,46 +151,51 @@ test('the snapshot lists only visible interactive elements and is much smaller t
 test('cor_open waits for a client-rendered page, so the snapshot is not empty', async (t) => {
   const call = await connect(t);
   const { lines } = await openAndSnapshot(call, 'spa.html');
-  assert.deepEqual(lines.map((l) => l.replace(/ \[ref=e\d+\]/, '')), ['- button "Add to cart"', '- button "Checkout"']);
+  assert.deepEqual(lines.map((l) => l.replace(/ \[ref=e\d+\]/, '')), ['button "Add to cart"', 'button "Checkout"']);
 });
 
-test('elements sharing a name are told apart — by context hint, and by the ✓id marker', async (t) => {
+test('the outline nests each element under what identifies it (traps page)', async (t) => {
   const call = await connect(t);
   const { lines } = await openAndSnapshot(call, 'traps.html');
-  const removes = lines.filter((l) => /"Remove"/.test(l));
-  assert.deepEqual(removes.map((l) => l.match(/in "([^"]+)"/)?.[1]), ['Red Hat', 'Blue Shirt', 'Green Scarf']);
+  const strip = (l) => l.replace(/ \[ref=e\d+\]/, '');
+  // Three identical Remove buttons, told apart by their list items.
+  assert.deepEqual(lines.filter((l) => /"Remove"/.test(l)).map(strip), [
+    'item "Red Hat" › button "Remove"', 'item "Blue Shirt" › button "Remove"', 'item "Green Scarf" › button "Remove"',
+  ]);
+  // Two Apply buttons, only one with a test attribute.
   const applies = lines.filter((l) => /"Apply"/.test(l));
   assert.equal(applies.length, 2);
-  assert.equal(applies.filter((l) => l.includes('✓id')).length, 1, 'only the test-id Apply is marked');
-  assert.ok(!lines.some((l) => /"Continue".* in "/.test(l)), 'no hint on a unique name');
+  assert.equal(applies.filter((l) => l.includes('✓id')).length, 1);
+  // A link in the page header sits under it; a unique button carries no container or hint.
+  assert.ok(lines.includes(lines.find((l) => /^header › link "Terms of service"/.test(l))));
+  assert.match(lines.find((l) => /"Continue"/.test(l)), /^button "Continue" \[ref=e\d+\]$/);
 });
 
-test('same-named elements are told apart by heading, then region, then row text, then position', async (t) => {
+test('the outline: sections by heading, tables by column and row, lookalikes by text, then position', async (t) => {
   const call = await connect(t);
   const { lines } = await openAndSnapshot(call, 'pricing.html');
-  const hints = (name) => lines.filter((l) => l.includes(`"${name}" [ref=`)).map((l) => l.replace(/^.*\[ref=e\d+\]/, '').trim());
-  // The BrowserStack case: same heading, different region.
-  assert.deepEqual(hints('Choose'), ['in "Team Ultimate"', 'in "Team Ultimate" (table)']);
-  // Headings alone differ.
-  assert.deepEqual(hints('Contact Sales'), ['in "Volume"', 'in "Volume" (table)']);
-  // One heading over several rows: the row text decides, the heading is kept.
-  assert.deepEqual(hints('Delete'), ['in "Alice" under "Users"', 'in "Bob" under "Users"']);
-  // Headings decide even when nearer text differs too.
-  assert.deepEqual(hints('Buy'), ['in "Basic"', 'in "Pro"']);
-  // Repeated text is not shown when only position tells them apart.
-  assert.deepEqual(hints('Scroll'), ['in "Extras" (1 of 2)', 'in "Extras" (2 of 2)']);
-  // Text found only at page level is not "near": the second Share gets none.
-  assert.deepEqual(hints('Share'), ['in "Card A" under "Extras"', 'in "Extras"']);
-  // Nothing differs: position.
-  assert.deepEqual(hints('Help'), ['in "Extras" (1 of 2)', 'in "Extras" (2 of 2)']);
+  const paths = (name) => lines.filter((l) => l.includes(`"${name}" [ref=`)).map((l) => l.replace(/ \[ref=e\d+\]/, ''));
+  // The BrowserStack case, from structure alone: a card section and a table column.
+  assert.deepEqual(paths('Choose'), [
+    'section "Team Ultimate" › button "Choose" +1 hidden',
+    'table › column "Team Ultimate" › button "Choose" +1 hidden',
+  ]);
+  // A <select> is shown with its chosen option, next to the button it prices.
+  assert.ok(lines.some((l) => /^table › column "Team Ultimate" › combobox = "5 users \| \$75 per user"/.test(l)));
+  // Rows under one heading: the heading is a section, each row an item.
+  assert.deepEqual(paths('Delete'), ['section "Users" › item "Alice" › button "Delete"', 'section "Users" › item "Bob" › button "Delete"']);
+  // Headings beat nearer text (the price).
+  assert.deepEqual(paths('Buy'), ['section "Users" › section "Basic" › button "Buy"', 'section "Users" › section "Pro" › button "Buy"']);
+  // Nothing but position: ordinals, never another element's text.
+  assert.deepEqual(paths('Help'), ['section "Users" › button "Help" (1 of 2)', 'section "Users" › button "Help" (2 of 2)']);
 });
 
 // ── lookalike guard ─────────────────────────────────────────────────────────
 test('inspecting one of two lookalikes leads with the other and its ref (the BrowserStack case)', async (t) => {
   const call = await connect(t);
   const { refOf } = await openAndSnapshot(call, 'pricing.html');
-  const card = refOf(/"Choose" \[ref=e\d+\] in "Team Ultimate"$/);
-  const table = refOf(/"Choose" \[ref=e\d+\] in "Team Ultimate" \(table\)$/);
+  const card = refOf(/^section "Team Ultimate" › button "Choose"/);
+  const table = refOf(/^table › column "Team Ultimate" › button "Choose"/);
 
   const out = await call('cor_inspect', { ref: table });
   assert.deepEqual(out.text.split('\n').slice(0, 5), [
@@ -208,7 +231,7 @@ test('without a current snapshot, lookalikes are described but their refs are no
 
   // Refs a later act has made stale are not offered either.
   const { refOf } = await openAndSnapshot(call, 'pricing.html');
-  const card = refOf(/"Choose" \[ref=e\d+\] in "Team Ultimate"$/);
+  const card = refOf(/^section "Team Ultimate" › button "Choose"/);
   await call('cor_fill', { target: 'select', value: '5 users | $75 per user' });
   const stale = await call('cor_inspect', { selector: 'table input[type="submit"]' });
   assert.doesNotMatch(stale.text.split('Best locator')[0], new RegExp(`\\b${card}\\b`));
@@ -218,7 +241,7 @@ test('without a current snapshot, lookalikes are described but their refs are no
 test('many lookalikes: five are listed and the rest counted', async (t) => {
   const call = await connect(t);
   const { refOf } = await openAndSnapshot(call, 'pricing.html');
-  const out = await call('cor_inspect', { ref: refOf(/"Add" \[ref=e\d+\] in "Item 4"/) });
+  const out = await call('cor_inspect', { ref: refOf(/item "Item 4" › button "Add"/) });
   const head = out.text.split('\n\n')[0].split('\n');
   assert.equal(head[0], '⚠ Check this is the element you meant: 6 other visible elements look the same — button "Add".');
   assert.match(head[1], /You inspected: e\d+ in "Item 4"/);

@@ -31,9 +31,9 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
       config: {
         title: 'List interactive elements',
         description:
-          'List the visible interactive elements on the current page, one per line, each with a ref (e1, e2…). ' +
-          'Pick the element you need, then pass its ref to cor_inspect for ranked locators. ' +
-          'Elements sharing a role and name carry a context hint (in "…"); ✓id marks elements with a test attribute. ' +
+          'Outline of the visible interactive elements on the current page, each with a ref (e1, e2…), nested only under what identifies it: ' +
+          'landmarks, sections by heading, tables (column / row), list items. Pick the element you need, then pass its ref to cor_inspect. ' +
+          'Markers: ✓id test attribute, +N hidden lookalikes, [disabled]/[checked]/[expanded]/[selected], [unstable id]. ' +
           'Take a new snapshot after any navigation or act call — earlier refs expire.',
         inputSchema: {},
       },
@@ -41,7 +41,12 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
         const page = await openPage();
         const snapshot = await callPage(page, 'snapshot');
         session.issueRefs(snapshot.count);
-        return text(renderSnapshot(snapshot));
+        // U14: mark ids U7's reload check already found regenerated — cached
+        // verdicts only; a snapshot never triggers a reload.
+        const unstableIds = new Set(
+          [...idCache].filter(([key, v]) => v.status === 'regenerated' && key.startsWith(`${page.url()}#`)).map(([key]) => key.slice(page.url().length + 1)),
+        );
+        return text(renderSnapshot(snapshot, { unstableIds }));
       },
     },
     {

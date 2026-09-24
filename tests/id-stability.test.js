@@ -125,6 +125,22 @@ test("the probe leaves the agent's page and refs alone, and runs once per URL", 
   assert.equal((await session.getPage()).context().pages().length, 1, 'probe tab closed');
 });
 
+test('U14: the snapshot marks an id already found regenerated, and never triggers a reload itself', async (t) => {
+  await fresh(t);
+  const before = loads;
+  const first = await call('cor_snapshot');
+  assert.equal(loads, before, 'a snapshot loads nothing');
+  const elementLines = (text) => text.split('\n').filter((l) => /\[ref=e\d+\]/.test(l)).join('\n'); // not the legend
+  assert.doesNotMatch(elementLines(first.text), /\[unstable id\]/, 'no verdict yet, so no marker');
+
+  await call('cor_inspect', { selector: 'input' }); // runs the reload check once
+  const afterInspect = loads;
+  const second = await call('cor_snapshot');
+  assert.equal(loads, afterInspect, 'still no reload from the snapshot');
+  assert.match(elementLines(second.text), /textbox "Email" \[ref=e\d+\] \[unstable id\]/);
+  assert.doesNotMatch(second.text.split('\n').find((l) => l.includes('"Next step"')), /unstable/, 'no verdict for step2, so no marker');
+});
+
 test('numberedIds reads the id forms locators use', () => {
   assert.deepEqual(numberedIds("#shub63"), ['shub63']);
   assert.deepEqual(numberedIds('form#login2 > input[id="field-12"]'), ['login2', 'field-12']);
