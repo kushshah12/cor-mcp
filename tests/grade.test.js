@@ -266,3 +266,36 @@ test('a page-object locator is graded as written: this.page receivers, nested in
   assert.match(out.text, /^Healthy — resolves to exactly one element/);
   assert.match(out.text, /filter has: getByRole\('heading'/);
 });
+
+// ── U19.1: .or() / .and() chains; the short Healthy grade ───────────────────
+// The owner's page-object run: the agent's first two cor_grade calls were
+// refused on `.or()` — which COR's own mixed-naming template uses.
+test('.or() chains grade as written — the run\'s refused planCard locator', async () => {
+  await open('chains.html');
+  const out = await grade("page.locator('div.plan-card').filter({ visible: true }).filter({ has: page.getByRole('heading', { name: 'Team Ultimate', exact: true }).or(page.locator('label').getByText('Team Ultimate', { exact: true })) })");
+  assert.equal(out.isError, false, out.text);
+  // The bare `label` branch is the weak link — what the agent found and fixed in the run.
+  assert.match(out.text, /^Resolves to exactly one element, but fragile \(Risky\)/);
+  assert.match(out.text, /filter has: or: locator\('label'\) {3}45 Risky .*← weakest/);
+  assert.match(out.text, /! (filter has: )?\.or\(\) — matches if either branch does; the score is the weaker branch's/);
+});
+
+test('.and() chains grade as written', async () => {
+  await open('chains.html');
+  const out = await grade("page.getByRole('button', { name: 'Choose' }).and(page.locator('div.plan-card button'))");
+  assert.equal(out.isError, false, out.text);
+  assert.match(out.text, /Ambiguous — matches 2 elements|1 match/);
+  assert.match(out.text, /and: locator\('div\.plan-card button'\)/);
+});
+
+test('a Healthy grade is short: no input echo, no signal list — fragile and broken keep the detail', async () => {
+  await open('chains.html');
+  const healthy = await grade("page.locator('.faq-item').filter({ hasText: 'cancellation policy' }).locator('.faq-item__answer')");
+  assert.match(healthy.text, /^Healthy/);
+  assert.doesNotMatch(healthy.text, /^Graded: /m, 'the agent already has the locator it sent');
+  assert.doesNotMatch(healthy.text, /^ {2}[+-] /m, 'no per-signal lines');
+  assert.match(healthy.text, /Chain — scored by its weakest step/);
+  assert.match(healthy.text, /^\/\/ COR: /m, 'the durable line stays (R27)');
+  const fragile = await grade("page.locator('li').nth(1)");
+  assert.match(fragile.text, /^Graded: /m, 'a non-Healthy verdict keeps the full block');
+});

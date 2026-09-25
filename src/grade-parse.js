@@ -11,11 +11,11 @@ const PLAYWRIGHT_METHODS = new Set([
 ]);
 
 // Steps a chain may continue with after its first locator call.
-const CHAIN_METHODS = new Set(['filter', 'first', 'last', 'nth']);
+const CHAIN_METHODS = new Set(['filter', 'first', 'last', 'nth', 'or', 'and']);
 const LOCATOR_START = /^(?:[A-Za-z_$][\w$]*\s*\.\s*)*(getBy[A-Za-z]+|locator)\s*(?=\()/;
 
 export const SUPPORTED_FORMS =
-  "a CSS selector, an XPath, page.getByRole/getByText/getByLabel/getByPlaceholder/getByTestId/getByAltText/getByTitle(…) or page.locator('…') — chained with .locator/.getBy*/.filter({ has, hasNot, hasText, hasNotText, visible })/.first()/.last()/.nth(n) — cy.get('…') or cy.contains(…)";
+  "a CSS selector, an XPath, page.getByRole/getByText/getByLabel/getByPlaceholder/getByTestId/getByAltText/getByTitle(…) or page.locator('…') — chained with .locator/.getBy*/.filter({ has, hasNot, hasText, hasNotText, visible })/.or()/.and()/.first()/.last()/.nth(n) — cy.get('…') or cy.contains(…)";
 
 class NotGradable extends Error {}
 
@@ -180,6 +180,13 @@ function describeChain({ calls }, prefix = '') {
   for (const { method, args, code } of calls) {
     if (PLAYWRIGHT_METHODS.has(method)) {
       scored.push({ code: `${prefix}${code}`, scoreValue: method === 'locator' ? args[0] : `page.${code}` });
+    } else if ((method === 'or' || method === 'and') && args[0]?.kind === 'locator') {
+      // .or(): either branch may match, .and(): both must. Both branches are
+      // scored and the weaker counts — conservative for .or(), exact for .and().
+      const inner = describeChain(args[0], `${prefix}${method}: `);
+      scored.push(...inner.scored);
+      notes.push(...inner.notes);
+      if (method === 'or') notes.push(`${prefix}.or() — matches if either branch does; the score is the weaker branch's`);
     } else if (method === 'filter') {
       const opts = args[0] ?? {};
       for (const key of ['has', 'hasNot']) {

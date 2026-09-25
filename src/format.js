@@ -472,18 +472,21 @@ export function renderSnapshot(snapshot, { unstableIds = new Set() } = {}) {
 const REIDENTIFY = 'Re-identify the element: cor_snapshot, then cor_inspect its ref.';
 const DURABILITY_ONLY = 'The score below rates how durable the string is; whether it resolves is the verdict above.';
 
+function chainLines(chain) {
+  const lines = ['  Chain — scored by its weakest step, since it breaks when any step does:'];
+  chain.steps.forEach((st, i) => {
+    lines.push(`    ${i + 1}. ${st.code}   ${st.score} ${st.tierLabel ?? st.tier}${st.risk ? ` — ${clause(st.risk).toLowerCase()}` : ''}${i === chain.weakest ? '   ← weakest' : ''}`);
+  });
+  for (const n of chain.notes) lines.push(`    ! ${n}`);
+  return lines;
+}
+
 function gradedBlock(graded, input) {
   const lines = [`Graded: ${input}`, `  Point-in-time — true on this page now: ${pointInTime(graded)}`];
   for (const s of graded.signals) {
     if (s.points) lines.push(`  ${s.direction === 'positive' ? '+' : '-'} ${clause(s.message)}`);
   }
-  if (graded.chain) {
-    lines.push('  Chain — scored by its weakest step, since it breaks when any step does:');
-    graded.chain.steps.forEach((st, i) => {
-      lines.push(`    ${i + 1}. ${st.code}   ${st.score} ${st.tierLabel ?? st.tier}${st.risk ? ` — ${clause(st.risk).toLowerCase()}` : ''}${i === graded.chain.weakest ? '   ← weakest' : ''}`);
-    });
-    for (const n of graded.chain.notes) lines.push(`    ! ${n}`);
-  }
+  if (graded.chain) lines.push(...chainLines(graded.chain));
   // The engine judged the id from one DOM; the reload overrules it.
   if (graded.volatileId) lines.push(`  ! Not stable: a fresh load gave this element id ${graded.volatileId.seen} — the score above assumes it was a name`);
   return lines;
@@ -532,6 +535,21 @@ export function renderGrade({ input, graded, candidates, note, uncountable }) {
     out.push(
       'Healthy — resolves to exactly one element. If a test using it failed, the cause is in the product or the assertion, not this locator. Stop repairing the locator.',
     );
+  }
+
+  // A Healthy verdict needs little more: the agent's next move is to reuse
+  // the locator. Page-object work grades often (reuse before adding), and the
+  // full block cost ~1.2k characters per call in the owner's run.
+  const healthy = count === 1 && !uncountable && !volatile && !SUB_FLOOR.has(graded.tier);
+  if (healthy) {
+    // No input echo and no per-signal list; the verdict, the numbers, any
+    // chain, the upgrade hint and the durable line (R27) stay.
+    out.push(`  Point-in-time — true on this page now: ${pointInTime(graded)}`);
+    if (graded.chain) out.push(...chainLines(graded.chain));
+    if (note) out.push(`  (${note})`);
+    out.push(higher.length ? 'Not a repair case: the locator works. A higher-scoring form exists — cor_inspect this element only if the user wants a durability upgrade.' : 'No generated candidate scores higher.');
+    out.push('Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:', durableLine({ framework: candidates?.framework, locators: [graded] }));
+    return out.join('\n');
   }
 
   out.push('', ...gradedBlock(graded, input));
