@@ -18,6 +18,7 @@ const NOT_A_SLOT = /^(id|class|style|href|src|srcset|tabindex|aria-.*|on.*|data-
 // currency here only if a real page shows one missing.
 const NUMERIC = /^[\s$€£¥₹\d.,:%+\-/x]*$/i;
 const LABEL_MAX = 80;
+const PATH_LIKE = /[/\\]|\.(png|jpe?g|svg|gif|webp|ico|css|js)$/i;
 
 const text = (el) => squash(el?.textContent);
 // A label is one piece of text: its children are inline markup or empty. A
@@ -106,8 +107,10 @@ function innerOf(target, item) {
  * item, a visible label inside it, then another stable attribute on it.
  * Each returns the value for any item, or null when that item has none.
  */
-function slotsFor(targetItem, target) {
-  const attrs = [...targetItem.attributes].map((a) => a.name).filter((n) => !NOT_A_SLOT.test(n));
+function slotsFor(targetItem, target, { allowSelf = false } = {}) {
+  // A path or an image file names a resource, not the item (BrowserStack's
+  // side-menu groups: data-open-icon="/images/…/ac….svg").
+  const attrs = [...targetItem.attributes].filter((a) => !NOT_A_SLOT.test(a.name) && !PATH_LIKE.test(a.value)).map((a) => a.name);
   const attrSlot = (attr) => ({
     kind: 'attribute', attr, param: TEST_ATTRS.includes(attr) ? 'testId' : camel(attr),
     valueOf: (item) => item.getAttribute(attr),
@@ -121,6 +124,9 @@ function slotsFor(targetItem, target) {
     text(el).length <= LABEL_MAX && leafish(el));
   const rank = (el) => (el.matches(HEADING) ? 0 : /title|name|heading|label/i.test(el.className) ? 1 : 2);
   candidates.sort((a, b) => rank(a) - rank(b));
+  // U18b.2: when the target IS the item's identifying text (an FAQ question),
+  // its own text is the last choice of parameter.
+  if (allowSelf && isVisible(target) && text(target) && text(target).length <= LABEL_MAX && leafish(target)) candidates.push(target);
   const labelSlots = [];
   for (const label of candidates) {
     const tag = label.tagName.toLowerCase();
@@ -131,7 +137,7 @@ function slotsFor(targetItem, target) {
     const xpathSel = cls ? `${tag}[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]` : tag;
     labelSlots.push({
       kind: 'label', sel, xpathSel,
-      param: label.matches(HEADING) || /title/i.test(label.className) ? 'title' : /name/i.test(label.className) ? 'name' : columnHeader(label) ?? 'value',
+      param: /question/i.test(label.className) ? 'question' : label.matches(HEADING) || /title/i.test(label.className) ? 'title' : /name/i.test(label.className) ? 'name' : columnHeader(label) ?? 'value',
       valueOf: (item) => text(item.querySelector(sel)),
       matches: (item, v) => [...item.querySelectorAll(sel)].some((el) => text(el) === v),
     });
@@ -245,7 +251,7 @@ export function parameterise(target) {
   const group = groupTemplate(target);
   if (group) return group;
   const repeats = repeatsOf(target);
-  if (repeats.length < 2) return null;
+  if (repeats.length < 2) return structuralTemplate(target);
   const targetItem = itemOf(target, repeats);
   if (targetItem === target) return null; // the repeat IS the item: nothing contains it
   const items = repeats.map((r) => itemOf(r, repeats)).filter((i) => i.tagName === targetItem.tagName);
@@ -257,11 +263,62 @@ export function parameterise(target) {
   if (!itemSel) return { count: items.length, reason: 'the items share no class or tag that names them' };
   const inner = innerOf(target, targetItem);
   if (!inner) return { count: items.length, reason: 'the element is not the only one of its kind inside its item' };
+  return templateFor(target, targetItem, items, itemSel, inner);
+}
+
+// ── U18b.2: structural repeats ──────────────────────────────────────────────
+// Items that share a class rather than a name (FAQ items), and a target that
+// may be a non-control inside each (the hidden answer). From the BrowserStack
+// comparison: both agents built the FAQ locator inline for one question.
+
+/** The target's nearest ancestor with like siblings (same tag, a shared class), and those siblings. */
+function structuralRepeats(target) {
+  for (let a = target.parentElement; a && a !== document.body; a = a.parentElement) {
+    const names = namingClasses(a);
+    if (!names.length || !isVisible(a)) continue;
+    const likes = [...(a.parentElement?.children ?? [])].filter((sib) => sib.tagName === a.tagName && isVisible(sib) && names.some((c) => sib.classList.contains(c)));
+    if (likes.length >= 2) return { item: a, items: likes };
+  }
+  return null;
+}
+
+/** The target inside each item by its tag and class: exactly one per item, and the target in its own. */
+function cssInner(target, targetItem, items) {
+  const tag = target.tagName.toLowerCase();
+  const cls = namingClasses(target)[0];
+  const sel = cls ? `${tag}.${cssEscape(cls)}` : tag;
+  const one = (it) => it.querySelectorAll(sel).length === 1;
+  if (!items.every(one) || targetItem.querySelector(sel) !== target) return null;
+  return {
+    code: `.locator(${q(sel)})`, pw: sel,
+    xpath: `//${tag}${cls ? `[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]` : ''}`,
+    count: (it) => it.querySelectorAll(sel).length,
+  };
+}
+
+/** U18b.2. A template over structural repeats, or null when the target has none. */
+function structuralTemplate(target) {
+  const found = structuralRepeats(target);
+  if (!found) return null;
+  const { item: targetItem, items } = found;
+  const itemSel = itemSelector(items);
+  if (!itemSel) return { count: items.length, reason: 'the items share no class or tag that names them' };
+  const inner = cssInner(target, targetItem, items);
+  if (!inner) return { count: items.length, reason: 'the element is not the only one of its kind inside its item' };
+  return templateFor(target, targetItem, items, itemSel, inner, { allowSelf: true });
+}
+
+/**
+ * The check shared by U18 and U18b.2: try each slot, best first, and return
+ * the first whose every value picks exactly its own item; else the reason the
+ * best option failed.
+ */
+function templateFor(target, targetItem, items, itemSel, inner, { allowSelf = false } = {}) {
   const all = [...document.querySelectorAll(itemSel.css)];
 
   // The reason reported is the BEST option's: it is what a person would try first.
   let blocked = null;
-  for (const slot of slotsFor(targetItem, target)) {
+  for (const slot of slotsFor(targetItem, target, { allowSelf })) {
     const what = slot.kind === 'attribute' ? slot.attr : `${slot.sel} "${slot.valueOf(targetItem)}"`;
     const values = items.map((i) => slot.valueOf(i));
     const missing = values.filter((v) => !v).length;
