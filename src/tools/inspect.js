@@ -18,6 +18,37 @@ export async function verifyNumberedIds(page, locators, cache) {
   applyIdVerdicts(locators, await checkIds(page, ids, cache));
 }
 
+// Matches @corlabs/client's interpolateTemplate for syntax 'css-string'.
+const cssStringValue = (v) => v.replace(/\\/g, '\\\\').replace(/"/g, '\\"');
+const PLACEHOLDER = /__\w+__/g;
+// ponytail: a list longer than this is counted on its first 100 values; the
+// in-page check has already covered every one.
+const COUNT_MAX = 100;
+
+/**
+ * U18. The page proposed a template after checking every value against the
+ * DOM; here Playwright itself counts it with each value filled in, so the
+ * string the agent gets is known to resolve, not assumed to.
+ */
+export async function verifyTemplate(page, params) {
+  if (!params?.template) return;
+  const values = params.values.slice(0, COUNT_MAX);
+  const pw = params.template.playwright.selectorTemplate;
+  const counts = await Promise.all(values.map((v) =>
+    page.locator(pw.replace(PLACEHOLDER, () => cssStringValue(v))).count().catch(() => -1)));
+  const bad = counts.findIndex((c) => c !== 1);
+  if (bad !== -1) {
+    params.reason = `the template matched ${counts[bad] < 0 ? 'nothing parseable' : counts[bad]} for "${values[bad]}" when Playwright counted it`;
+    delete params.template;
+    return;
+  }
+  params.counted = values.length;
+  if (params.template.xpath) {
+    const xcounts = await callPage(page, 'countXpath', { template: params.template.xpath.selectorTemplate, values });
+    if (xcounts.some((c) => c !== 1)) params.template.xpath = null;
+  }
+}
+
 /** @param {ReturnType<import('../session.js').createSession>} session */
 export function inspectTools(session, idCache = new Map(), fingerprints = null) {
   const openPage = () => {
@@ -105,13 +136,14 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
           );
         }
         await verifyNumberedIds(page, result.locators, idCache);
+        await verifyTemplate(page, result.params);
         const top = result.locators.reduce((a, b) => (b.score > a.score ? b : a), result.locators[0]);
         if (top?.volatileId && top !== result.locators[0]) {
           const [best] = result.locators;
           result.rankingNote = `Demoted ${top.value} (score ${top.score}) — its id changes on every page load (${top.volatileId.id} was ${top.volatileId.seen} on a fresh load). Ranked ${best.value} first.`;
         }
         const refsLive = Boolean(session.refs && !session.refs.staleBecause);
-        const response = text(renderInspect(result, { refsLive }));
+        const response = text(renderInspect(result, { refsLive, framework }));
         if (fingerprints && result.locators.length) {
           fingerprints.record({ url: page.url(), ...result.capture, locators: result.locators.map((l) => l.value) });
         }

@@ -78,3 +78,10 @@ test('production install tree has playwright-core, not playwright, and no engine
   assert.ok(!names.has('playwright'), 'full playwright must not be in the tree');
   assert.ok(!names.has('@corlabs/engine'), 'engine must not reach a customer install');
 });
+
+test('the client receives instructions: parameterised functions and a locator summary with scores (U18)', async (t) => {
+  const client = await connect(t, createServer());
+  const text = client.getInstructions();
+  assert.match(text, /write one function that takes the parameter/);
+  assert.match(text, /final summary, list each locator you used .* COR score, and the runner-up/);
+});

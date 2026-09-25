@@ -110,7 +110,35 @@ function lookalikeWarning(lookalikes, refsLive) {
   return lines;
 }
 
-export function renderInspect(result, { refsLive = false } = {}) {
+const VALUES_SHOWN = 4;
+
+/**
+ * U18. The template for an element that is one of several items, or why
+ * there is none. Playwright gets code to write (a variable, so no escaping in
+ * the test) plus the registry form; other frameworks get the XPath form.
+ */
+function paramBlock(params, framework) {
+  if (!params) return [];
+  if (!params.template) return ['', `Not parameterised — ${params.count} items share this shape, but ${params.reason}.`];
+  const others = params.values.filter((v) => v !== params.value);
+  const more = others.length > VALUES_SHOWN ? `, … ${others.length - VALUES_SHOWN} more` : '';
+  const out = [
+    '',
+    `Parameterised — ${params.count} items share this shape; every value checked, each finds exactly its own item (${params.count}/${params.count}):`,
+    `  ${params.param} = "${params.value}"   (also: ${others.slice(0, VALUES_SHOWN).map((v) => `"${v}"`).join(', ')}${more})`,
+  ];
+  if (framework === 'playwright') {
+    out.push(`  ${params.code}`, `  Registry template (${params.template.playwright.syntax}): ${params.template.playwright.selectorTemplate}`);
+  } else if (params.template.xpath) {
+    out.push(`  XPath: ${params.template.xpath.selectorTemplate}   (__${params.param}__ is the quoted XPath literal)`);
+  } else {
+    return ['', `Not parameterised for ${framework} — the element has no text or attribute an XPath can match exactly.`];
+  }
+  out.push(`  When the test touches more than one item, write one function taking ${params.param} instead of a locator per item.`);
+  return out;
+}
+
+export function renderInspect(result, { refsLive = false, framework = result.framework } = {}) {
   const out = result.lookalikes ? lookalikeWarning(result.lookalikes, refsLive) : [];
   const [best, ...alternatives] = result.locators;
 
@@ -146,6 +174,8 @@ export function renderInspect(result, { refsLive = false } = {}) {
     'Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:',
     durableLine(result),
   );
+
+  out.push(...paramBlock(result.params, framework));
 
   if (alternatives.length) {
     out.push('', 'Alternatives:', ...alternatives.map((l, i) => locatorBlock(l, i + 2)));

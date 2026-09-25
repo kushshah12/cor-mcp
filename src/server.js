@@ -14,6 +14,17 @@ export function defaultTools(session, fingerprints = null) {
   return [...sessionTools(session), ...inspectTools(session, idCache, fingerprints), ...gradeTools(session, idCache)];
 }
 
+// Sent once at connect. The user asks the agent for tests, not for locators,
+// so COR's scores and alternatives only reach them if the agent reports them.
+export const INSTRUCTIONS = [
+  'COR finds, scores and match-counts locators on a live page. Use cor_snapshot to pick an element and cor_inspect to get its locator.',
+  'When cor_inspect returns a Parameterised block and the test touches more than one of those items, or the codebase uses page objects, ' +
+    'write one function that takes the parameter (e.g. addToCart(title)) instead of a locator per item, and use the listed values as test data when a data-driven test fits.',
+  'If the codebase already follows a locator convention (e.g. data-testid page objects), you may choose a listed alternative that fits it; say so.',
+  'In your final summary, list each locator you used on one line: the locator, its COR score, and the runner-up with its score — ' +
+    'so the user can ask for a different choice.',
+].join('\n');
+
 /**
  * Build the server. Needs no credentials, env vars or config file — COR's
  * local path is account-less, so missing credentials are the normal case.
@@ -29,7 +40,7 @@ export function createServer({
   fingerprints = null, // capture is the bin's decision (bin/cor-mcp.js), not a library default
   tools = defaultTools(session, fingerprints),
 } = {}) {
-  const server = new McpServer({ name, version });
+  const server = new McpServer({ name, version }, { instructions: INSTRUCTIONS });
   // The client going away must not leave a Chrome process behind.
   server.server.onclose = () => session.close().catch(() => {});
   // ponytail: McpServer installs tools/list lazily on the first registerTool,

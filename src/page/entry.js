@@ -6,6 +6,7 @@ import { INTERACTIVE, deepQueryAll, hintsFor, isVisible, roleAndName } from './d
 import { buildOutline } from './outline.js';
 import { scopedSnapshot } from './scope.js';
 import { beginAct, endAct, identityOf, revalidate, structuralPath } from './acts.js';
+import { parameterise, xpathLiteral } from './params.js';
 
 let refs = new Map(); // ref -> element, replaced on every full snapshot
 const meta = new Map(); // ref -> { identity, path } — what the ref was issued for (U16)
@@ -105,6 +106,7 @@ function inspect({ ref, selector, framework, max }) {
   return {
     ...candidatesFor(target.el, framework, max),
     lookalikes: lookalikes(target.el),
+    params: parameterise(target.el),
     // For silent capture (src/fingerprints.js) — never rendered.
     capture: { fingerprint: computeFingerprint(target.el), elementKey: structuralPath(target.el) },
   };
@@ -170,4 +172,12 @@ function grade({ element: el, value, framework, matchCount }) {
 /** The element a ref or selector names, for act tools; null when it does not resolve. */
 const element = (target) => resolveTarget(target).el ?? null;
 
-window.__corMcp = { snapshot, scoped, inspect, element, grade, beginAct, afterAct };
+/** Count an XPath template with each value filled in (U18's check for non-Playwright frameworks). */
+function countXpath({ template, values }) {
+  return values.map((v) => {
+    const xp = template.replaceAll(/__\w+__/g, () => xpathLiteral(v));
+    return document.evaluate(`count(${xp})`, document, null, XPathResult.NUMBER_TYPE, null).numberValue;
+  });
+}
+
+window.__corMcp = { snapshot, scoped, inspect, element, grade, beginAct, afterAct, countXpath };
