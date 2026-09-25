@@ -10,6 +10,7 @@ import { createServer } from '../src/server.js';
 import { createSession } from '../src/session.js';
 import { callPage } from '../src/page-runtime.js';
 import { interpolateTemplate } from '../../client/src/interpolate.js';
+import { expandGroups } from './helpers/outline.js';
 
 let base;
 const site = createHttpServer((req, res) => {
@@ -32,7 +33,7 @@ before(async () => {
   const server = createServer({ session });
   server.server.onclose = null;
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
-  call = async (name, args = {}) => (await client.callTool({ name, arguments: args })).content.map((c) => c.text).join('\n');
+  call = async (name, args = {}) => expandGroups((await client.callTool({ name, arguments: args })).content.map((c) => c.text).join('\n'));
   await call('cor_open', { url: `${base}/` });
   page = await session.getPage();
 });
@@ -169,17 +170,21 @@ test('a lookalike of another shape keeps the full warning', async () => {
   assert.match(out, /⚠ Check this is the element you meant: 2 other visible elements look the same — button "Compare"/);
 });
 
-test('alternatives never list position-only locators and say how many were left out', async () => {
+test('alternatives: the runner-up, then the best of each other kind, at most 3; all: true lists every one', async () => {
   const { renderInspect } = await import('../src/format.js');
-  const loc = (value, score, tier) => ({ value, code: value, strategy: 'css', score, tier, tierLabel: tier, matchCount: 1, signals: [], warnings: [], primaryRisk: null });
+  const loc = (value, strategy, score, tier) => ({ value, code: value, strategy, score, tier, tierLabel: tier, matchCount: 1, signals: [], warnings: [], primaryRisk: null });
   const result = {
     framework: 'playwright',
-    locators: [loc('#a', 90, 'excellent'), loc('div > span:nth-of-type(2)', 10, 'unstable'), loc('#b', 80, 'good'), loc('#c', 70, 'good'),
-      loc('#d', 60, 'fair'), loc('#e', 55, 'fair'), loc('#f', 50, 'fair'), loc('main > div > a', 1, 'unstable')],
+    locators: [loc('#a', 'css', 90, 'excellent'), loc('div > span:nth-of-type(2)', 'css', 10, 'unstable'), loc('#b', 'css', 80, 'good'),
+      loc('#c', 'css', 78, 'good'), loc("getByRole('button')", 'role', 70, 'good'), loc('#d', 'css', 65, 'fair'),
+      loc("getByText('Go')", 'text', 60, 'fair'), loc('//button', 'xpath', 50, 'fair'), loc('main > div > a', 'css', 1, 'unstable')],
   };
   const out = renderInspect(result);
   const alts = out.split('Alternatives:')[1];
-  assert.doesNotMatch(alts, /nth-of-type|main > div > a/);
-  assert.deepEqual(alts.match(/^\d+\. \S+/gm), ['2. #b', '3. #c', '4. #d', '5. #e']);
-  assert.match(out, /\(3 weaker alternatives omitted — position-only or beyond the first 4\.\)/);
+  assert.deepEqual(alts.match(/^\d+\. \S+/gm), ['3. #b', "5. getByRole('button')", "7. getByText('Go')"]);
+  assert.doesNotMatch(alts, /nth-of-type|main > div > a|#c|#d|\/\/button/);
+  assert.match(out, /\(5 more alternatives not shown — cor_inspect with all: true lists every one\.\)/);
+  const full = renderInspect(result, { all: true });
+  assert.equal((full.split('Alternatives:')[1].match(/^\d+\. /gm) ?? []).length, 8);
+  assert.doesNotMatch(full, /not shown/);
 });

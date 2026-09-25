@@ -12,6 +12,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
 import { createSession } from '../src/session.js';
 import { createFingerprintStore, FORMAT_VERSION, RETENTION_DAYS, redactText } from '../src/fingerprints.js';
+import { expandGroups } from './helpers/outline.js';
 
 const COOKIE = 'SEKRET-COOKIE-9f8e7d6c5b4a39281706';
 const TOKEN = 'abcDEF1234567890abcdef12345';
@@ -66,7 +67,7 @@ async function connect(t, fingerprints) {
   t.after(() => client.close());
   const call = async (name, args = {}) => {
     const result = await client.callTool({ name, arguments: args });
-    return result.content.map((c) => c.text).join('\n');
+    return expandGroups(result.content.map((c) => c.text).join('\n'));
   };
   await call('cor_open', { url: `${base}/account`, storageState: statePath });
   return call;

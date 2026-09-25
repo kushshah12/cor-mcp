@@ -12,6 +12,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
 import { createSession } from '../src/session.js';
 import { durableLine } from '../src/format.js';
+import { expandGroups } from './helpers/outline.js';
 
 let base;
 const site = createHttpServer((req, res) => {
@@ -33,7 +34,7 @@ before(async () => {
   const server = createServer({ session });
   server.server.onclose = null;
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
-  call = async (name, args = {}) => (await client.callTool({ name, arguments: args })).content.map((c) => c.text).join('\n');
+  call = async (name, args = {}) => expandGroups((await client.callTool({ name, arguments: args })).content.map((c) => c.text).join('\n'));
   await call('cor_open', { url: `${base}/` });
   page = await session.getPage();
 });

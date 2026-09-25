@@ -1,0 +1,35 @@
+<!doctype html>
+<title>Groups</title>
+<ul>
+  <li><span>iPhone 12</span> <button>Remove</button> <button>Add to cart</button></li>
+  <li><span>iPhone 12 Mini</span> <button>Remove</button> <button data-testid="add-mini">Add to cart</button></li>
+  <li><span>Galaxy S20</span> <button>Remove</button> <button disabled>Add to cart</button></li>
+  <li><span>Pixel 4</span> <button>Remove</button> <button>Add to cart</button></li>
+  <li><span>Pixel 3</span> <button>Remove</button> <button>Add to cart</button> <button>Notify me</button></li>
+</ul>
+<table>
+  <thead><tr><th>Name</th><th></th></tr></thead>
+  <tbody>
+    <tr><td>Ada</td><td><button>Edit</button></td></tr>
+    <tr><td>Grace</td><td><button>Edit</button></td></tr>
+    <tr><td>Linus</td><td><button>Edit</button></td></tr>
+  </tbody>
+</table>
+<!-- bstackdemo's shape: plain cards, no list or heading. -->
+<div class="shelf">
+  <div class="card"><p>One Plus 8</p><button>Buy</button><button>Save</button></div>
+  <div class="card"><p>One Plus 8T</p><button>Buy</button><button>Save</button></div>
+  <div class="card"><p>One Plus 7</p><button>Buy</button><button>Save</button></div>
+</div>
+<!-- Same roles, different names: two groups, never one. -->
+<ol>
+  <li><span>Apples</span> <button>Buy</button></li>
+  <li><span>Pears</span> <button>Buy</button></li>
+  <li><span>Plums</span> <button>Buy</button></li>
+  <li><span>Gold</span> <button>Sell</button></li>
+  <li><span>Silver</span> <button>Sell</button></li>
+  <li><span>Copper</span> <button>Sell</button></li>
+</ol>
+<!-- Two alike items are not worth a group. -->
+<ul class="pair"><li><span>Left</span> <button>Go</button></li><li><span>Right</span> <button>Go</button></li></ul>
+<button>Checkout</button>

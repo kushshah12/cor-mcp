@@ -116,7 +116,40 @@ function lookalikeWarning(lookalikes, refsLive) {
 }
 
 const VALUES_SHOWN = 4;
-const ALTERNATIVES_SHOWN = 4;
+const ALTERNATIVES_SHOWN = 3;
+
+/** The kind of locator, for picking alternatives a codebase's conventions could prefer. */
+function kindOf(l) {
+  const s = String(l.strategy ?? '');
+  if (/^role/i.test(s)) return 'role';
+  if (/text/i.test(s)) return 'text';
+  if (/label/i.test(s)) return 'label';
+  if (/placeholder/i.test(s)) return 'placeholder';
+  if (/test.?id/i.test(s)) return 'testid';
+  if (/xpath/i.test(s)) return 'xpath';
+  return 'css';
+}
+
+/**
+ * The runner-up, then the best of each other kind (role, text, label, test
+ * id, CSS, XPath) — so a codebase built on getByRole page objects still sees
+ * its form — at most three. Position-only (Unstable) locators are never
+ * worth choosing. The rest are one `all: true` away.
+ */
+function pickAlternatives(best, alternatives) {
+  const usable = alternatives.filter((l) => l.tier !== 'unstable');
+  if (!usable.length) return [];
+  const [runnerUp, ...rest] = usable;
+  const picked = [runnerUp];
+  const kinds = new Set([kindOf(best), kindOf(runnerUp)]);
+  for (const l of rest) {
+    if (picked.length >= ALTERNATIVES_SHOWN) break;
+    if (kinds.has(kindOf(l))) continue;
+    kinds.add(kindOf(l));
+    picked.push(l);
+  }
+  return picked;
+}
 
 /**
  * U18. When the element is one of several items and a template was checked
@@ -172,7 +205,7 @@ function stateBoundNote(bound) {
 const usableTemplate = (params, framework) =>
   (params?.template && (framework === 'playwright' || params.template.xpath) ? params : null);
 
-export function renderInspect(result, { refsLive = false, framework = result.framework } = {}) {
+export function renderInspect(result, { refsLive = false, framework = result.framework, all = false } = {}) {
   const lead = usableTemplate(result.params, framework);
   // The template covers the lookalikes only when they are all its items.
   const covered = lead && result.lookalikes && result.lookalikes.items.length === lead.count;
@@ -221,14 +254,12 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
   if (!lead) out.push(...paramNote(result.params, framework));
   out.push(...stateBoundNote(result.stateBound));
 
-  // Unstable alternatives (position-only paths) are never worth choosing, and
-  // each costs ~60 tokens; the rest are capped.
-  const shown = alternatives.filter((l) => l.tier !== 'unstable').slice(0, ALTERNATIVES_SHOWN);
+  const shown = all ? alternatives : pickAlternatives(best, alternatives);
   const omitted = alternatives.length - shown.length;
   if (shown.length) {
-    out.push('', 'Alternatives:', ...shown.map((l, i) => locatorBlock(l, i + 2)));
+    out.push('', 'Alternatives:', ...shown.map((l) => locatorBlock(l, result.locators.indexOf(l) + 1)));
   }
-  if (omitted) out.push(`${shown.length ? '' : '\n'}(${omitted} weaker alternative${omitted === 1 ? '' : 's'} omitted — position-only or beyond the first ${ALTERNATIVES_SHOWN}.)`);
+  if (omitted) out.push(`${shown.length ? '' : '\n'}(${omitted} more alternative${omitted === 1 ? '' : 's'} not shown — cor_inspect with all: true lists every one.)`);
   return out.join('\n');
 }
 
@@ -236,6 +267,8 @@ const SNAPSHOT_LEGEND =
   'Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ' +
   '✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. ' +
   'clickable: no role, only cursor: pointer (a script-handled <div>).';
+
+const GROUP_LEGEND = '"N items, each: …": every item has those controls; its line lists their refs in that order.';
 
 function leafText(leaf, unstableIds) {
   let text = `${leaf.role}${leaf.name ? ` "${leaf.name}"` : ''}${leaf.cls ? ` (.${leaf.cls})` : ''}${leaf.value ? ` = "${leaf.value}"` : ''} [ref=${leaf.ref}]`;
@@ -249,17 +282,93 @@ function leafText(leaf, unstableIds) {
 
 const containerText = (c) => `${c.type}${c.label ? ` "${c.label}"` : ''}`;
 
-/** Chains of single-child containers fold into one line: `section "Team Ultimate" › button "Choose"`. */
-function renderNodes(nodes, depth, unstableIds, out) {
-  for (let node of nodes) {
-    const prefix = [];
-    while (node.kind === 'container' && node.children.length === 1) {
-      prefix.push(containerText(node));
-      node = node.children[0];
+/** What sets one control apart beyond role and name: the per-item part of a group line. */
+function markers(leaf, unstableIds) {
+  const out = [];
+  if (leaf.cls) out.push(`(.${leaf.cls})`);
+  if (leaf.value) out.push(`= "${leaf.value}"`);
+  if (leaf.testId) out.push('✓id');
+  for (const state of leaf.states) out.push(`[${state}]`);
+  if (leaf.hidden) out.push(`+${leaf.hidden} hidden`);
+  if (leaf.id && unstableIds.has(leaf.id)) out.push('[unstable id]');
+  return out.join(' ');
+}
+
+const GROUP_MIN = 3;
+const HINT_IN = /^in "(.*)"$/;
+
+/**
+ * Sibling nodes as items: a container whose children are all controls, or a
+ * run of controls sharing one `in "…"` hint (bstackdemo's cards reach the
+ * outline as leaves hinted with their product). `controls` is null when the
+ * node cannot be an item.
+ */
+function itemsOf(nodes) {
+  const items = [];
+  for (const node of nodes) {
+    if (node.kind === 'container') {
+      items.push({ nodes: [node], type: node.type, label: node.label,
+        controls: node.label && node.children.every((c) => c.kind === 'leaf') ? node.children : null });
+      continue;
     }
-    const own = node.kind === 'leaf' ? leafText(node, unstableIds) : containerText(node);
-    out.push(`${'  '.repeat(depth)}- ${[...prefix, own].join(' › ')}`);
-    if (node.kind === 'container') renderNodes(node.children, depth + 1, unstableIds, out);
+    const label = HINT_IN.exec(node.hint ?? '')?.[1] ?? null;
+    const last = items.at(-1);
+    if (label !== null && last?.hinted && last.label === label) {
+      last.nodes.push(node);
+      last.controls.push(node);
+      continue;
+    }
+    items.push({ nodes: [node], type: 'item', label, hinted: label !== null, controls: label !== null ? [node] : null });
+  }
+  return items;
+}
+
+const shapeOf = (item) => (item.controls ? `${item.type}|${item.controls.map((c) => `${c.role}|${c.name}`).join('||')}` : null);
+const controlText = (c) => `${c.role}${c.name ? ` "${c.name}"` : ''}`;
+const plural = (type, n) => `${n} ${type === 'item' ? 'item' : type}${n === 1 ? '' : 's'}`;
+
+/**
+ * Repeated items collapse to one "each:" line plus one line per item with its
+ * own refs — never a range to count through, so picking "the Galaxy S20's
+ * Add to cart" reads its ref straight off its line. Anything that sets one
+ * item's control apart stays beside that ref; an item with other controls
+ * breaks the run.
+ */
+function renderGroup(run, depth, unstableIds, out) {
+  const pad = '  '.repeat(depth);
+  out.push(`${pad}- ${plural(run[0].type, run.length)}, each: ${run[0].controls.map(controlText).join(', ')}`);
+  for (const item of run) {
+    const refs = item.controls.map((c) => [c.ref, markers(c, unstableIds)].filter(Boolean).join(' ')).join(', ');
+    out.push(`${pad}  - "${item.label}": ${refs}`);
+  }
+}
+
+/** Chains of single-child containers fold into one line: `section "Team Ultimate" › button "Choose"`. */
+function renderNodes(nodes, depth, unstableIds, out, stats = { groups: 0 }) {
+  const items = itemsOf(nodes);
+  for (let i = 0; i < items.length;) {
+    const shape = shapeOf(items[i]);
+    let j = i + 1;
+    while (shape && j < items.length && shapeOf(items[j]) === shape) j++;
+    if (shape && j - i >= GROUP_MIN) {
+      renderGroup(items.slice(i, j), depth, unstableIds, out);
+      stats.groups += 1;
+      i = j;
+      continue;
+    }
+    for (const item of items.slice(i, j)) {
+      for (let node of item.nodes) {
+        const prefix = [];
+        while (node.kind === 'container' && node.children.length === 1) {
+          prefix.push(containerText(node));
+          node = node.children[0];
+        }
+        const own = node.kind === 'leaf' ? leafText(node, unstableIds) : containerText(node);
+        out.push(`${'  '.repeat(depth)}- ${[...prefix, own].join(' › ')}`);
+        if (node.kind === 'container') renderNodes(node.children, depth + 1, unstableIds, out, stats);
+      }
+    }
+    i = j;
   }
   return out;
 }
@@ -270,7 +379,10 @@ function renderNodes(nodes, depth, unstableIds, out) {
  */
 export function renderSnapshot(snapshot, { unstableIds = new Set() } = {}) {
   const head = `${snapshot.title ? `"${snapshot.title}" ` : ''}${snapshot.url} — ${snapshot.count} interactive element${snapshot.count === 1 ? '' : 's'}`;
-  return [head, SNAPSHOT_LEGEND, '', ...renderNodes(snapshot.tree, 0, unstableIds, [])].join('\n');
+  const stats = { groups: 0 };
+  const lines = renderNodes(snapshot.tree, 0, unstableIds, [], stats);
+  const legend = stats.groups ? `${SNAPSHOT_LEGEND} ${GROUP_LEGEND}` : SNAPSHOT_LEGEND;
+  return [head, legend, '', ...lines].join('\n');
 }
 
 const REIDENTIFY = 'Re-identify the element: cor_snapshot, then cor_inspect its ref.';

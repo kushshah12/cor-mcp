@@ -6,6 +6,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
 import { createSession } from '../src/session.js';
 import { numberedIds } from '../src/id-stability.js';
+import { expandGroups } from './helpers/outline.js';
 
 // Like selectorshub: the Email field's id is a fresh number on every load.
 // `step2` is a real numbered name; `panel7` exists only after a click.
@@ -49,7 +50,7 @@ async function fresh(t) {
 }
 async function call(name, args = {}) {
   const result = await client.callTool({ name, arguments: args });
-  return { isError: result.isError === true, text: result.content.map((c) => c.text).join('\n') };
+  return { isError: result.isError === true, text: expandGroups(result.content.map((c) => c.text).join('\n')) };
 }
 const currentEmailId = async () => (await session.getPage()).getAttribute('input', 'id');
 const durable = (text) => text.split('\n').find((l) => l.startsWith('// COR:'));
@@ -61,8 +62,10 @@ test('inspect: a regenerated id is ranked last, warned, and named as the reason'
   const lines = out.text.split('\n');
   assert.doesNotMatch(lines[1], new RegExp(id), 'the volatile id is not the answer');
   assert.match(out.text, new RegExp(`Why this order: Demoted #${id} \\(score \\d+\\) — its id changes on every page load \\(${id} was shub\\d+ on a fresh load\\)`));
-  // Every locator resting on the id (#shubN, //*[@id="shubN"], …) is warned and sits after every other.
-  const blocks = out.text.split('Alternatives:')[1].trim().split(/\n(?=\d+\. )/);
+  // Every locator resting on the id (#shubN, //*[@id="shubN"], …) is warned and sits after every other —
+  // in the full list; the default shows a few, and the reason above says why the id lost.
+  const full = await call('cor_inspect', { selector: 'input', framework: 'cypress', all: true });
+  const blocks = full.text.split('Alternatives:')[1].trim().split(/\n(?=\d+\. )/);
   const onId = blocks.map((b) => b.includes(id));
   assert.ok(onId.some(Boolean));
   assert.deepEqual(onId, [...onId].sort((a, b) => Number(a) - Number(b)), 'id-based locators come last');

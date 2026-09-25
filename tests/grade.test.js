@@ -7,6 +7,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
 import { createSession } from '../src/session.js';
 import { parseGradable } from '../src/grade-parse.js';
+import { expandGroups } from './helpers/outline.js';
 
 let base;
 const site = createHttpServer((req, res) => {
@@ -38,7 +39,7 @@ after(async () => {
 
 async function call(name, args = {}) {
   const result = await client.callTool({ name, arguments: args });
-  return { isError: result.isError === true, text: result.content.map((c) => c.text).join('\n') };
+  return { isError: result.isError === true, text: expandGroups(result.content.map((c) => c.text).join('\n')) };
 }
 const open = (page) => call('cor_open', { url: `${base}/${page}` });
 const grade = (selector, framework) => call('cor_grade', framework ? { selector, framework } : { selector });

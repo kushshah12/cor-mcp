@@ -13,6 +13,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 import { createServer } from '../src/server.js';
 import { createSession } from '../src/session.js';
+import { expandGroups } from './helpers/outline.js';
 
 // ── fixture site ────────────────────────────────────────────────────────────
 const PAGES = {
@@ -74,7 +75,7 @@ async function connect(t, options = {}) {
   });
   const call = async (name, args = {}) => {
     const result = await client.callTool({ name, arguments: args });
-    return { ...result, text: result.content.map((c) => c.text).join('\n') };
+    return { ...result, text: expandGroups(result.content.map((c) => c.text).join('\n')) };
   };
   return { session, call };
 }

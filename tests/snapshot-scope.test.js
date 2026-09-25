@@ -6,6 +6,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
 import { createSession } from '../src/session.js';
+import { expandGroups } from './helpers/outline.js';
 
 // A long legal section, to show the line cap.
 const LONG = `<!doctype html><title>Terms</title><h1>Site</h1>
@@ -42,7 +43,7 @@ after(async () => {
 
 async function call(name, args = {}) {
   const result = await client.callTool({ name, arguments: args });
-  return { isError: result.isError === true, text: result.content.map((c) => c.text).join('\n') };
+  return { isError: result.isError === true, text: expandGroups(result.content.map((c) => c.text).join('\n')) };
 }
 const open = (page) => call('cor_open', { url: `${base}/${page}` });
 const refIn = (text, pattern) => text.split('\n').find((l) => pattern.test(l))?.match(/\[ref=(e\d+)\]/)?.[1];

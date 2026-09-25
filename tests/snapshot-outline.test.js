@@ -7,6 +7,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
 import { createSession } from '../src/session.js';
 import { callPage } from '../src/page-runtime.js';
+import { expandGroups } from './helpers/outline.js';
 
 let base;
 const site = createHttpServer((req, res) => {
@@ -36,7 +37,7 @@ after(async () => {
   site.close();
 });
 
-const call = async (name, args = {}) => (await client.callTool({ name, arguments: args })).content.map((c) => c.text).join('\n');
+const call = async (name, args = {}) => expandGroups((await client.callTool({ name, arguments: args })).content.map((c) => c.text).join('\n'));
 
 /** Each element line with its full path: `table › row "Alice" › button "Edit" [ref=e5]`. */
 function paths(text) {

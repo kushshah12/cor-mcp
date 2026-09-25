@@ -6,6 +6,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
 import { createSession } from '../src/session.js';
+import { expandGroups } from './helpers/outline.js';
 
 const PAGES = {
   '/next': '<title>Next</title><button>Only</button>',
@@ -49,7 +50,7 @@ after(async () => {
 
 async function call(name, args = {}) {
   const result = await client.callTool({ name, arguments: args });
-  return { isError: result.isError === true, text: result.content.map((c) => c.text).join('\n') };
+  return { isError: result.isError === true, text: expandGroups(result.content.map((c) => c.text).join('\n')) };
 }
 /** Open a page and snapshot it; `ref(pattern)` finds a ref by its outline path. */
 async function fresh(page = 'acts.html') {

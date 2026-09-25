@@ -120,9 +120,10 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
           ref: z.string().optional().describe('Element ref from the latest cor_snapshot, e.g. "e4".'),
           selector: z.string().optional().describe('CSS selector matching exactly one element — alternative to ref.'),
           framework: z.enum(FRAMEWORKS).default('playwright').describe('Test framework to render and rank for.'),
+          all: z.boolean().optional().describe('List every alternative. By default: the runner-up and the best of each other locator kind, up to 3.'),
         },
       },
-      handler: async ({ ref, selector, framework }) => {
+      handler: async ({ ref, selector, framework, all = false }) => {
         if (Boolean(ref) === Boolean(selector)) throw new Error('Pass exactly one of ref (from cor_snapshot) or selector.');
         const page = await openPage();
         if (ref) checkRef(session, ref);
@@ -144,7 +145,7 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
           result.rankingNote = `Demoted ${top.value} (score ${top.score}) — its id changes on every page load (${top.volatileId.id} was ${top.volatileId.seen} on a fresh load). Ranked ${best.value} first.`;
         }
         const refsLive = Boolean(session.refs && !session.refs.staleBecause);
-        const response = text(renderInspect(result, { refsLive, framework }));
+        const response = text(renderInspect(result, { refsLive, framework, all }));
         if (fingerprints && result.locators.length) {
           fingerprints.record({ url: page.url(), ...result.capture, locators: result.locators.map((l) => l.value) });
         }

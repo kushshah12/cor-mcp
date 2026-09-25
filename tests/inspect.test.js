@@ -8,6 +8,7 @@ import { createServer } from '../src/server.js';
 import { createSession } from '../src/session.js';
 import { callPage } from '../src/page-runtime.js';
 import { renderInspect } from '../src/format.js';
+import { expandGroups } from './helpers/outline.js';
 
 const fixture = (name) => readFileSync(new URL(`./fixtures/${name}`, import.meta.url), 'utf8');
 
@@ -49,7 +50,7 @@ async function connect(t) {
   t.after(() => client.close());
   return async (name, args = {}) => {
     const result = await client.callTool({ name, arguments: args });
-    return { isError: result.isError === true, text: result.content.map((c) => c.text).join('\n') };
+    return { isError: result.isError === true, text: expandGroups(result.content.map((c) => c.text).join('\n')) };
   };
 }
 
