@@ -190,11 +190,14 @@ function paramLead(params, framework, lookalikes) {
     ]
     : [`  XPath: ${params.template.xpath.selectorTemplate}   (__${params.param}__ is the quoted XPath literal)`];
   const noun = params.kind === 'group' ? 'option' : 'item';
+  const variantLines = (params.variants ?? []).flatMap((v) => v.values.map((x) =>
+    `  Variants: "${x}" is shown by the "${v.of}" item after clicking its toggle — page.getByText('${x.replace(/'/g, "\\'")}', { exact: true }).click() first; the template then finds that item.`));
   const out = [
     params.kind === 'group'
       ? `Recommended — parameterised: ${params.count} options in this ${params.what}; every value checked, each finds exactly its own option (${params.count}/${params.count}).`
-      : `Recommended — parameterised: ${params.count} items share this shape; every value checked, each finds exactly its own item (${params.count}/${params.count}).`,
+      : `Recommended — parameterised: ${params.count} items share this shape; every value checked, each finds exactly its own item (${params.counted ?? params.count}/${params.counted ?? params.count}${params.variants?.length ? ', variants included' : ''}).`,
     `  ${params.param} = "${params.value}"   (also: ${others.slice(0, VALUES_SHOWN).map((v) => `"${v}"`).join(', ')}${more})`,
+    ...variantLines,
     ...form,
     `  When the test touches more than one ${noun}, write one function taking ${params.param} instead of a locator per ${noun}.`,
   ];

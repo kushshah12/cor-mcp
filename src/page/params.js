@@ -277,6 +277,32 @@ export function parameterise(target) {
   return templateFor(target, targetItem, items, itemSel, inner);
 }
 
+// ── U18b.5: toggled variants ────────────────────────────────────────────────
+// An item named by a toggle label holds other variants behind that toggle
+// (BrowserStack's Team card: Team and Team Pro). The template finds the item
+// by a variant's name, but shows the variant only after its label is clicked.
+// The Playwright agent discovered this by hand; the COR agent never tested it.
+
+/** For each item named by a toggle label: its other labels, each checked to pick exactly that item. */
+function variantsOf(items, slot, values, all) {
+  if (slot.kind !== 'either' && slot.kind !== 'label') return [];
+  const sels = slot.kind === 'either' ? slot.sels.map((x) => x.sel) : [slot.sel];
+  const out = [];
+  items.forEach((item, i) => {
+    const naming = sels.map((sel) => item.querySelector(sel)).find((el) => el && text(el) === values[i]);
+    // The name may sit inside the label (BrowserStack: span.card-toggle__label).
+    const input = naming?.closest('label')?.control ?? null;
+    if (!input || !/^(radio|checkbox)$/i.test(input.type) || !input.name) return;
+    const others = [...item.querySelectorAll(`input[type="${input.type}"][name="${CSS.escape(input.name)}"]`)]
+      .filter((r) => r !== input)
+      .map((r) => text([...(r.labels ?? [])].find(isVisible)))
+      .filter((v) => v && !values.includes(v))
+      .filter((v) => { const hit = all.filter((el) => slot.matches(el, v)); return hit.length === 1 && hit[0] === item; });
+    if (others.length) out.push({ of: values[i], values: others });
+  });
+  return out;
+}
+
 // ── U18b.4: row × column cells ──────────────────────────────────────────────
 // A cell addressed by its row's key and its column's header: one XPath with
 // two parameters (XPath can compute the column's position; a Playwright
@@ -473,7 +499,9 @@ function templateFor(target, targetItem, items, itemSel0, inner, { allowSelf = f
       blocked ??= `${what} does not pick each item on its own`;
       continue;
     }
-    return render(slot, itemSel, inner, values, items.indexOf(targetItem));
+    const out = render(slot, itemSel, inner, values, items.indexOf(targetItem));
+    out.variants = variantsOf(items, slot, values, all);
+    return out;
   }
   return { count: items.length, reason: blocked ?? 'no attribute or label inside the item tells the items apart' };
 }

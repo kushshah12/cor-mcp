@@ -49,7 +49,8 @@ export async function verifyTemplate(page, params) {
     params.counted = combos.length;
     return;
   }
-  const values = params.values.slice(0, COUNT_MAX);
+  // A variant (Team Pro) must find its item too.
+  const values = [...params.values, ...(params.variants ?? []).flatMap((v) => v.values)].slice(0, COUNT_MAX);
   const pw = params.template.playwright.selectorTemplate;
   const counts = await Promise.all(values.map((v) =>
     page.locator(pw.replace(PLACEHOLDER, () => cssStringValue(v))).count().catch(() => -1)));

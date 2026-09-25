@@ -50,7 +50,7 @@ test('cards named by a heading or a label: one template covers both, visible car
   const p = await params('.grid .card:nth-child(2) button');
   assert.ok(p.template, JSON.stringify(p));
   assert.deepEqual(p.values, ['Team', 'Team Ultimate']);
-  assert.equal(p.counted, 2);
+  assert.equal(p.counted, 3, 'the two names plus the Team Pro variant (U18b.5)');
   assert.match(p.code, /\.filter\(\{ visible: true \}\)/, 'hidden copies are left out');
   for (const [v, price] of [['Team', '$150 / month'], ['Team Ultimate', '$375 / month']]) {
     const choose = run(p.code, p.param, v);
@@ -81,4 +81,61 @@ test('cor_inspect renders it', async () => {
 test('a features heading below the controls does not name the card, even when every card has one', async () => {
   const p = await params('.grid .card:nth-child(2) button');
   assert.deepEqual(p.values, ['Team', 'Team Ultimate'], JSON.stringify(p.values));
+});
+
+// U18b.5 — toggled variants. Team Pro lives behind a toggle in the Team card:
+// the Playwright agent had to discover it; the COR agent never tested it.
+test('a card whose name is a toggle label lists its other labels as variants, and says to click first', async () => {
+  const p = await params('.grid .card:nth-child(1) button');
+  assert.deepEqual(p.variants, [{ of: 'Team', values: ['Team Pro'] }]);
+  assert.equal(p.counted, 3, 'Team, Team Ultimate and the variant Team Pro each counted by Playwright');
+  // The template finds the same card by the variant's name…
+  assert.equal(await run(p.code, p.param, 'Team Pro').count(), 1);
+  // …but its content is the variant's only after the click the note asks for.
+  await page.getByText('Team Pro', { exact: true }).click();
+  assert.equal(await run(p.code, p.param, 'Team Pro').evaluate((el) => el.closest('.card').querySelector('.card__price').textContent), '$200 / month');
+  await page.getByText('Team', { exact: true }).click();
+  assert.equal(await run(p.code, p.param, 'Team').evaluate((el) => el.closest('.card').querySelector('.card__price').textContent), '$150 / month');
+});
+
+test('cor_inspect says how to reach a variant', async () => {
+  const out = await call('cor_inspect', { selector: '.grid .card:nth-child(2) button' });
+  assert.match(out, /\(3\/3, variants included\)/);
+  assert.match(out, /Variants: "Team Pro" is shown by the "Team" item after clicking its toggle — page\.getByText\('Team Pro', \{ exact: true \}\)\.click\(\) first; the template then finds that item\./);
+});
+
+test('a card without a toggle has no variants', async () => {
+  const p = await params('.grid .card:nth-child(2) button');
+  assert.ok(p.variants.every((v) => v.of !== 'Team Ultimate'));
+});
+
+test('a variant name that another card also shows is left out — the template itself stays', async () => {
+  await page.evaluate(() => document.querySelector('.grid').insertAdjacentHTML('beforeend',
+    '<div class="card" id="extra"><h3 class="card__title">Enterprise</h3><label>Team Pro</label><button>Contact Sales</button></div>'));
+  try {
+    const p = await params('.grid .card:nth-child(1) button');
+    assert.ok(p.template, 'the template survives');
+    assert.deepEqual(p.variants, [], '"Team Pro" now names two cards, so it is not offered as a variant');
+  } finally {
+    await page.evaluate(() => document.getElementById('extra').remove());
+  }
+});
+
+test('BrowserStack\'s shape: the name is a span inside the toggle label — variants still found', async () => {
+  await page.evaluate(() => {
+    // As on BrowserStack: the label wraps the hidden input and a block-level span holding the name.
+    for (const l of document.querySelectorAll('.grid .card:nth-child(1) label')) {
+      const input = document.getElementById(l.htmlFor);
+      l.removeAttribute('for');
+      l.innerHTML = `<span class="card-toggle__label" style="display:block">${l.textContent}</span>`;
+      l.prepend(input);
+    }
+  });
+  try {
+    const p = await params('.grid .card:nth-child(1) button');
+    assert.deepEqual(p.variants, [{ of: 'Team', values: ['Team Pro'] }], JSON.stringify(p.variants));
+  } finally {
+    await call('cor_open', { url: `${base}/` });
+    page = await session.getPage();
+  }
 });

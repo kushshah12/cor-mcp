@@ -20,3 +20,9 @@
 <div class="copies">
   <div class="card"><h3 class="card__title">Team Ultimate</h3><p class="card__price">$299 / month</p><button>Choose</button></div>
 </div>
+<script>
+  // The Team card shows Team Pro's price once its toggle is clicked.
+  for (const r of document.querySelectorAll('input[name="tv"]')) {
+    r.addEventListener('change', () => { r.closest('.card').querySelector('.card__price').textContent = r.id === 't2' ? '$200 / month' : '$150 / month'; });
+  }
+</script>
