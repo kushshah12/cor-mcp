@@ -308,6 +308,21 @@ export function stableScope(items, css) {
   return null;
 }
 
+// ── U19.3: candidate values for cor_grade across every value ────────────────
+/**
+ * An item's naming texts, best first: text before its first visible control,
+ * headings and title/name/label classes first; never numbers or prices.
+ */
+export function itemTexts(item) {
+  const firstControl = [...item.querySelectorAll('*')].find((el) => isControl(el) && isVisible(el));
+  const before = (el) => !firstControl || Boolean(el.compareDocumentPosition(firstControl) & Node.DOCUMENT_POSITION_FOLLOWING);
+  const rank = (el) => (before(el) ? 0 : 3) + (el.matches(HEADING) ? 0 : /title|name|heading|label|question/i.test(el.className) || el.tagName === 'LABEL' ? 1 : 2);
+  const els = [...item.querySelectorAll('*')].filter((el) => isVisible(el) && text(el) && text(el).length <= LABEL_MAX && leafish(el)
+    && !(el.matches(INTERACTIVE) && !el.matches('label')) && !NUMERIC.test(text(el)) && !PRICE.test(text(el)));
+  els.sort((a, b) => rank(a) - rank(b));
+  return [...new Set(els.map(text))].slice(0, 12);
+}
+
 // ── U18b.5: toggled variants ────────────────────────────────────────────────
 // An item named by a toggle label holds other variants behind that toggle
 // (BrowserStack's Team card: Team and Team Pro). The template finds the item

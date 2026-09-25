@@ -6,7 +6,7 @@ import { deepQueryAll, isControl, hintsFor, isShown, roleAndName, squash, visibl
 import { buildOutline } from './outline.js';
 import { scopedSnapshot } from './scope.js';
 import { beginAct, endAct, identityOf, revalidate, structuralPath } from './acts.js';
-import { parameterise, stableScope, xpathLiteral } from './params.js';
+import { itemTexts, parameterise, stableScope, xpathLiteral } from './params.js';
 import { stateBound } from './state.js';
 import { removedMatch, saferScope } from './removed.js';
 
@@ -199,6 +199,23 @@ function grade({ element: el, value, framework, matchCount }) {
   };
 }
 
+/** U19.3: the visible items of `css` and each one's candidate values. */
+function itemCandidates({ css }) {
+  let all;
+  try {
+    all = [...document.querySelectorAll(css)];
+  } catch {
+    return null;
+  }
+  return all.filter(isShown).map((item) => itemTexts(item));
+}
+
+/** U19.3: which visible item of `css` holds `element` (-1 when none). */
+function itemIndexOf({ css, element: el }) {
+  const items = [...document.querySelectorAll(css)].filter(isShown);
+  return items.findIndex((it) => it.contains(el));
+}
+
 /** U19.2: for cor_grade — a stable scope that replaces `visible: true` over `css`, or null. */
 function stableScopeFor({ css }) {
   let all;
@@ -233,4 +250,4 @@ function countXpath({ template, values }) {
   });
 }
 
-window.__corMcp = { snapshot, scoped, inspect, element, grade, scoreSteps, stableScopeFor, beginAct, afterAct, countXpath };
+window.__corMcp = { snapshot, scoped, inspect, element, grade, scoreSteps, stableScopeFor, itemCandidates, itemIndexOf, beginAct, afterAct, countXpath };

@@ -20,8 +20,9 @@ export const SUPPORTED_FORMS =
 class NotGradable extends Error {}
 
 // ── a tiny literal reader: strings, regexes, numbers, booleans, flat objects ──
-function reader(src) {
+function reader(src, param = null) {
   let i = 0;
+  let usedParam = false;
   const ws = () => { while (/\s/.test(src[i] ?? '')) i++; };
   const fail = (what) => { throw new NotGradable(what); };
 
@@ -74,6 +75,13 @@ function reader(src) {
         i += key.length;
       }
       ws();
+      // `{ name, exact: true }` — shorthand is allowed only for the parameter itself.
+      if (param && key === param && (src[i] === ',' || src[i] === '}')) {
+        out[key] = { kind: 'param' };
+        usedParam = true;
+        if (src[i] === ',') i++;
+        continue;
+      }
       if (src[i++] !== ':') fail('an object shorthand or spread (values must be literals)');
       out[key] = value();
       ws();
@@ -85,6 +93,15 @@ function reader(src) {
     ws();
     // A locator as an option value: filter({ has: page.getByText('…') }).
     if (LOCATOR_START.test(src.slice(i))) return chain();
+    // U19.3: the helper's parameter, e.g. getByText(title, { exact: true }).
+    if (param) {
+      const id = /^[A-Za-z_$][\w$]*/.exec(src.slice(i))?.[0];
+      if (id === param && !/^\s*[.(]/.test(src.slice(i + id.length))) {
+        i += id.length;
+        usedParam = true;
+        return { kind: 'param' };
+      }
+    }
     const ch = src[i];
     if (ch === '"' || ch === "'" || ch === '`') return string();
     if (ch === '/') return regex();
@@ -154,13 +171,14 @@ function reader(src) {
     return { out, rest: src.slice(i).trim() };
   }
 
-  return { args, chain, rest: () => src.slice(i).trim() };
+  return { args, chain, rest: () => src.slice(i).trim(), usedParam: () => usedParam };
 }
 
 /** Rebuild a parsed chain on a page, so Playwright counts exactly what was written. */
-function buildChain(page, { calls }) {
+function buildChain(page, { calls }, value) {
   const resolve = (v) => {
-    if (v && v.kind === 'locator') return buildChain(page, v);
+    if (v && v.kind === 'param') return value;
+    if (v && v.kind === 'locator') return buildChain(page, v, value);
     if (v && typeof v === 'object' && !(v instanceof RegExp)) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, resolve(x)]));
     return v;
   };
@@ -214,7 +232,7 @@ function describeChain({ calls }, prefix = '') {
  * @returns {{ framework: string, scoreValue: string, build: (page) => import('playwright-core').Locator, note?: string, chain?: { scored: object[], notes: string[] } }}
  * @throws {NotGradable}
  */
-export function parseGradable(input) {
+export function parseGradable(input, { param = null } = {}) {
   const src = String(input ?? '').trim().replace(/;$/, '').replace(/^await\s+/, '').trim();
   if (!src) throw new NotGradable('it is empty');
 
@@ -245,14 +263,19 @@ export function parseGradable(input) {
   if (pw) {
     const method = pw[1];
     if (!PLAYWRIGHT_METHODS.has(method)) throw new NotGradable(`${method} is not a Playwright locator method`);
-    const r = reader(src);
+    const r = reader(src, param);
     const parsed = r.chain();
     const rest = r.rest();
     if (rest) throw new NotGradable(`it has more after the locator (${rest.slice(0, 30)})`);
     const [base] = parsed.calls;
     if (base.args.length === 0) throw new NotGradable(`${method}() has no argument`);
     if (method === 'locator' && typeof base.args[0] !== 'string') throw new NotGradable('locator() needs a selector string');
-    const build = (page) => buildChain(page, parsed);
+    const build = (page, value) => buildChain(page, parsed, value);
+    if (param) {
+      // Across every value: the caller counts each; durability is graded on a
+      // literal copy (substituteParam), so the chain description is not needed.
+      return { framework: 'playwright', usesParam: r.usedParam(), build, baseCss: method === 'locator' ? base.args[0] : null };
+    }
     if (parsed.calls.length === 1) {
       return {
         framework: 'playwright',
@@ -272,6 +295,35 @@ export function parseGradable(input) {
 
   // A raw selector: CSS, XPath, or a Playwright selector-engine string (text=, role=, xpath=).
   return { framework: null, scoreValue: src.replace(/^xpath=/, ''), build: (page) => page.locator(src) };
+}
+
+/** `src` with the unquoted identifier `param` replaced by `value` as a string literal. */
+export function substituteParam(src, param, value) {
+  let out = '';
+  let quote = null;
+  for (let i = 0; i < src.length; i++) {
+    const ch = src[i];
+    if (quote) {
+      out += ch;
+      if (ch === '\\') { out += src[++i] ?? ''; continue; }
+      if (ch === quote) quote = null;
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === '`') { quote = ch; out += ch; continue; }
+    const m = /^[A-Za-z_$][\w$]*/.exec(src.slice(i));
+    if (m) {
+      const before = src[i - 1];
+      const lit = `'${String(value).replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+      const after = src.slice(i + m[0].length).match(/^\s*(.)/)?.[1];
+      const prevNonSpace = src.slice(0, i).trimEnd().slice(-1);
+      const shorthand = m[0] === param && (prevNonSpace === '{' || prevNonSpace === ',') && (after === ',' || after === '}');
+      out += m[0] === param && before !== '.' ? (shorthand ? `${param}: ${lit}` : lit) : m[0];
+      i += m[0].length - 1;
+      continue;
+    }
+    out += ch;
+  }
+  return out;
 }
 
 export { NotGradable };
