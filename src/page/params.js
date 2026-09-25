@@ -10,7 +10,7 @@
 // 25/25. Only trying every value catches that, so a template is offered only
 // when every value passes — otherwise no template, and the reason.
 import { isUnstableClass, isUnstableValue, cssEscape } from '@corlabs/engine/core';
-import { HEADING, INTERACTIVE, deepQueryAll, isControl, isVisible, roleAndName, squash } from './dom.js';
+import { HEADING, INTERACTIVE, deepQueryAll, isControl, isShown, isVisible, roleAndName, squash, visibleLabelOf } from './dom.js';
 
 const TEST_ATTRS = ['data-testid', 'data-test-id', 'data-test', 'data-cy', 'data-qa'];
 const NOT_A_SLOT = /^(id|class|style|href|src|srcset|tabindex|aria-.*|on.*|data-(v-|reactid|react|ng-).*)$/;
@@ -153,11 +153,97 @@ function columnHeader(cell) {
   return h && /^[a-z][a-z ]{0,20}$/.test(h) ? camel(h.replace(/ /g, '-')) : null;
 }
 
+// ── U18b.1: control groups ──────────────────────────────────────────────────
+// Siblings of one role told apart by their names: a radio group, a tablist, a
+// hidden toggle pair. BrowserStack pricing: both agents hand-wrote annually() /
+// monthly() and the Teams/Individuals pair as copies.
+
+/** A name as a parameter: "plan_type_selector" → planTypeSelector, "Product" → product. */
+const toParam = (s) => {
+  const words = String(s ?? '').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
+  return words.length ? words[0] + words.slice(1).map((w) => w[0].toUpperCase() + w.slice(1)).join('') : null;
+};
+
+// The engine's changingValueIn / stableNamePrefix, kept local so the page
+// bundle does not depend on an unmerged engine release.
+const CHANGING = /[$€£¥₹]\s?\d[\d.,]*|\d[\d.,]*\s?(?:%(?![0-9A-Fa-f]{2})|[$€£¥₹])/;
+function stableName(name) {
+  if (!CHANGING.test(name)) return name;
+  const kept = [];
+  for (const seg of name.split(/\s*(?:[(|·,]|\s-\s)\s*/)) {
+    if (CHANGING.test(seg)) break;
+    kept.push(seg);
+  }
+  const prefix = kept.join(' ').replace(/[)\s]+$/, '').trim();
+  return prefix.length >= 3 && /[A-Za-z]/.test(prefix) ? prefix : null;
+}
+
+/** The group the target belongs to, or null. */
+function groupOf(target) {
+  if (target.matches('input[type="radio"], input[type="checkbox"]') && target.name) {
+    const members = [...document.querySelectorAll(`input[type="${target.type}"][name="${CSS.escape(target.name)}"]`)].filter(isShown);
+    return { members, role: target.type, param: toParam(target.name), what: `${target.type} group` };
+  }
+  const role = target.getAttribute('role');
+  const holder = role === 'tab' ? target.closest('[role="tablist"]') : role === 'radio' ? target.closest('[role="radiogroup"]') : null;
+  if (!holder) return null;
+  const members = [...holder.querySelectorAll(`[role="${role}"]`)].filter(isShown);
+  return { members, role, param: toParam(holder.getAttribute('aria-label')) ?? role, what: role === 'tab' ? 'tablist' : 'radio group' };
+}
+
+/**
+ * U18b.1. A template whose parameter is the option's name, checked for every
+ * option; null when the target is not in a group of two or more.
+ */
+function groupTemplate(target) {
+  const group = groupOf(target);
+  if (!group || group.members.length < 2 || !group.members.includes(target)) return null;
+  const { members, role, param, what } = group;
+  const names = members.map((m) => squash(roleAndName(m).name));
+  const values = names.map((n) => stableName(n));
+  const count = members.length;
+  if (values.some((v) => !v)) return { count, kind: 'group', what, reason: 'an option has no name to tell it by' };
+  const dup = values.find((v, i) => values.indexOf(v) !== i);
+  if (dup) return { count, kind: 'group', what, reason: `two options share the name "${dup}"` };
+  const exact = values.every((v, i) => v === names[i]);
+
+  // Hidden inputs shown by their labels are out of the accessibility tree:
+  // Playwright reaches them by label, and a user changes them by clicking it.
+  const viaLabel = members.map((m) => Boolean(visibleLabelOf(m)));
+  if (viaLabel.some(Boolean) && !viaLabel.every(Boolean)) return { count, kind: 'group', what, reason: 'some options are hidden inputs and some are not' };
+  const hidden = viaLabel[0];
+  const lower = (s) => s.toLowerCase();
+  // The check, in Playwright's terms: each value finds exactly its own option.
+  const finds = (v) => (hidden
+    ? members.filter((m) => [...(m.labels ?? [])].some((l) => (exact ? squash(l.textContent) === v : lower(squash(l.textContent)).includes(lower(v)))))
+    : deepQueryAll(`[role="${role}"], input[type="${role}"]`).filter((el) => isVisible(el) && roleAndName(el).role === role
+      && (exact ? squash(roleAndName(el).name) === v : lower(squash(roleAndName(el).name)).includes(lower(v)))));
+  if (!values.every((v, i) => { const hit = finds(v); return hit.length === 1 && hit[0] === members[i]; })) {
+    return { count, kind: 'group', what, reason: 'an option\'s name also names another element on the page' };
+  }
+  const opt = exact ? ', { exact: true }' : '';
+  const out = {
+    count, kind: 'group', what, param, value: values[members.indexOf(target)], values,
+    code: hidden ? `page.getByLabel(${param}${opt})` : `page.getByRole(${q(role)}, { name: ${param}${exact ? ', exact: true' : ''} })`,
+    template: {
+      playwright: { selectorTemplate: hidden ? `internal:label="__${param}__"${exact ? 's' : 'i'}` : `internal:role=${role}[name="__${param}__"${exact ? 's' : 'i'}]`, syntax: 'css-string' },
+      // What getByRole / getByLabel generate: `i` is part of the name,
+      // case-insensitive; `s` is the exact name. The public `role=` engine
+      // matches a quoted name exactly, so "Annually" would miss its radio.
+      xpath: null,
+    },
+  };
+  if (hidden) out.act = `page.getByText(${param}${opt})`;
+  return out;
+}
+
 /**
  * U18. The target's parameterised template, or why there is none; null when
  * the target is not one of several items.
  */
 export function parameterise(target) {
+  const group = groupTemplate(target);
+  if (group) return group;
   const repeats = repeatsOf(target);
   if (repeats.length < 2) return null;
   const targetItem = itemOf(target, repeats);

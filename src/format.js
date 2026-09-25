@@ -162,13 +162,22 @@ function paramLead(params, framework, lookalikes) {
   const others = params.values.filter((v) => v !== params.value);
   const more = others.length > VALUES_SHOWN ? `, … ${others.length - VALUES_SHOWN} more` : '';
   const form = framework === 'playwright'
-    ? [`  ${params.code}`, `  Registry template (${params.template.playwright.syntax}): ${params.template.playwright.selectorTemplate}`]
+    ? [
+      ...(params.act
+        ? [`  change it: ${params.act}.click()   — the inputs are hidden; their labels are what a user clicks`,
+          `  check it:  ${params.code}`]
+        : [`  ${params.code}`]),
+      `  Registry template (${params.template.playwright.syntax}): ${params.template.playwright.selectorTemplate}`,
+    ]
     : [`  XPath: ${params.template.xpath.selectorTemplate}   (__${params.param}__ is the quoted XPath literal)`];
+  const noun = params.kind === 'group' ? 'option' : 'item';
   const out = [
-    `Recommended — parameterised: ${params.count} items share this shape; every value checked, each finds exactly its own item (${params.count}/${params.count}).`,
+    params.kind === 'group'
+      ? `Recommended — parameterised: ${params.count} options in this ${params.what}; every value checked, each finds exactly its own option (${params.count}/${params.count}).`
+      : `Recommended — parameterised: ${params.count} items share this shape; every value checked, each finds exactly its own item (${params.count}/${params.count}).`,
     `  ${params.param} = "${params.value}"   (also: ${others.slice(0, VALUES_SHOWN).map((v) => `"${v}"`).join(', ')}${more})`,
     ...form,
-    `  When the test touches more than one item, write one function taking ${params.param} instead of a locator per item.`,
+    `  When the test touches more than one ${noun}, write one function taking ${params.param} instead of a locator per ${noun}.`,
   ];
   // Every lookalike is one of the items, so picking "the wrong one" is just a different value.
   if (lookalikes) out.push(`  The ${lookalikes.items.length - 1} lookalike ${lookalikes.role}${lookalikes.name ? ` "${lookalikes.name}"` : ''} elements are the other items — pass their ${params.param} instead.`);
@@ -178,9 +187,14 @@ function paramLead(params, framework, lookalikes) {
 /** Why there is no template, or none for this framework. */
 function paramNote(params, framework) {
   if (!params) return [];
-  if (!params.template) return ['', `Not parameterised — ${params.count} items share this shape, but ${params.reason}.`];
+  if (!params.template) {
+    const what = params.kind === 'group' ? `${params.count} options in this ${params.what}` : `${params.count} items share this shape`;
+    return ['', `Not parameterised — ${what}, but ${params.reason}.`];
+  }
   if (framework !== 'playwright' && !params.template.xpath) {
-    return ['', `Not parameterised for ${framework} — the element has no text or attribute an XPath can match exactly.`];
+    return ['', params.kind === 'group'
+      ? `Not parameterised for ${framework} yet — the ${params.what} template is written for Playwright only.`
+      : `Not parameterised for ${framework} — the element has no text or attribute an XPath can match exactly.`];
   }
   return [];
 }
