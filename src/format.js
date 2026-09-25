@@ -111,35 +111,52 @@ function lookalikeWarning(lookalikes, refsLive) {
 }
 
 const VALUES_SHOWN = 4;
+const ALTERNATIVES_SHOWN = 4;
 
 /**
- * U18. The template for an element that is one of several items, or why
- * there is none. Playwright gets code to write (a variable, so no escaping in
- * the test) plus the registry form; other frameworks get the XPath form.
+ * U18. When the element is one of several items and a template was checked
+ * against every one, the template IS the answer: it leads the response. An
+ * agent run on bstackdemo (2026-09-25) had to read past "change the
+ * application", five weak single-item locators and a 25-line lookalike list
+ * to reach it.
  */
-function paramBlock(params, framework) {
-  if (!params) return [];
-  if (!params.template) return ['', `Not parameterised — ${params.count} items share this shape, but ${params.reason}.`];
+function paramLead(params, framework, lookalikes) {
   const others = params.values.filter((v) => v !== params.value);
   const more = others.length > VALUES_SHOWN ? `, … ${others.length - VALUES_SHOWN} more` : '';
+  const form = framework === 'playwright'
+    ? [`  ${params.code}`, `  Registry template (${params.template.playwright.syntax}): ${params.template.playwright.selectorTemplate}`]
+    : [`  XPath: ${params.template.xpath.selectorTemplate}   (__${params.param}__ is the quoted XPath literal)`];
   const out = [
-    '',
-    `Parameterised — ${params.count} items share this shape; every value checked, each finds exactly its own item (${params.count}/${params.count}):`,
+    `Recommended — parameterised: ${params.count} items share this shape; every value checked, each finds exactly its own item (${params.count}/${params.count}).`,
     `  ${params.param} = "${params.value}"   (also: ${others.slice(0, VALUES_SHOWN).map((v) => `"${v}"`).join(', ')}${more})`,
+    ...form,
+    `  When the test touches more than one item, write one function taking ${params.param} instead of a locator per item.`,
   ];
-  if (framework === 'playwright') {
-    out.push(`  ${params.code}`, `  Registry template (${params.template.playwright.syntax}): ${params.template.playwright.selectorTemplate}`);
-  } else if (params.template.xpath) {
-    out.push(`  XPath: ${params.template.xpath.selectorTemplate}   (__${params.param}__ is the quoted XPath literal)`);
-  } else {
-    return ['', `Not parameterised for ${framework} — the element has no text or attribute an XPath can match exactly.`];
-  }
-  out.push(`  When the test touches more than one item, write one function taking ${params.param} instead of a locator per item.`);
-  return out;
+  // Every lookalike is one of the items, so picking "the wrong one" is just a different value.
+  if (lookalikes) out.push(`  The ${lookalikes.items.length - 1} lookalike ${lookalikes.role}${lookalikes.name ? ` "${lookalikes.name}"` : ''} elements are the other items — pass their ${params.param} instead.`);
+  return [...out, ''];
 }
 
+/** Why there is no template, or none for this framework. */
+function paramNote(params, framework) {
+  if (!params) return [];
+  if (!params.template) return ['', `Not parameterised — ${params.count} items share this shape, but ${params.reason}.`];
+  if (framework !== 'playwright' && !params.template.xpath) {
+    return ['', `Not parameterised for ${framework} — the element has no text or attribute an XPath can match exactly.`];
+  }
+  return [];
+}
+
+/** A template usable in this framework, or null. */
+const usableTemplate = (params, framework) =>
+  (params?.template && (framework === 'playwright' || params.template.xpath) ? params : null);
+
 export function renderInspect(result, { refsLive = false, framework = result.framework } = {}) {
-  const out = result.lookalikes ? lookalikeWarning(result.lookalikes, refsLive) : [];
+  const lead = usableTemplate(result.params, framework);
+  // The template covers the lookalikes only when they are all its items.
+  const covered = lead && result.lookalikes && result.lookalikes.items.length === lead.count;
+  const out = lead ? paramLead(lead, framework, covered ? result.lookalikes : null) : [];
+  if (result.lookalikes && !covered) out.push(...lookalikeWarning(result.lookalikes, refsLive));
   const [best, ...alternatives] = result.locators;
 
   if (!best) {
@@ -150,15 +167,20 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
 
   if (SUB_FLOOR.has(best.tier)) {
     const fix = addTestId(result);
-    out.push(`Recommendation: change the application — no durable locator exists for this element (best is ${best.tierLabel}).`);
-    if (fix) {
-      out.push(`Add a test attribute (this requires an application change):`, `  ${fix.snippet}`);
+    if (lead) {
+      out.push(`For this one item alone there is no durable locator (best is ${best.tierLabel})${fix ? ` — a test attribute would fix that: ${fix.snippet}` : ''}.`);
+      out.push('Declined as the answer — the most durable single-item locator today:', locatorBlock(best, 1));
     } else {
-      out.push(...(result.recommendations ?? []).map((r) => `- ${r}`));
+      out.push(`Recommendation: change the application — no durable locator exists for this element (best is ${best.tierLabel}).`);
+      if (fix) {
+        out.push(`Add a test attribute (this requires an application change):`, `  ${fix.snippet}`);
+      } else {
+        out.push(...(result.recommendations ?? []).map((r) => `- ${r}`));
+      }
+      out.push('', 'Declined as the answer — the most durable locator available today:', locatorBlock(best, 1));
     }
-    out.push('', 'Declined as the answer — the most durable locator available today:', locatorBlock(best, 1));
   } else {
-    out.push(`Best locator (${result.framework}):`, `  ${best.code || best.value}`);
+    out.push(`${lead ? 'For this one item alone' : 'Best locator'} (${result.framework}):`, `  ${best.code || best.value}`);
     out.push(`  Point-in-time — true on this page now: ${pointInTime(best)}`);
     for (const s of best.signals) {
       if (s.points) out.push(`  ${s.direction === 'positive' ? '+' : '-'} ${clause(s.message)}`);
@@ -175,11 +197,16 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
     durableLine(result),
   );
 
-  out.push(...paramBlock(result.params, framework));
+  if (!lead) out.push(...paramNote(result.params, framework));
 
-  if (alternatives.length) {
-    out.push('', 'Alternatives:', ...alternatives.map((l, i) => locatorBlock(l, i + 2)));
+  // Unstable alternatives (position-only paths) are never worth choosing, and
+  // each costs ~60 tokens; the rest are capped.
+  const shown = alternatives.filter((l) => l.tier !== 'unstable').slice(0, ALTERNATIVES_SHOWN);
+  const omitted = alternatives.length - shown.length;
+  if (shown.length) {
+    out.push('', 'Alternatives:', ...shown.map((l, i) => locatorBlock(l, i + 2)));
   }
+  if (omitted) out.push(`${shown.length ? '' : '\n'}(${omitted} weaker alternative${omitted === 1 ? '' : 's'} omitted — position-only or beyond the first ${ALTERNATIVES_SHOWN}.)`);
   return out.join('\n');
 }
 

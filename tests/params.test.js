@@ -127,7 +127,7 @@ test('a one-off element gets no Parameterised block', async () => {
 
 test('cor_inspect renders the block: code for Playwright, XPath for others', async () => {
   const pw = await call('cor_inspect', { selector: '#shop .card:nth-child(1) button' });
-  assert.match(pw, /Parameterised — 5 items share this shape; every value checked, each finds exactly its own item \(5\/5\)/);
+  assert.match(pw, /Recommended — parameterised: 5 items share this shape; every value checked, each finds exactly its own item \(5\/5\)/);
   assert.match(pw, /title = "Phone 12" {3}\(also: "Phone 12 Mini", "Phone 12 Pro", "12\\" Monitor"|title = "Phone 12" {3}\(also: "Phone 12 Mini", "Phone 12 Pro", "12" Monitor"/);
   assert.match(pw, /getByText\(title, \{ exact: true \}\)/);
   assert.match(pw, /Registry template \(css-string\): div\.card:has\(h3\.card-title:text-is\("__title__"\)\)/);
@@ -151,4 +151,35 @@ test('a template Playwright cannot count as one per value is withdrawn', async (
   } finally {
     await page.evaluate(() => document.querySelector('#late').remove());
   }
+});
+
+test('the template leads; the single-item locator follows; covered lookalikes collapse to one line', async () => {
+  const out = await call('cor_inspect', { selector: '#shop .card:nth-child(1) button' });
+  const lines = out.split('\n');
+  assert.match(lines[0], /^Recommended — parameterised: 5 items/);
+  assert.ok(lines.findIndex((l) => /^For this one item alone/.test(l)) > lines.findIndex((l) => /write one function taking title/.test(l)));
+  assert.doesNotMatch(out, /Recommendation: change the application/);
+  assert.doesNotMatch(out, /Check this is the element you meant|Also: {10}/);
+  assert.match(out, /The 4 lookalike button "Add to cart" elements are the other items/);
+});
+
+test('a lookalike of another shape keeps the full warning', async () => {
+  const out = await call('cor_inspect', { selector: '.tile:nth-child(1) button' });
+  assert.match(out, /^Recommended — parameterised: 2 items/);
+  assert.match(out, /⚠ Check this is the element you meant: 2 other visible elements look the same — button "Compare"/);
+});
+
+test('alternatives never list position-only locators and say how many were left out', async () => {
+  const { renderInspect } = await import('../src/format.js');
+  const loc = (value, score, tier) => ({ value, code: value, strategy: 'css', score, tier, tierLabel: tier, matchCount: 1, signals: [], warnings: [], primaryRisk: null });
+  const result = {
+    framework: 'playwright',
+    locators: [loc('#a', 90, 'excellent'), loc('div > span:nth-of-type(2)', 10, 'unstable'), loc('#b', 80, 'good'), loc('#c', 70, 'good'),
+      loc('#d', 60, 'fair'), loc('#e', 55, 'fair'), loc('#f', 50, 'fair'), loc('main > div > a', 1, 'unstable')],
+  };
+  const out = renderInspect(result);
+  const alts = out.split('Alternatives:')[1];
+  assert.doesNotMatch(alts, /nth-of-type|main > div > a/);
+  assert.deepEqual(alts.match(/^\d+\. \S+/gm), ['2. #b', '3. #c', '4. #d', '5. #e']);
+  assert.match(out, /\(3 weaker alternatives omitted — position-only or beyond the first 4\.\)/);
 });

@@ -69,7 +69,7 @@ test('a clickable ref inspects, with the lookalike guard and a parameterised tem
   const snap = await call('cor_snapshot');
   const ref = refIn(lines(snap, /clickable "Add to cart"/)[1]);
   const out = await call('cor_inspect', { ref });
-  assert.match(out, /2 other visible elements look the same — clickable "Add to cart"/);
+  assert.match(out, /The 2 lookalike clickable "Add to cart" elements are the other items — pass their title instead/);
   assert.match(out, /title = "Phone 12 Mini"/);
   assert.match(out, /getByText\('Add to cart', \{ exact: true \}\)/);
 });
