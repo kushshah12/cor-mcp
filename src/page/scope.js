@@ -5,8 +5,8 @@
 // name: a heading, a landmark's label, a list item's or table row's text.
 // A name that fits several regions is not guessed at — the candidates come
 // back, each with a ref inside it, for the agent to choose.
-import { DEFAULT_TEST_ID_ATTRIBUTES } from '@corlabs/engine/core';
-import { HEADING, clip, deepQueryAll, hasControl, isControl, isShown, isVisible, roleAndName, squash } from './dom.js';
+import { DEFAULT_TEST_ID_ATTRIBUTES, isUnstableClass } from '@corlabs/engine/core';
+import { HEADING, clip, deepQueryAll, hasControl, isControl, isShown, isVisible, roleAndName, squash, visibleLabelOf } from './dom.js';
 import {
   CELL, ITEM, LANDMARKS, TABLE, ariaLabel, containersFor, headingLevel, label, ownText, rowKey, statesOf,
 } from './outline.js';
@@ -41,6 +41,36 @@ function headingRegion(h) {
   };
 }
 
+/**
+ * The nearest ancestor that is one of several like siblings — same tag and a
+ * shared hand-written class: a card in a grid. The fallback when no section,
+ * list, table, landmark or panel holds the element. BrowserStack's Team card
+ * has no heading (its name is a toggle label), so scoping to it failed and
+ * the agent read the card's price with DOM probes instead.
+ */
+function cardOf(el) {
+  // A card shows more than the control: BrowserStack wraps the seats control
+  // in a toggled pair (Team / Team Pro) whose wrapper has a like sibling but
+  // holds nothing else, and that wrapper is not the card.
+  const own = squash(el.innerText ?? el.textContent);
+  for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+    const names = [...a.classList].filter((c) => !isUnstableClass(c));
+    if (!names.length || !isVisible(a) || squash(a.innerText) === own) continue;
+    const like = [...(a.parentElement?.children ?? [])].some((s) => s !== a && s.tagName === a.tagName && names.some((c) => s.classList.contains(c)));
+    if (like) return a;
+  }
+  return null;
+}
+
+/** A card's name: its first visible heading, else its label, else its first short line of text. */
+function cardLabel(card) {
+  // A heading names the card only when it comes before the card's first
+  // control; one further down titles a features list ("Desktop & Mobile, plus:").
+  const first = deepQueryAll(isControl, card).find(isShown);
+  const heading = [...card.querySelectorAll(HEADING)].find((h) => isVisible(h) && (!first || (h.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING)));
+  return label(heading?.textContent) ?? ariaLabel(card) ?? ownText(card) ?? null;
+}
+
 /** The nearest ancestor with `position: fixed` (not <body>). */
 function fixedPanelOf(el) {
   for (let n = el.parentElement; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
@@ -63,7 +93,10 @@ function regionOfElement(el) {
   // it failed.
   const panel = fixedPanelOf(el);
   if (panel && (!inner || !panel.contains(inner.node))) return { ...nodeRegion(panel), kind: 'panel', label: panelLabel(panel) };
-  if (!inner) return null;
+  if (!inner) {
+    const card = cardOf(el);
+    return card ? { ...nodeRegion(card), kind: 'card', label: cardLabel(card) } : null;
+  }
   const region = inner.type === 'section' ? headingRegion(inner.node) : nodeRegion(inner.node);
   return { ...region, kind: inner.type, label: inner.label };
 }
@@ -110,6 +143,18 @@ function contentOf(region, issueRef) {
     buffer = '';
     if (text && lines.at(-1)?.text !== text) lines.push({ kind: 'text', text: clip(text, TEXT_MAX) });
   };
+  const emitted = new Set();
+  const emitLeaf = (el) => {
+    flush();
+    emitted.add(el);
+    const { role, name } = roleAndName(el);
+    lines.push({
+      kind: 'leaf', ref: issueRef(el), role, name, testId: el.matches(testIdSelector), states: statesOf(el), hidden: 0,
+      id: /\d$/.test(el.id) ? el.id : null,
+      value: el.tagName === 'SELECT' ? label(el.selectedOptions[0]?.textContent) : null,
+      viaLabel: Boolean(visibleLabelOf(el)) || undefined,
+    });
+  };
   const walk = (node) => {
     // Children of a horizontal flex row read as one line ("$ 375 / month"),
     // though the browser reports each as a block.
@@ -122,16 +167,19 @@ function contentOf(region, issueRef) {
         if (region.contains(child.parentElement) || region.contains(child)) buffer += child.nodeValue;
         continue;
       }
-      if (child.nodeType !== 1 || hiddenForText(child)) continue;
+      if (child.nodeType !== 1) continue;
       const inside = region.contains(child);
+      // A hidden toggle shown by its label (#1) is a control even though the
+      // text walk would skip it as hidden; its label's text is its name, so the
+      // label is not repeated as a text line. A wrapping label stands in for it.
+      const proxied = child.tagName === 'LABEL' && child.control && visibleLabelOf(child.control) === child ? child.control : null;
+      if (inside && proxied) {
+        if (!emitted.has(proxied)) emitLeaf(proxied);
+        continue;
+      }
+      if (hiddenForText(child) && !(inside && visibleLabelOf(child))) continue;
       if (inside && isControl(child) && isShown(child)) {
-        flush();
-        const { role, name } = roleAndName(child);
-        lines.push({
-          kind: 'leaf', ref: issueRef(child), role, name, testId: child.matches(testIdSelector), states: statesOf(child), hidden: 0,
-          id: /\d$/.test(child.id) ? child.id : null,
-          value: child.tagName === 'SELECT' ? label(child.selectedOptions[0]?.textContent) : null,
-        });
+        if (!emitted.has(child)) emitLeaf(child);
         continue;
       }
       if (inside && child.matches(HEADING)) {

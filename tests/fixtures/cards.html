@@ -1,0 +1,33 @@
+<!doctype html>
+<title>Cards</title>
+<style>.grid { display: flex; gap: 12px } .card { border: 1px solid #ccc; padding: 8px; width: 200px }</style>
+<!-- BrowserStack's Team card: no heading of its own — its name is a toggle label. -->
+<div class="grid">
+  <div class="card">
+    <div class="card__top toggle">
+      <input type="radio" id="tp1" name="team" checked style="position:absolute;opacity:0;width:0;height:0"><label for="tp1">Team</label>
+      <input type="radio" id="tp2" name="team" style="position:absolute;opacity:0;width:0;height:0"><label for="tp2">Team Pro</label>
+    </div>
+    <p class="card__desc">Test on real devices</p>
+    <label class="switch"><input type="checkbox" style="position:absolute;opacity:0;width:0;height:0"> Annual billing</label>
+    <div class="card__price"><span>$150</span> <span>/ month</span></div>
+    <!-- BrowserStack's shape: the seats control sits in a toggled pair (Team / Team Pro),
+         so its wrapper HAS a like sibling — but shows nothing beyond the control. -->
+    <div class="card__seats">
+      <div class="slot slot--show"><button>5 users | $30 per user</button></div>
+      <div class="slot" style="display:none"><button>5 users | $35 per user</button></div>
+    </div>
+    <button>Choose</button>
+    <h4>Desktop &amp; Mobile, plus:</h4>
+    <p>Real devices</p>
+  </div>
+  <div class="card">
+    <div class="card__top"><span>Team Ultimate</span></div>
+    <p class="card__desc">Everything in Team Pro</p>
+    <div class="card__price"><span>$375</span> <span>/ month</span></div>
+    <div class="card__seats"><button>5 users | $75 per user</button></div>
+    <button>Choose</button>
+  </div>
+</div>
+<!-- A lone control with no container and no like siblings. -->
+<div><div><button>Lonely</button></div></div>
