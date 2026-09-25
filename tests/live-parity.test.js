@@ -22,6 +22,7 @@ test('live parity: Playwright finds every outlined element by the role and name 
   t.after(() => session.close());
   const page = await session.getPage();
   const mismatches = [];
+  let clickables = 0;
   for (const url of PAGES) {
     await page.goto(url, { waitUntil: 'load' });
     await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
@@ -36,6 +37,16 @@ test('live parity: Playwright finds every outlined element by the role and name 
       const found = await page.getByRole(leaf.role, options).evaluateAll((els, el) => els.includes(el), handle);
       if (!found) mismatches.push(`${url} ${leaf.role} "${leaf.name}"`);
     }
+    // A clickable has no role to query by; Playwright reaches it by its text.
+    for (const leaf of leaves.filter((l) => l.role === 'clickable' && !l.name.endsWith('…'))) {
+      const handle = await page.evaluateHandle((ref) => window.__corMcp.element({ ref }), leaf.ref);
+      // getByText returns the smallest element with the text; a click there is a click on the clickable.
+      const byText = await page.getByText(leaf.name, { exact: true }).evaluateAll((els, el) => els.some((e) => el.contains(e)), handle);
+      const byLabel = await page.getByLabel(leaf.name, { exact: true }).evaluateAll((els, el) => els.includes(el), handle);
+      if (!byText && !byLabel) mismatches.push(`${url} clickable "${leaf.name}"`);
+      clickables += 1;
+    }
   }
+  t.diagnostic(`clickables checked: ${clickables}`);
   assert.deepEqual(mismatches, []);
 });

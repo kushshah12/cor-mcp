@@ -6,7 +6,7 @@
 // A name that fits several regions is not guessed at — the candidates come
 // back, each with a ref inside it, for the agent to choose.
 import { DEFAULT_TEST_ID_ATTRIBUTES } from '@corlabs/engine/core';
-import { HEADING, INTERACTIVE, clip, isVisible, roleAndName, squash } from './dom.js';
+import { HEADING, clip, deepQueryAll, hasControl, isControl, isVisible, roleAndName, squash } from './dom.js';
 import {
   CELL, ITEM, LANDMARKS, TABLE, ariaLabel, containersFor, headingLevel, label, ownText, rowKey, statesOf,
 } from './outline.js';
@@ -29,7 +29,7 @@ function headingRegion(h) {
   const rivals = visibleHeadings().filter((o) => o !== h && headingLevel(o) <= level);
   for (let a = h.parentElement; a && a !== document.body; a = a.parentElement) {
     if (rivals.some((o) => a.contains(o))) break;
-    if (a.querySelector(INTERACTIVE)) return { root: a, contains: (el) => a.contains(el) };
+    if (hasControl(a)) return { root: a, contains: (el) => a.contains(el) };
   }
   const next = visibleHeadings().find((o) => o !== h && headingLevel(o) <= level && (h.compareDocumentPosition(o) & Node.DOCUMENT_POSITION_FOLLOWING));
   const root = h.parentElement ?? document.body;
@@ -108,7 +108,7 @@ function contentOf(region, issueRef) {
       }
       if (child.nodeType !== 1 || hiddenForText(child)) continue;
       const inside = region.contains(child);
-      if (inside && child.matches(INTERACTIVE) && isVisible(child)) {
+      if (inside && isControl(child) && isVisible(child)) {
         flush();
         const { role, name } = roleAndName(child);
         lines.push({
@@ -143,7 +143,7 @@ function contentOf(region, issueRef) {
 
 /** The first visible control inside a region — a ref the agent can pass back as `within`. */
 function sampleIn(region) {
-  return [...region.root.querySelectorAll(INTERACTIVE)].find((el) => region.contains(el) && isVisible(el)) ?? null;
+  return deepQueryAll(isControl, region.root).find((el) => region.contains(el) && isVisible(el)) ?? null;
 }
 
 /**

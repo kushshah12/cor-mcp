@@ -2,7 +2,7 @@
 // evaluated on demand — see src/page-runtime.js. Only JSON crosses back to
 // Node; no DOM handle leaves the page.
 import { LocatorEngine, computeFingerprint, extractElementInfo, scoreLocator } from '@corlabs/engine/core';
-import { INTERACTIVE, deepQueryAll, hintsFor, isVisible, roleAndName } from './dom.js';
+import { deepQueryAll, isControl, hintsFor, isVisible, roleAndName } from './dom.js';
 import { buildOutline } from './outline.js';
 import { scopedSnapshot } from './scope.js';
 import { beginAct, endAct, identityOf, revalidate, structuralPath } from './acts.js';
@@ -21,13 +21,13 @@ let nextRef = 1; // per page load: refs are never renumbered
  * Interactive targets only: those are what the snapshot lists.
  */
 function lookalikes(target) {
-  if (!target.matches(INTERACTIVE)) return null;
+  if (!isControl(target)) return null;
   const { role, name } = roleAndName(target);
   const same = (el) => {
     const other = roleAndName(el);
     return other.role === role && other.name === name;
   };
-  const group = deepQueryAll(INTERACTIVE).filter((el) => el === target || (isVisible(el) && same(el)));
+  const group = deepQueryAll(isControl).filter((el) => el === target || (isVisible(el) && same(el)));
   if (group.length < 2) return null;
   const hints = hintsFor(group.map((el) => ({ el, name })));
   const refOf = new Map([...refs].map(([r, el]) => [el, r]));

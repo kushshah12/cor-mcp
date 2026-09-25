@@ -185,7 +185,8 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
 
 const SNAPSHOT_LEGEND =
   'Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ' +
-  '✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload.';
+  '✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. ' +
+  'clickable: no role, only cursor: pointer (a script-handled <div>).';
 
 function leafText(leaf, unstableIds) {
   let text = `${leaf.role}${leaf.name ? ` "${leaf.name}"` : ''}${leaf.value ? ` = "${leaf.value}"` : ''} [ref=${leaf.ref}]`;

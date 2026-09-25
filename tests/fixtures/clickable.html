@@ -1,0 +1,42 @@
+<!doctype html>
+<title>Clickable</title>
+<style>
+  .buy, .close, .panel, .card-link, label, .btn { cursor: pointer }
+  .card { border: 1px solid #ccc; margin: 4px; padding: 4px }
+</style>
+
+<!-- React-style shop: the buy "button" is a <div> with a click handler. -->
+<main>
+  <div class="card"><h3 class="title">Phone 12</h3><div class="buy">Add to cart</div></div>
+  <div class="card"><h3 class="title">Phone 12 Mini</h3><div class="buy">Add to cart</div></div>
+  <div class="card"><h3 class="title">Pixel 4</h3><div class="buy">Add to cart</div></div>
+</main>
+
+<!-- Pointer inherited by children: one target, not three. -->
+<div class="btn" id="checkout"><span>Check</span> <b>out</b></div>
+
+<!-- An icon with only a label. -->
+<div class="close" aria-label="Close banner" style="width:16px;height:16px"></div>
+
+<!-- A pointer card that holds a real button is a container, not a control. -->
+<div class="card-link"><p>Promo</p><button>Claim</button></div>
+
+<!-- A real button and link with pointer are listed once, by their role. -->
+<button style="cursor: pointer">Real button</button>
+<a href="/x" style="cursor: pointer"><span style="cursor: pointer">Docs</span></a>
+<!-- Pointer starts INSIDE a control: still the control's, not a second target. -->
+<button style="cursor: default"><span style="cursor: pointer">Inner</span></button>
+
+<!-- Not targets: a label (its input is listed) and a long clickable panel. -->
+<label for="remember">Remember me</label> <input id="remember" type="checkbox">
+<div class="panel">This whole panel is clickable but it carries a paragraph of text that is far longer than any control name should ever be, so it is not a control.</div>
+
+<p id="log"></p>
+<script>
+  for (const el of document.querySelectorAll('.buy')) {
+    el.addEventListener('click', () => {
+      const title = el.closest('.card').querySelector('.title').textContent;
+      document.getElementById('log').insertAdjacentHTML('beforeend', `<div class="buy">Remove ${title}</div>`);
+    });
+  }
+</script>

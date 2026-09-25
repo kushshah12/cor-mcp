@@ -64,7 +64,8 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
         description:
           'Outline of the visible interactive elements on the current page, each with a ref (e1, e2…), nested only under what identifies it: ' +
           'landmarks, sections by heading, tables (column / row), list items. Pick the element you need, then pass its ref to cor_inspect. ' +
-          'Markers: ✓id test attribute, +N hidden lookalikes, [disabled]/[checked]/[expanded]/[selected], [unstable id]. ' +
+          'Markers: ✓id test attribute, +N hidden lookalikes, [disabled]/[checked]/[expanded]/[selected], [unstable id]; ' +
+          '"clickable" is an element with no role that the page makes clickable (cursor: pointer). ' +
           'Take a new snapshot after any navigation or act call — earlier refs expire.',
         inputSchema: {
           within: z.string().optional().describe(

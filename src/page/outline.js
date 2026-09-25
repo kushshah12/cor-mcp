@@ -16,7 +16,7 @@
 //   pass 3  merge the paths into one tree; the renderer folds chains
 import { DEFAULT_TEST_ID_ATTRIBUTES } from '@corlabs/engine/core';
 import {
-  HEADING, HINT_MAX, INTERACTIVE, clip, composedParent, deepQueryAll, isVisible, roleAndName, squash,
+  HEADING, HINT_MAX, clip, closestControl, hasControl, isControl, composedParent, deepQueryAll, isVisible, roleAndName, squash,
 } from './dom.js';
 
 const LABEL_MAX = 50;
@@ -52,7 +52,7 @@ export function ownText(el, own = null) {
   const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
   for (let t = walker.nextNode(); t; t = walker.nextNode()) {
     const parent = t.parentElement;
-    const control = parent?.closest(INTERACTIVE);
+    const control = parent && closestControl(parent);
     if (!parent || (control && el.contains(control))) continue;
     if (own && parent.closest(own) !== el) continue;
     const raw = t.nodeValue.trim();
@@ -98,7 +98,7 @@ function titles(h, leaf) {
   if (cell && !cell.contains(leaf)) return false;
   let branch = h;
   while (branch.parentElement !== meet) branch = branch.parentElement;
-  return branch === h || !branch.querySelector(INTERACTIVE);
+  return branch === h || !hasControl(branch);
 }
 
 /** Up to two headings of decreasing level that title the leaf, outermost first. The page's <h1> names nothing in particular. */
@@ -218,7 +218,7 @@ function disambiguateSiblings(children) {
  */
 export function buildOutline(issueRef) {
   const testIdSelector = DEFAULT_TEST_ID_ATTRIBUTES.map((a) => `[${a}]`).join(',');
-  const all = deepQueryAll(INTERACTIVE);
+  const all = deepQueryAll(isControl);
   const visible = all.filter(isVisible);
 
   // Hidden lookalikes: invisible controls sharing a role and name with a

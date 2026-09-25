@@ -10,7 +10,7 @@
 // 25/25. Only trying every value catches that, so a template is offered only
 // when every value passes — otherwise no template, and the reason.
 import { isUnstableClass, isUnstableValue, cssEscape } from '@corlabs/engine/core';
-import { HEADING, INTERACTIVE, deepQueryAll, isVisible, roleAndName, squash } from './dom.js';
+import { HEADING, INTERACTIVE, deepQueryAll, isControl, isVisible, roleAndName, squash } from './dom.js';
 
 const TEST_ATTRS = ['data-testid', 'data-test-id', 'data-test', 'data-cy', 'data-qa'];
 const NOT_A_SLOT = /^(id|class|style|href|src|srcset|tabindex|aria-.*|on.*|data-(v-|reactid|react|ng-).*)$/;
@@ -44,10 +44,10 @@ const namingClasses = (el) => [...el.classList].filter((c) => !isUnstableClass(c
 
 /** The repeats: visible elements the target could be confused with, same shape. */
 function repeatsOf(target) {
-  if (target.matches(INTERACTIVE)) {
+  if (isControl(target)) {
     const { role, name } = roleAndName(target);
     if (!name) return [];
-    return deepQueryAll(INTERACTIVE).filter((el) => {
+    return deepQueryAll(isControl).filter((el) => {
       if (el === target) return true;
       if (!isVisible(el)) return false;
       const other = roleAndName(el);

@@ -12,6 +12,47 @@ export const INTERACTIVE = [
 ].join(',');
 
 export const NAME_MAX = 80;
+
+/**
+ * A click target with no semantics: a React-handled <div> or <span> whose only
+ * sign of being clickable is `cursor: pointer`. bstackdemo's "Add to cart" is
+ * one; Playwright MCP lists it (`generic [cursor=pointer]`) and COR's
+ * snapshot did not, so an agent picking from COR never saw it.
+ *
+ * Counted only where the pointer starts (a parent with it passes it down to
+ * every child), outside and around no real control (a card holding buttons
+ * is a container), with a short name — a whole clickable panel is not one.
+ */
+function isClickable(el) {
+  if (el.matches(INTERACTIVE) || el.tagName === 'LABEL' || el === document.body) return false;
+  if (getComputedStyle(el).cursor !== 'pointer') return false;
+  const parent = composedParent(el);
+  if (parent && parent.nodeType === 1 && getComputedStyle(parent).cursor === 'pointer') return false;
+  if (el.parentElement?.closest(INTERACTIVE) || el.querySelector(INTERACTIVE)) return false;
+  const text = squash(el.textContent);
+  return (text.length > 0 && text.length <= NAME_MAX) || Boolean(el.getAttribute('aria-label') || el.getAttribute('title'));
+}
+
+// ponytail: one pass over the page per page call. Every callPage is one
+// synchronous evaluate, so the microtask clears it before the page changes.
+let clickCache = null;
+export function clickables() {
+  if (!clickCache) {
+    clickCache = new Set(deepQueryAll(isClickable));
+    queueMicrotask(() => { clickCache = null; });
+  }
+  return clickCache;
+}
+
+/** A control: an interactive element, or a clickable one (above). */
+export const isControl = (el) => el.matches(INTERACTIVE) || clickables().has(el);
+/** Does `node` hold a control? */
+export const hasControl = (node) => Boolean(node.querySelector(INTERACTIVE)) || [...clickables()].some((c) => node.contains(c));
+/** The control `el` is, or sits inside. */
+export function closestControl(el) {
+  for (let n = el; n && n.nodeType === 1; n = n.parentElement) if (isControl(n)) return n;
+  return null;
+}
 export const HINT_MAX = 40;
 
 /**
@@ -19,10 +60,11 @@ export const HINT_MAX = 40;
  * a shadow root's contents where its host sits, not appended at the end.
  */
 export function deepQueryAll(selector, root = document) {
+  const test = typeof selector === 'function' ? selector : (el) => el.matches(selector);
   const out = [];
   const visit = (node) => {
     for (const el of node.children) {
-      if (el.matches(selector)) out.push(el);
+      if (test(el)) out.push(el);
       if (el.shadowRoot) visit(el.shadowRoot);
       visit(el);
     }
@@ -153,6 +195,11 @@ export function hintsFor(group) {
 
 /** What a snapshot line shows for an element — and so what makes two look alike. */
 export function roleAndName(el) {
+  if (!el.hasAttribute('role') && clickables().has(el)) {
+    // No role, so no accessible name from content: name it by what it shows.
+    const name = el.getAttribute('aria-label') || squash(el.textContent) || el.getAttribute('title');
+    return { role: 'clickable', name: clip(squash(name), NAME_MAX) };
+  }
   return {
     role: el.getAttribute('role') || getImplicitRole(el) || el.tagName.toLowerCase(),
     name: clip(squash(getAccessibleName(el)), NAME_MAX),
