@@ -199,6 +199,16 @@ function grade({ element: el, value, framework, matchCount }) {
   };
 }
 
+/** Score chain steps on their own (cor_grade on a chained locator). */
+function scoreSteps({ values, framework, element: el, matchCount }) {
+  // Same context as grade(), so the weakest step's score is the chain's score.
+  const elementInfo = el ? extractElementInfo(el) : null;
+  return values.map((value) => {
+    const h = scoreLocator({ value, matchCount }, { element: el, elementInfo, framework, matchCount });
+    return { score: h.score, tier: h.tier, tierLabel: h.tierLabel, risk: h.primaryRisk?.message ?? null };
+  });
+}
+
 /** The element a ref or selector names, for act tools; null when it does not resolve. */
 const element = (target) => resolveTarget(target).el ?? null;
 
@@ -210,4 +220,4 @@ function countXpath({ template, values }) {
   });
 }
 
-window.__corMcp = { snapshot, scoped, inspect, element, grade, beginAct, afterAct, countXpath };
+window.__corMcp = { snapshot, scoped, inspect, element, grade, scoreSteps, beginAct, afterAct, countXpath };

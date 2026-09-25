@@ -440,6 +440,13 @@ function gradedBlock(graded, input) {
   for (const s of graded.signals) {
     if (s.points) lines.push(`  ${s.direction === 'positive' ? '+' : '-'} ${clause(s.message)}`);
   }
+  if (graded.chain) {
+    lines.push('  Chain — scored by its weakest step, since it breaks when any step does:');
+    graded.chain.steps.forEach((st, i) => {
+      lines.push(`    ${i + 1}. ${st.code}   ${st.score} ${st.tierLabel ?? st.tier}${st.risk ? ` — ${clause(st.risk).toLowerCase()}` : ''}${i === graded.chain.weakest ? '   ← weakest' : ''}`);
+    });
+    for (const n of graded.chain.notes) lines.push(`    ! ${n}`);
+  }
   // The engine judged the id from one DOM; the reload overrules it.
   if (graded.volatileId) lines.push(`  ! Not stable: a fresh load gave this element id ${graded.volatileId.seen} — the score above assumes it was a name`);
   return lines;

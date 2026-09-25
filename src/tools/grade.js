@@ -58,7 +58,19 @@ export function gradeTools(session, idCache = new Map()) {
           }
         }
 
-        const { graded, candidates } = await callPage(page, 'grade', { element, value: parsed.scoreValue, framework: fw, matchCount });
+        // A chain breaks when any step does, so it is scored by its weakest
+        // step; every step is listed with its own score.
+        let scoreValue = parsed.scoreValue;
+        let chain = null;
+        if (parsed.chain) {
+          const scores = await callPage(page, 'scoreSteps', { values: parsed.chain.scored.map((st) => st.scoreValue), framework: fw, element, matchCount });
+          const steps = parsed.chain.scored.map((st, i) => ({ ...st, ...scores[i] }));
+          const weakest = steps.reduce((a, b) => (b.score < a.score ? b : a));
+          scoreValue = weakest.scoreValue;
+          chain = { steps, weakest: steps.indexOf(weakest), notes: parsed.chain.notes };
+        }
+        const { graded, candidates } = await callPage(page, 'grade', { element, value: scoreValue, framework: fw, matchCount });
+        if (chain) Object.assign(graded, { value: selector, code: selector, chain });
         if (matchCount === 1) {
           const ids = numberedIds(parsed.scoreValue);
           const verdicts = await checkIds(page, ids, idCache);

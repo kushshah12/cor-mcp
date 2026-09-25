@@ -10,8 +10,12 @@ const PLAYWRIGHT_METHODS = new Set([
   'getByRole', 'getByText', 'getByLabel', 'getByPlaceholder', 'getByTestId', 'getByAltText', 'getByTitle', 'locator',
 ]);
 
+// Steps a chain may continue with after its first locator call.
+const CHAIN_METHODS = new Set(['filter', 'first', 'last', 'nth']);
+const LOCATOR_START = /^(?:[A-Za-z_$][\w$]*\s*\.\s*)*(getBy[A-Za-z]+|locator)\s*(?=\()/;
+
 export const SUPPORTED_FORMS =
-  "a CSS selector, an XPath, page.getByRole/getByText/getByLabel/getByPlaceholder/getByTestId/getByAltText/getByTitle(…), page.locator('…'), cy.get('…') or cy.contains(…)";
+  "a CSS selector, an XPath, page.getByRole/getByText/getByLabel/getByPlaceholder/getByTestId/getByAltText/getByTitle(…) or page.locator('…') — chained with .locator/.getBy*/.filter({ has, hasNot, hasText, hasNotText, visible })/.first()/.last()/.nth(n) — cy.get('…') or cy.contains(…)";
 
 class NotGradable extends Error {}
 
@@ -79,6 +83,8 @@ function reader(src) {
 
   function value() {
     ws();
+    // A locator as an option value: filter({ has: page.getByText('…') }).
+    if (LOCATOR_START.test(src.slice(i))) return chain();
     const ch = src[i];
     if (ch === '"' || ch === "'" || ch === '`') return string();
     if (ch === '/') return regex();
@@ -89,6 +95,47 @@ function reader(src) {
       return m[0] === 'true' ? true : m[0] === 'false' ? false : Number(m[0]);
     }
     return fail('an argument that is a variable or expression rather than a literal');
+  }
+
+  /** Parse `(arg, arg)` at the cursor, leaving the cursor after `)`. */
+  function argList() {
+    ws();
+    if (src[i++] !== '(') fail('no argument list');
+    const out = [];
+    for (;;) {
+      ws();
+      if (src[i] === ')') { i++; return out; }
+      out.push(value());
+      ws();
+      if (src[i] === ',') { i++; continue; }
+      if (src[i] !== ')') fail('an argument list it could not read');
+    }
+  }
+
+  /**
+   * A Playwright locator expression at the cursor: `page.locator('…')` then
+   * any `.locator / .getBy* / .filter / .first / .last / .nth` steps.
+   * Returns { kind: 'locator', calls: [{ method, args, code }] }.
+   */
+  function chain() {
+    const head = LOCATOR_START.exec(src.slice(i));
+    const calls = [];
+    let start = i + head[0].lastIndexOf(head[1]);
+    i += head[0].length;
+    let method = head[1];
+    for (;;) {
+      if (!PLAYWRIGHT_METHODS.has(method) && !CHAIN_METHODS.has(method)) fail(`.${method}() is not a locator step cor_grade reads (it reads ${[...PLAYWRIGHT_METHODS, ...CHAIN_METHODS].join(', ')})`);
+      if (calls.length === 0 && !PLAYWRIGHT_METHODS.has(method)) fail(`a chain must start with a locator method, not .${method}()`);
+      const callArgs = argList();
+      calls.push({ method, args: callArgs, code: src.slice(start, i).replace(/\s+/g, ' ') });
+      const save = i;
+      ws();
+      const next = /^\.\s*([A-Za-z]+)\s*(?=\()/.exec(src.slice(i));
+      if (!next) { i = save; return { kind: 'locator', calls }; }
+      start = i + 1;
+      i += next[0].length;
+      method = next[1];
+    }
   }
 
   /** Parse `(arg, arg)` at the cursor; returns the args and what follows. */
@@ -107,11 +154,57 @@ function reader(src) {
     return { out, rest: src.slice(i).trim() };
   }
 
-  return { args };
+  return { args, chain, rest: () => src.slice(i).trim() };
+}
+
+/** Rebuild a parsed chain on a page, so Playwright counts exactly what was written. */
+function buildChain(page, { calls }) {
+  const resolve = (v) => {
+    if (v && v.kind === 'locator') return buildChain(page, v);
+    if (v && typeof v === 'object' && !(v instanceof RegExp)) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, resolve(x)]));
+    return v;
+  };
+  let loc = page;
+  for (const { method, args } of calls) loc = loc[method](...args.map(resolve));
+  return loc;
 }
 
 /**
- * @returns {{ framework: string, scoreValue: string, build: (page) => import('playwright-core').Locator, note?: string }}
+ * What a chain's durability rests on: each step that names something, scored
+ * on its own (a chain breaks when any step does), plus steps that pick by
+ * state or position, which are noted rather than scored.
+ */
+function describeChain({ calls }, prefix = '') {
+  const scored = [];
+  const notes = [];
+  for (const { method, args, code } of calls) {
+    if (PLAYWRIGHT_METHODS.has(method)) {
+      scored.push({ code: `${prefix}${code}`, scoreValue: method === 'locator' ? args[0] : `page.${code}` });
+    } else if (method === 'filter') {
+      const opts = args[0] ?? {};
+      for (const key of ['has', 'hasNot']) {
+        if (opts[key]?.kind === 'locator') {
+          const inner = describeChain(opts[key], `${prefix}filter ${key}: `);
+          scored.push(...inner.scored);
+          notes.push(...inner.notes);
+        }
+      }
+      for (const key of ['hasText', 'hasNotText']) {
+        if (opts[key] !== undefined) {
+          const t = opts[key] instanceof RegExp ? String(opts[key]) : `'${opts[key]}'`;
+          scored.push({ code: `${prefix}filter ${key}: ${t}`, scoreValue: `page.getByText(${t})` });
+        }
+      }
+      if (opts.visible === true) notes.push(`${prefix}.filter({ visible: true }) — unique only while the other matches stay hidden; if one shows, the chain matches more`);
+    } else {
+      notes.push(`${prefix}.${code} — picks by position: whatever is ${method === 'nth' ? `number ${args[0]}` : method} among the matches, which changes if their order does`);
+    }
+  }
+  return { scored, notes };
+}
+
+/**
+ * @returns {{ framework: string, scoreValue: string, build: (page) => import('playwright-core').Locator, note?: string, chain?: { scored: object[], notes: string[] } }}
  * @throws {NotGradable}
  */
 export function parseGradable(input) {
@@ -140,28 +233,30 @@ export function parseGradable(input) {
     return { framework: 'cypress', scoreValue: src, note, build: (page) => page.locator(a).filter({ hasText: b }) };
   }
 
-  // Playwright: `page.getByRole(…)`, `this.page.locator(…)`, bare `getByText(…)`
-  const pw = /^(?:[A-Za-z_$][\w$]*\s*\.\s*)*(getBy[A-Za-z]+|locator)\s*(?=\()/.exec(src);
+  // Playwright: `page.getByRole(…)`, `this.page.locator(…)`, bare `getByText(…)`, and chains of them
+  const pw = LOCATOR_START.exec(src);
   if (pw) {
     const method = pw[1];
     if (!PLAYWRIGHT_METHODS.has(method)) throw new NotGradable(`${method} is not a Playwright locator method`);
-    const { out, rest } = reader(src.slice(pw[0].length)).args();
-    if (rest) {
-      throw new NotGradable(`chained calls (${rest.slice(0, 30)}) are not graded — grade the base locator, e.g. the part before .first() or .filter()`);
+    const r = reader(src);
+    const parsed = r.chain();
+    const rest = r.rest();
+    if (rest) throw new NotGradable(`it has more after the locator (${rest.slice(0, 30)})`);
+    const [base] = parsed.calls;
+    if (base.args.length === 0) throw new NotGradable(`${method}() has no argument`);
+    if (method === 'locator' && typeof base.args[0] !== 'string') throw new NotGradable('locator() needs a selector string');
+    const build = (page) => buildChain(page, parsed);
+    if (parsed.calls.length === 1) {
+      return {
+        framework: 'playwright',
+        // The engine's scorer reads the call as written, with a `page.` receiver
+        // (`this.page.getByRole(…)` would otherwise read as CSS).
+        scoreValue: method === 'locator' ? base.args[0] : `page.${base.code}`,
+        build,
+      };
     }
-    if (out.length === 0) throw new NotGradable(`${method}() has no argument`);
-    const [first, options] = out;
-    if (method === 'locator') {
-      if (typeof first !== 'string') throw new NotGradable('locator() needs a selector string');
-      return { framework: 'playwright', scoreValue: first, build: (page) => page.locator(first) };
-    }
-    return {
-      framework: 'playwright',
-      // The engine's scorer reads the call as written, with a `page.` receiver
-      // (`this.page.getByRole(…)` would otherwise read as CSS).
-      scoreValue: `page.${src.slice(pw[0].lastIndexOf(method))}`,
-      build: (page) => page[method](first, options),
-    };
+    const chain = describeChain(parsed);
+    return { framework: 'playwright', scoreValue: chain.scored[0].scoreValue, build, chain };
   }
 
   if (/^[A-Za-z_$][\w$.]*\s*\(/.test(src)) {
