@@ -41,12 +41,28 @@ function headingRegion(h) {
   };
 }
 
+/** The nearest ancestor with `position: fixed` (not <body>). */
+function fixedPanelOf(el) {
+  for (let n = el.parentElement; n && n !== document.body && n !== document.documentElement; n = n.parentElement) {
+    if (getComputedStyle(n).position === 'fixed') return n;
+  }
+  return null;
+}
+
+const panelLabel = (panel) => ariaLabel(panel) ?? label([...panel.querySelectorAll(HEADING)].find(isVisible)?.textContent) ?? null;
+
 const nodeRegion = (root) => ({ root, contains: (el) => root.contains(el) });
 
 /** The innermost region that identifies an element — the same containers the outline shows. */
 function regionOfElement(el) {
   const kept = containersFor(el, visibleHeadings());
   const inner = kept.at(-1);
+  // A fixed-position panel — a cart drawer, a modal without a dialog role —
+  // is the region when it sits inside whatever else identifies the element.
+  // bstackdemo's float cart had no section, list or landmark, so scoping to
+  // it failed.
+  const panel = fixedPanelOf(el);
+  if (panel && (!inner || !panel.contains(inner.node))) return { ...nodeRegion(panel), kind: 'panel', label: panelLabel(panel) };
   if (!inner) return null;
   const region = inner.type === 'section' ? headingRegion(inner.node) : nodeRegion(inner.node);
   return { ...region, kind: inner.type, label: inner.label };

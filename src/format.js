@@ -44,8 +44,13 @@ export function durableLine(result) {
   const [best] = result.locators;
   const parts = [];
   // The engine's id signals call it "stable" from one DOM; a reload overruled that.
-  const anchor = best.volatileId && /\bid\b/i.test(anchorOf(best) ?? '') ? 'an element id' : anchorOf(best);
-  if (anchor) parts.push(`anchored on ${anchor.replace(/^(Anchored on|Targets the element by) /i, '')}`);
+  const anchor = best.volatileId && /\bid\b/i.test(anchorOf(best) ?? '') ? 'Anchored on an element id' : anchorOf(best);
+  if (anchor) {
+    // Signal messages read "Anchored on X" / "Targets the element by X" — or are
+    // a clause of their own ("Scoped under a stable ancestor anchor").
+    const m = /^(Anchored on|Targets the element by) (.*)$/i.exec(anchor);
+    parts.push(m ? `anchored on ${m[2]}` : anchor.charAt(0).toLowerCase() + anchor.slice(1));
+  }
   const risk = RESOLUTION_SIGNALS.has(best.primaryRisk?.signalId)
     ? best.signals.filter((s) => s.direction === 'negative' && !RESOLUTION_SIGNALS.has(s.id)).sort((a, b) => a.points - b.points)[0]
     : best.primaryRisk;
@@ -147,6 +152,22 @@ function paramNote(params, framework) {
   return [];
 }
 
+/**
+ * The element belongs to a UI state and may be removed when it changes; a
+ * twin shows the same value without one (bstackdemo's cart badge, removed
+ * when the cart opens, and the float cart's badge, present in both states).
+ */
+function stateBoundNote(bound) {
+  if (!bound) return [];
+  const t = bound.twin;
+  return [
+    '',
+    `State-bound: this element carries the state class "${bound.stateClass}" (on it or a close ancestor), so it may be removed or replaced when the UI state changes — its locator then matches nothing.`,
+    `  The same value is also shown by an element with no state class: ${t.code}   (${t.score} ${t.tierLabel} · ${t.matchCount} match${t.matchCount === 1 ? '' : 'es'})`,
+    '  For an assertion that runs in more than one state, prefer that one.',
+  ];
+}
+
 /** A template usable in this framework, or null. */
 const usableTemplate = (params, framework) =>
   (params?.template && (framework === 'playwright' || params.template.xpath) ? params : null);
@@ -198,6 +219,7 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
   );
 
   if (!lead) out.push(...paramNote(result.params, framework));
+  out.push(...stateBoundNote(result.stateBound));
 
   // Unstable alternatives (position-only paths) are never worth choosing, and
   // each costs ~60 tokens; the rest are capped.
@@ -216,7 +238,7 @@ const SNAPSHOT_LEGEND =
   'clickable: no role, only cursor: pointer (a script-handled <div>).';
 
 function leafText(leaf, unstableIds) {
-  let text = `${leaf.role}${leaf.name ? ` "${leaf.name}"` : ''}${leaf.value ? ` = "${leaf.value}"` : ''} [ref=${leaf.ref}]`;
+  let text = `${leaf.role}${leaf.name ? ` "${leaf.name}"` : ''}${leaf.cls ? ` (.${leaf.cls})` : ''}${leaf.value ? ` = "${leaf.value}"` : ''} [ref=${leaf.ref}]`;
   if (leaf.testId) text += ' ✓id';
   for (const state of leaf.states) text += ` [${state}]`;
   if (leaf.hidden) text += ` +${leaf.hidden} hidden`;

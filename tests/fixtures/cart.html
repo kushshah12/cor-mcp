@@ -1,0 +1,21 @@
+<!doctype html>
+<title>Cart</title>
+<style>
+  .bag { cursor: pointer; display: inline-block; padding: 4px }
+  .float-cart { position: fixed; right: 0; top: 40px; width: 220px; background: #eee }
+  .close { cursor: pointer; display: inline-block; width: 20px }
+</style>
+<!-- bstackdemo's shape: a header badge only while the cart is closed, and the
+     float cart's own badge, present in both states. -->
+<header id="top">
+  <span class="bag bag--float-cart-closed"><span class="bag__quantity">0</span></span>
+</header>
+<nav><ul><li class="active"><a class="nav-link" href="/home">Home</a></li><li><a class="nav-link" href="/shop">Shop</a></li></ul></nav>
+<!-- Both copies are state-bound: neither is a safe twin for the other. -->
+<div class="menu is-open"><span class="count">5</span></div>
+<div class="menu-mobile is-hidden"><span class="count">5</span></div>
+<div class="float-cart">
+  <div class="float-cart__header"><span class="bag"><span class="bag__quantity">0</span></span> <span>Cart</span></div>
+  <div class="close">X</div>
+  <button>Checkout</button>
+</div>

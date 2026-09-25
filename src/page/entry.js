@@ -7,6 +7,7 @@ import { buildOutline } from './outline.js';
 import { scopedSnapshot } from './scope.js';
 import { beginAct, endAct, identityOf, revalidate, structuralPath } from './acts.js';
 import { parameterise, xpathLiteral } from './params.js';
+import { stateBound } from './state.js';
 
 let refs = new Map(); // ref -> element, replaced on every full snapshot
 const meta = new Map(); // ref -> { identity, path } — what the ref was issued for (U16)
@@ -107,9 +108,18 @@ function inspect({ ref, selector, framework, max }) {
     ...candidatesFor(target.el, framework, max),
     lookalikes: lookalikes(target.el),
     params: parameterise(target.el),
+    stateBound: stateBoundFor(target.el, framework),
     // For silent capture (src/fingerprints.js) — never rendered.
     capture: { fingerprint: computeFingerprint(target.el), elementKey: structuralPath(target.el) },
   };
+}
+
+/** The state-bound warning with the twin's best locator (see state.js). */
+function stateBoundFor(el, framework) {
+  const bound = stateBound(el);
+  if (!bound) return null;
+  const [best] = candidatesFor(bound.twin, framework, 1).locators;
+  return best ? { stateClass: bound.stateClass, twin: { code: best.code || best.value, value: best.value, score: best.score, tierLabel: best.tierLabel, matchCount: best.matchCount } } : null;
 }
 
 function candidatesFor(el, framework, max) {

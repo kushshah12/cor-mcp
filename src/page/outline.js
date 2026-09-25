@@ -14,7 +14,7 @@
 //           (column by header, row by key cell), list items by their own
 //           text, and the section headings that title it
 //   pass 3  merge the paths into one tree; the renderer folds chains
-import { DEFAULT_TEST_ID_ATTRIBUTES } from '@corlabs/engine/core';
+import { DEFAULT_TEST_ID_ATTRIBUTES, isUnstableClass } from '@corlabs/engine/core';
 import {
   HEADING, HINT_MAX, clip, closestControl, hasControl, isControl, composedParent, deepQueryAll, isVisible, roleAndName, squash,
 } from './dom.js';
@@ -37,6 +37,9 @@ export const LANDMARKS = [
 ];
 export const TABLE = 'table,[role="table"],[role="grid"],[role="treegrid"]';
 export const CELL = 'td,th,[role="cell"],[role="gridcell"],[role="columnheader"],[role="rowheader"]';
+// A count or price, not a name (the engine's isDataText, kept local to the page bundle).
+const VALUE_TEXT = /^[-+]?\s*[$€£¥₹]?\s*\d[\d.,\s]*\s*[%$€£¥₹]?$/;
+
 export const ITEM = 'li,[role="listitem"]';
 
 export function ariaLabel(el) {
@@ -254,6 +257,9 @@ export function buildOutline(issueRef) {
       // A <select>'s chosen option is what a person reads it by. Typed input
       // values are not shown: they are the user's data, not the page's.
       value: el.tagName === 'SELECT' ? label(el.selectedOptions[0]?.textContent) : null,
+      // A clickable named only by a number ("0" — a cart badge) says nothing
+      // about what it is; its class does.
+      cls: role === 'clickable' && VALUE_TEXT.test(name) ? ([...el.classList].find((c) => !isUnstableClass(c)) ?? null) : null,
     };
     let parent = root;
     for (const c of containersFor(el, headingsFor(el.getRootNode()))) {
@@ -271,7 +277,7 @@ export function buildOutline(issueRef) {
 
   // Only JSON crosses back to Node.
   const plain = (node) => (node.kind === 'leaf'
-    ? { kind: 'leaf', ref: node.ref, role: node.role, name: node.name, value: node.value, testId: node.testId, states: node.states, hidden: node.hidden, id: node.id, hint: node.hint ?? null }
+    ? { kind: 'leaf', ref: node.ref, role: node.role, name: node.name, value: node.value, testId: node.testId, states: node.states, hidden: node.hidden, id: node.id, cls: node.cls ?? null, hint: node.hint ?? null }
     : { kind: 'container', type: node.type, label: node.label, children: node.children.map(plain) });
   return { count: visible.length, tree: root.children.map(plain) };
 }
