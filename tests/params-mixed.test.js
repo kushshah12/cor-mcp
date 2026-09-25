@@ -51,7 +51,7 @@ test('cards named by a heading or a label: one template covers both, visible car
   assert.ok(p.template, JSON.stringify(p));
   assert.deepEqual(p.values, ['Team', 'Team Ultimate']);
   assert.equal(p.counted, 3, 'the two names plus the Team Pro variant (U18b.5)');
-  assert.match(p.code, /\.filter\(\{ visible: true \}\)/, 'hidden copies are left out');
+  assert.match(p.code, /div\[data-product-id="live"\] div\.card|\.filter\(\{ visible: true \}\)/, 'hidden copies are left out — by a stable scope (U19.2) or visibility');
   for (const [v, price] of [['Team', '$150 / month'], ['Team Ultimate', '$375 / month']]) {
     const choose = run(p.code, p.param, v);
     assert.equal(await choose.count(), 1, v);
@@ -75,7 +75,7 @@ test('cor_inspect renders it', async () => {
   const out = await call('cor_inspect', { selector: '.grid .card:nth-child(2) button' });
   assert.match(out, /^Recommended — parameterised: 2 items share this shape/m);
   assert.match(out, /\.or\(/);
-  assert.match(out, /filter\(\{ visible: true \}\)/);
+  assert.match(out, /div\[data-product-id="live"\] div\.card|filter\(\{ visible: true \}\)/);
 });
 
 test('a features heading below the controls does not name the card, even when every card has one', async () => {
@@ -137,5 +137,49 @@ test('BrowserStack\'s shape: the name is a span inside the toggle label — vari
   } finally {
     await call('cor_open', { url: `${base}/` });
     page = await session.getPage();
+  }
+});
+
+// ── U19.2: a stable scope before visible: true ──────────────────────────────
+// The owner's page-object run: the Playwright agent scoped cards by an
+// attribute; COR's template used `filter({ visible: true })`, which means
+// "whichever copy is showing". BrowserStack separates its copies by product:
+// `data-product-id="live"`.
+test('hidden copies separated by a stable ancestor attribute: the template scopes by it, not by visibility', async () => {
+  const p = await params('.grid .card:nth-child(2) button');
+  assert.ok(p.template, JSON.stringify(p));
+  assert.match(p.code, /div\[data-product-id="live"\] div\.card/);
+  assert.doesNotMatch(p.code, /visible: true/);
+  assert.doesNotMatch(p.template.playwright.selectorTemplate, /:visible/);
+  assert.doesNotMatch(p.code, /data-plan-type-visible/, 'a state-like attribute is never the scope');
+  for (const v of ['Team', 'Team Ultimate']) assert.equal(await page.locator(registry(p, v)).count(), 1, v);
+});
+
+test('without such an attribute the template falls back to visible: true', async () => {
+  await page.evaluate(() => { for (const el of document.querySelectorAll('[data-product-id]')) el.removeAttribute('data-product-id'); });
+  try {
+    const p = await params('.grid .card:nth-child(2) button');
+    assert.match(p.code, /\.filter\(\{ visible: true \}\)/);
+  } finally {
+    await call('cor_open', { url: `${base}/` });
+    page = await session.getPage();
+  }
+});
+
+test('cor_grade suggests the stable scope for an agent\'s visible: true chain', async () => {
+  const out = await call('cor_grade', { selector: "page.locator('div.card').filter({ visible: true }).filter({ has: page.getByRole('heading', { name: 'Team Ultimate', exact: true }) }).getByRole('button', { name: 'Choose' })" });
+  assert.match(out, /! prefer the scope div\[data-product-id="live"\] over filter\(\{ visible: true \}\)/);
+});
+
+test('a scope that would also hold a hidden copy is not used — the template falls back to visible: true', async () => {
+  await page.evaluate(() => document.querySelector('.grid').insertAdjacentHTML('beforeend',
+    '<div class="card" id="ghost" style="display:none"><h3 class="card__title">Team Ultimate</h3><button>Choose</button></div>'));
+  try {
+    const p = await params('.grid .card:nth-child(2) button');
+    assert.ok(p.template, JSON.stringify(p));
+    assert.doesNotMatch(p.code, /data-product-id/);
+    assert.match(p.code, /\.filter\(\{ visible: true \}\)/);
+  } finally {
+    await page.evaluate(() => document.getElementById('ghost').remove());
   }
 });

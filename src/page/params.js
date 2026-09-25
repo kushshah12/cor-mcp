@@ -277,6 +277,37 @@ export function parameterise(target) {
   return templateFor(target, targetItem, items, itemSel, inner);
 }
 
+// ── U19.2: a stable scope before visible: true ──────────────────────────────
+// Attributes that describe state are not scopes (BrowserStack's
+// data-plan-type-visible="true" flips as tabs change).
+const STATE_ATTR = /visible|hidden|active|open|expanded|selected|checked|state|current|show/i;
+
+/**
+ * The nearest ancestor attribute whose scope holds every item and matches no
+ * hidden copy, as { css, xpath } — e.g. div[data-product-id="live"] — or null.
+ */
+export function stableScope(items, css) {
+  for (let a = items[0].parentElement; a && a !== document.body; a = a.parentElement) {
+    if (!items.every((it) => a.contains(it))) continue;
+    const tag = a.tagName.toLowerCase();
+    for (const { name, value } of a.attributes) {
+      if (NOT_A_SLOT.test(name) || STATE_ATTR.test(name) || !value || /^(true|false)$/i.test(value)
+        || PATH_LIKE.test(value) || isUnstableValue(value, name)) continue;
+      const scopeCss = `${tag}[${name}="${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`;
+      let hits;
+      try {
+        hits = [...document.querySelectorAll(`${scopeCss} ${css}`)];
+      } catch {
+        continue;
+      }
+      if (hits.every(isVisible) && items.every((it) => hits.includes(it))) {
+        return { css: scopeCss, xpath: `//${tag}[@${name}=${xpathLiteral(value)}]` };
+      }
+    }
+  }
+  return null;
+}
+
 // ── U18b.5: toggled variants ────────────────────────────────────────────────
 // An item named by a toggle label holds other variants behind that toggle
 // (BrowserStack's Team card: Team and Team Pro). The template finds the item
@@ -470,9 +501,19 @@ function templateFor(target, targetItem, items, itemSel0, inner, { allowSelf = f
   // Hidden copies of the items (BrowserStack keeps every product's cards in
   // the page) make the plain item selector ambiguous; the template then names
   // visible items only — what both agents wrote by hand.
-  const visibleOnly = all.some((el) => !isVisible(el)) && items.every(isVisible);
-  if (visibleOnly) all = all.filter(isVisible);
-  const itemSel = visibleOnly ? { ...itemSel0, visible: true } : itemSel0;
+  const hiddenCopies = all.some((el) => !isVisible(el)) && items.every(isVisible);
+  // U19.2: a stable ancestor attribute that holds every item and no hidden
+  // copy names WHICH copy (the Live product's cards); `visible: true` only
+  // means whichever is showing. It is the fallback.
+  const scope = hiddenCopies ? stableScope(items, itemSel0.css) : null;
+  let itemSel = itemSel0;
+  if (scope) {
+    itemSel = { css: `${scope.css} ${itemSel0.css}`, xpath: `${scope.xpath}${itemSel0.xpath}` };
+    all = [...document.querySelectorAll(itemSel.css)];
+  } else if (hiddenCopies) {
+    all = all.filter(isVisible);
+    itemSel = { ...itemSel0, visible: true };
+  }
 
   // The reason reported is the BEST option's: it is what a person would try first.
   let blocked = null;

@@ -67,7 +67,13 @@ export function gradeTools(session, idCache = new Map()) {
           const steps = parsed.chain.scored.map((st, i) => ({ ...st, ...scores[i] }));
           const weakest = steps.reduce((a, b) => (b.score < a.score ? b : a));
           scoreValue = weakest.scoreValue;
-          chain = { steps, weakest: steps.indexOf(weakest), notes: parsed.chain.notes };
+          chain = { steps, weakest: steps.indexOf(weakest), notes: [...parsed.chain.notes] };
+          // U19.2: a visible filter over a CSS step — offer the stable scope if the page has one.
+          const base = parsed.chain.scored[0]?.scoreValue;
+          if (chain.notes.some((n) => n.includes('visible: true')) && base && !base.startsWith('page.')) {
+            const scope = await callPage(page, 'stableScopeFor', { css: base }).catch(() => null);
+            if (scope) chain.notes.push(`prefer the scope ${scope} over filter({ visible: true }) — it names which copy, not whichever one is showing: page.locator('${scope} ${base}')`);
+          }
         }
         const { graded, candidates } = await callPage(page, 'grade', { element, value: scoreValue, framework: fw, matchCount });
         if (chain) Object.assign(graded, { value: selector, code: selector, chain });

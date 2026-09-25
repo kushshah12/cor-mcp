@@ -6,7 +6,7 @@ import { deepQueryAll, isControl, hintsFor, isShown, roleAndName, squash, visibl
 import { buildOutline } from './outline.js';
 import { scopedSnapshot } from './scope.js';
 import { beginAct, endAct, identityOf, revalidate, structuralPath } from './acts.js';
-import { parameterise, xpathLiteral } from './params.js';
+import { parameterise, stableScope, xpathLiteral } from './params.js';
 import { stateBound } from './state.js';
 import { removedMatch, saferScope } from './removed.js';
 
@@ -199,6 +199,19 @@ function grade({ element: el, value, framework, matchCount }) {
   };
 }
 
+/** U19.2: for cor_grade — a stable scope that replaces `visible: true` over `css`, or null. */
+function stableScopeFor({ css }) {
+  let all;
+  try {
+    all = [...document.querySelectorAll(css)];
+  } catch {
+    return null;
+  }
+  const shown = all.filter(isShown);
+  if (!shown.length || shown.length === all.length) return null;
+  return stableScope(shown, css)?.css ?? null;
+}
+
 /** Score chain steps on their own (cor_grade on a chained locator). */
 function scoreSteps({ values, framework, element: el, matchCount }) {
   // Same context as grade(), so the weakest step's score is the chain's score.
@@ -220,4 +233,4 @@ function countXpath({ template, values }) {
   });
 }
 
-window.__corMcp = { snapshot, scoped, inspect, element, grade, scoreSteps, beginAct, afterAct, countXpath };
+window.__corMcp = { snapshot, scoped, inspect, element, grade, scoreSteps, stableScopeFor, beginAct, afterAct, countXpath };
