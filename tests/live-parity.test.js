@@ -34,7 +34,10 @@ test('live parity: Playwright finds every outlined element by the role and name 
       const clipped = leaf.name.endsWith('…');
       const options = leaf.name ? { name: clipped ? leaf.name.slice(0, -1) : leaf.name, exact: !clipped } : {};
       const handle = await page.evaluateHandle((ref) => window.__corMcp.element({ ref }), leaf.ref);
-      const found = await page.getByRole(leaf.role, options).evaluateAll((els, el) => els.includes(el), handle);
+      // A hidden input shown by its label is out of the accessibility tree; getByLabel reaches it.
+      const found = leaf.viaLabel
+        ? await page.getByLabel(leaf.name, { exact: true }).evaluateAll((els, el) => els.includes(el), handle)
+        : await page.getByRole(leaf.role, options).evaluateAll((els, el) => els.includes(el), handle);
       if (!found) mismatches.push(`${url} ${leaf.role} "${leaf.name}"`);
     }
     // A clickable has no role to query by; Playwright reaches it by its text.

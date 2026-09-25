@@ -6,7 +6,7 @@
 // A name that fits several regions is not guessed at — the candidates come
 // back, each with a ref inside it, for the agent to choose.
 import { DEFAULT_TEST_ID_ATTRIBUTES } from '@corlabs/engine/core';
-import { HEADING, clip, deepQueryAll, hasControl, isControl, isVisible, roleAndName, squash } from './dom.js';
+import { HEADING, clip, deepQueryAll, hasControl, isControl, isShown, isVisible, roleAndName, squash } from './dom.js';
 import {
   CELL, ITEM, LANDMARKS, TABLE, ariaLabel, containersFor, headingLevel, label, ownText, rowKey, statesOf,
 } from './outline.js';
@@ -124,7 +124,7 @@ function contentOf(region, issueRef) {
       }
       if (child.nodeType !== 1 || hiddenForText(child)) continue;
       const inside = region.contains(child);
-      if (inside && isControl(child) && isVisible(child)) {
+      if (inside && isControl(child) && isShown(child)) {
         flush();
         const { role, name } = roleAndName(child);
         lines.push({
@@ -159,7 +159,7 @@ function contentOf(region, issueRef) {
 
 /** The first visible control inside a region — a ref the agent can pass back as `within`. */
 function sampleIn(region) {
-  return deepQueryAll(isControl, region.root).find((el) => region.contains(el) && isVisible(el)) ?? null;
+  return deepQueryAll(isControl, region.root).find((el) => region.contains(el) && isShown(el)) ?? null;
 }
 
 /**

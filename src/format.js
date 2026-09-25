@@ -225,6 +225,22 @@ function stateOnlyNote(stateOnly, framework) {
   return out;
 }
 
+/**
+ * The target is a hidden checkbox/radio operated through its label. Playwright
+ * refuses to .check() or .click() a hidden input (the Playwright MCP agent's
+ * first run failed on it), so the act goes to the label and the assertion to
+ * the input, which getByLabel still reaches.
+ */
+function viaLabelNote(labelText, framework) {
+  if (!labelText) return [];
+  const q = `'${labelText.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+  return framework === 'playwright'
+    ? ['', `Hidden input, operated through its visible label "${labelText}":`,
+      `  change it: page.getByText(${q}, { exact: true }).click()   — .check() on the input fails: it is not visible`,
+      `  check it:  await expect(page.getByLabel(${q}, { exact: true })).toBeChecked()`]
+    : ['', `Hidden input, operated through its visible label "${labelText}": click the label to change it; read the state from the input.`];
+}
+
 /** A template usable in this framework, or null. */
 const usableTemplate = (params, framework) =>
   (params?.template && (framework === 'playwright' || params.template.xpath) ? params : null);
@@ -266,6 +282,7 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
   }
 
   out.push(...stateOnlyNote(result.stateOnly, framework));
+  out.push(...viaLabelNote(result.viaLabel, framework));
 
   if (result.rankingNote) out.push('', `Why this order: ${result.rankingNote}`);
   const profile = profileLine(result.profile);
@@ -293,6 +310,7 @@ const SNAPSHOT_LEGEND =
   'Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ' +
   '✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. ' +
   'clickable: no role, only cursor: pointer (a script-handled <div>).';
+const VIA_LABEL_LEGEND = '[via label]: a hidden input shown by its label — click the label, check state on the input.';
 
 const GROUP_LEGEND = '"N items, each: …": every item has those controls; its line lists their refs in that order.';
 
@@ -302,6 +320,7 @@ function leafText(leaf, unstableIds) {
   for (const state of leaf.states) text += ` [${state}]`;
   if (leaf.hidden) text += ` +${leaf.hidden} hidden`;
   if (leaf.id && unstableIds.has(leaf.id)) text += ' [unstable id]';
+  if (leaf.viaLabel) text += ' [via label]';
   if (leaf.hint) text += ` ${leaf.hint}`;
   return text;
 }
@@ -317,6 +336,7 @@ function markers(leaf, unstableIds) {
   for (const state of leaf.states) out.push(`[${state}]`);
   if (leaf.hidden) out.push(`+${leaf.hidden} hidden`);
   if (leaf.id && unstableIds.has(leaf.id)) out.push('[unstable id]');
+  if (leaf.viaLabel) out.push('[via label]');
   return out.join(' ');
 }
 
@@ -407,7 +427,8 @@ export function renderSnapshot(snapshot, { unstableIds = new Set() } = {}) {
   const head = `${snapshot.title ? `"${snapshot.title}" ` : ''}${snapshot.url} — ${snapshot.count} interactive element${snapshot.count === 1 ? '' : 's'}`;
   const stats = { groups: 0 };
   const lines = renderNodes(snapshot.tree, 0, unstableIds, [], stats);
-  const legend = stats.groups ? `${SNAPSHOT_LEGEND} ${GROUP_LEGEND}` : SNAPSHOT_LEGEND;
+  const viaLabel = (nodes) => nodes.some((n) => (n.kind === 'leaf' ? n.viaLabel : viaLabel(n.children)));
+  const legend = [SNAPSHOT_LEGEND, stats.groups && GROUP_LEGEND, viaLabel(snapshot.tree) && VIA_LABEL_LEGEND].filter(Boolean).join(' ');
   return [head, legend, '', ...lines].join('\n');
 }
 

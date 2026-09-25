@@ -16,7 +16,7 @@
 // so the agent can act on them without a snapshot), disappeared, or changed
 // state, grouped under a container that appeared with them.
 import { computeFingerprint } from '@corlabs/engine/core';
-import { HEADING, deepQueryAll, isControl, isVisible, roleAndName } from './dom.js';
+import { HEADING, deepQueryAll, isControl, isShown, isVisible, roleAndName } from './dom.js';
 import { containersFor, label, statesOf } from './outline.js';
 import { rememberRemoved } from './removed.js';
 
@@ -98,7 +98,7 @@ function describe(el) {
 
 /** Called just before an act. */
 export function beginAct() {
-  before = new Map(deepQueryAll(isControl).filter(isVisible).map((el) => [el, describe(el)]));
+  before = new Map(deepQueryAll(isControl).filter(isShown).map((el) => [el, describe(el)]));
   return true;
 }
 
@@ -111,7 +111,7 @@ const MAX_CHANGES = 15;
 export function endAct(issueRef) {
   if (!before) return { changes: null };
   const headings = visibleHeadings();
-  const now = deepQueryAll(isControl).filter(isVisible);
+  const now = deepQueryAll(isControl).filter(isShown);
   const nowSet = new Set(now);
   const changes = [];
 

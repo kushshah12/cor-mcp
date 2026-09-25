@@ -16,7 +16,7 @@
 //   pass 3  merge the paths into one tree; the renderer folds chains
 import { DEFAULT_TEST_ID_ATTRIBUTES, isUnstableClass } from '@corlabs/engine/core';
 import {
-  HEADING, HINT_MAX, clip, closestControl, hasControl, isControl, composedParent, deepQueryAll, isVisible, roleAndName, squash,
+  HEADING, HINT_MAX, clip, closestControl, hasControl, isControl, isShown, composedParent, deepQueryAll, isVisible, roleAndName, squash, visibleLabelOf,
 } from './dom.js';
 
 const LABEL_MAX = 50;
@@ -222,14 +222,14 @@ function disambiguateSiblings(children) {
 export function buildOutline(issueRef) {
   const testIdSelector = DEFAULT_TEST_ID_ATTRIBUTES.map((a) => `[${a}]`).join(',');
   const all = deepQueryAll(isControl);
-  const visible = all.filter(isVisible);
+  const visible = all.filter(isShown);
 
   // Hidden lookalikes: invisible controls sharing a role and name with a
   // visible one. A locator that leans on visibility changes meaning when they
   // show — the trap that sent Playwright's agent to `:visible`.
   const hidden = new Map();
   for (const el of all) {
-    if (isVisible(el)) continue;
+    if (isShown(el)) continue;
     const { role, name } = roleAndName(el);
     hidden.set(`${role}|${name}`, (hidden.get(`${role}|${name}`) ?? 0) + 1);
   }
@@ -259,6 +259,8 @@ export function buildOutline(issueRef) {
       value: el.tagName === 'SELECT' ? label(el.selectedOptions[0]?.textContent) : null,
       // A clickable named only by a number ("0" — a cart badge) says nothing
       // about what it is; its class does.
+      // Hidden input shown by its label: act on the label, assert on the input.
+      viaLabel: Boolean(visibleLabelOf(el)),
       cls: role === 'clickable' && VALUE_TEXT.test(name) ? ([...el.classList].find((c) => !isUnstableClass(c)) ?? null) : null,
     };
     let parent = root;
@@ -277,7 +279,7 @@ export function buildOutline(issueRef) {
 
   // Only JSON crosses back to Node.
   const plain = (node) => (node.kind === 'leaf'
-    ? { kind: 'leaf', ref: node.ref, role: node.role, name: node.name, value: node.value, testId: node.testId, states: node.states, hidden: node.hidden, id: node.id, cls: node.cls ?? null, hint: node.hint ?? null }
+    ? { kind: 'leaf', ref: node.ref, role: node.role, name: node.name, value: node.value, testId: node.testId, states: node.states, hidden: node.hidden, id: node.id, cls: node.cls ?? null, viaLabel: node.viaLabel || undefined, hint: node.hint ?? null }
     : { kind: 'container', type: node.type, label: node.label, children: node.children.map(plain) });
   return { count: visible.length, tree: root.children.map(plain) };
 }

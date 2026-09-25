@@ -83,6 +83,20 @@ export function isVisible(el) {
   return style.visibility !== 'hidden' && style.visibility !== 'collapse';
 }
 
+/**
+ * A hidden checkbox or radio that a user operates through its visible label —
+ * a custom toggle. BrowserStack pricing's "For Teams / For Individuals" switch
+ * is two such radios; the snapshot dropped them as invisible, and the agent
+ * wrote six DOM probes to find them.
+ */
+export function visibleLabelOf(el) {
+  if (el.tagName !== 'INPUT' || !/^(radio|checkbox)$/i.test(el.type) || isVisible(el)) return null;
+  return [...(el.labels ?? [])].find(isVisible) ?? null;
+}
+
+/** On screen for a user: visible itself, or through its visible label. */
+export const isShown = (el) => isVisible(el) || Boolean(visibleLabelOf(el));
+
 export const clip = (text, max) => (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 export const squash = (text) => (text ?? '').replace(/\s+/g, ' ').trim();
 

@@ -2,7 +2,7 @@
 // evaluated on demand — see src/page-runtime.js. Only JSON crosses back to
 // Node; no DOM handle leaves the page.
 import { LocatorEngine, computeFingerprint, extractElementInfo, scoreLocator } from '@corlabs/engine/core';
-import { deepQueryAll, isControl, hintsFor, isVisible, roleAndName } from './dom.js';
+import { deepQueryAll, isControl, hintsFor, isShown, roleAndName, squash, visibleLabelOf } from './dom.js';
 import { buildOutline } from './outline.js';
 import { scopedSnapshot } from './scope.js';
 import { beginAct, endAct, identityOf, revalidate, structuralPath } from './acts.js';
@@ -29,7 +29,7 @@ function lookalikes(target) {
     const other = roleAndName(el);
     return other.role === role && other.name === name;
   };
-  const group = deepQueryAll(isControl).filter((el) => el === target || (isVisible(el) && same(el)));
+  const group = deepQueryAll(isControl).filter((el) => el === target || (isShown(el) && same(el)));
   if (group.length < 2) return null;
   const hints = hintsFor(group.map((el) => ({ el, name })));
   const refOf = new Map([...refs].map(([r, el]) => [el, r]));
@@ -109,6 +109,7 @@ function inspect({ ref, selector, framework, max }) {
   return {
     ...candidates,
     stateOnly: markStateOnly(candidates.locators, target.el),
+    viaLabel: (() => { const l = visibleLabelOf(target.el); return l ? squash(l.textContent) : null; })(),
     lookalikes: lookalikes(target.el),
     params: parameterise(target.el),
     stateBound: stateBoundFor(target.el, framework),
