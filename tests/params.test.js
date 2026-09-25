@@ -121,6 +121,12 @@ test('a table row is named by its key column, and the header names the parameter
   assert.deepEqual(await countCode(p), [1, 1]);
 });
 
+test('lookalikes of other shapes leave one item: no template (not "1 items share this shape")', async () => {
+  assert.equal(await params('.solo-card button'), null);
+  const out = await call('cor_inspect', { selector: '.solo-card button' });
+  assert.doesNotMatch(out, /parameterised|1 items share|also: \)/i);
+});
+
 test('a one-off element gets no Parameterised block', async () => {
   assert.equal(await params('#checkout'), null);
   assert.doesNotMatch(await call('cor_inspect', { selector: '#checkout' }), /arameterised/);

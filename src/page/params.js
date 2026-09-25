@@ -163,6 +163,10 @@ export function parameterise(target) {
   const targetItem = itemOf(target, repeats);
   if (targetItem === target) return null; // the repeat IS the item: nothing contains it
   const items = repeats.map((r) => itemOf(r, repeats)).filter((i) => i.tagName === targetItem.tagName);
+  // Lookalikes of other shapes (a card's "Choose" and the comparison table's)
+  // can leave the target the only item of its shape: nothing to parameterise.
+  // BrowserStack pricing rendered "1 items share this shape (1/1)" without this.
+  if (items.length < 2) return null;
   const itemSel = itemSelector(items);
   if (!itemSel) return { count: items.length, reason: 'the items share no class or tag that names them' };
   const inner = innerOf(target, targetItem);
