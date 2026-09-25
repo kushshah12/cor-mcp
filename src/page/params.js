@@ -259,6 +259,8 @@ function groupTemplate(target) {
 export function parameterise(target) {
   const group = groupTemplate(target);
   if (group) return group;
+  const cell = cellTemplate(target);
+  if (cell) return cell;
   const repeats = repeatsOf(target);
   if (repeats.length < 2) return structuralTemplate(target);
   const targetItem = itemOf(target, repeats);
@@ -273,6 +275,75 @@ export function parameterise(target) {
   const inner = innerOf(target, targetItem);
   if (!inner) return { count: items.length, reason: 'the element is not the only one of its kind inside its item' };
   return templateFor(target, targetItem, items, itemSel, inner);
+}
+
+// ── U18b.4: row × column cells ──────────────────────────────────────────────
+// A cell addressed by its row's key and its column's header: one XPath with
+// two parameters (XPath can compute the column's position; a Playwright
+// locator cannot). From the BrowserStack comparison: both agents read one
+// comparison cell inline with a hand-computed column index.
+
+/** The table as an XPath step: by id, by a naming class, or alone on the page. */
+function tableStep(table) {
+  if (table.id && !/\d{3,}/.test(table.id)) return `//table[@id=${xpathLiteral(table.id)}]`;
+  const cls = namingClasses(table)[0];
+  if (cls) return `//table[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]`;
+  return document.querySelectorAll('table').length === 1 ? '//table' : null;
+}
+
+/** U18b.4. Null when the target is not a table cell's content (a control keeps U18's row template). */
+function cellTemplate(target) {
+  const cell = target.closest('td, th');
+  if (!cell || (target !== cell && isControl(target))) return null;
+  const table = cell.closest('table');
+  const all = [...table.rows];
+  const header = all.find((r) => r.querySelector('th') && r.cells.length > 1);
+  const row = cell.parentElement;
+  if (!header || header === row) return null;
+  // Checked before anything that counts cells: with a span, rows and header differ in length.
+  if (all.some((r) => [...r.cells].some((c) => c.colSpan > 1))) {
+    return { kind: 'cell', count: all.length - 1, reason: 'a header or cell spans more than one column, so positions do not line up' };
+  }
+  const body = all.filter((r) => r !== header && isVisible(r) && r.cells.length === header.cells.length);
+  if (!body.includes(row)) return null;
+  const no = (reason) => ({ kind: 'cell', count: body.length, reason });
+  const headers = [...header.cells].map((c) => squash(c.textContent));
+  const dup = (list) => list.find((v, i) => list.indexOf(v) !== i);
+  // The key column: the first whose cells all name their row — text, unique,
+  // not a price. A leading checkbox or actions column is skipped (selectorshub).
+  const k = headers.findIndex((_, i) => {
+    const keys = body.map((r) => squash(r.cells[i].textContent));
+    return keys.every((v) => v && !PRICE.test(v)) && !dup(keys);
+  });
+  if (k === -1) {
+    const first = body.map((r) => squash(r.cells[0].textContent));
+    return no(dup(first) ? `two rows share the key "${dup(first)}"` : 'no column names every row with unique text');
+  }
+  const rows = body.map((r) => squash(r.cells[k].textContent));
+  // Columns without header text are left out as values; the target's must have one.
+  const columns = headers.filter(Boolean);
+  if (!headers[cell.cellIndex]) return no('the column has no header text');
+  if (dup(columns)) return no(`two columns share the header "${dup(columns)}"`);
+  const T = tableStep(table);
+  if (!T) return no('the table has no id or class to name it by');
+  let inner = '';
+  if (target !== cell) {
+    const tag = target.tagName.toLowerCase();
+    const cls = namingClasses(target)[0];
+    inner = `//${tag}${cls ? `[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]` : ''}`;
+    const hits = document.evaluate(`.${inner}`, cell, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+    if (hits.snapshotLength !== 1 || hits.snapshotItem(0) !== target) return no('the element is not the only one of its kind in its cell');
+  }
+  const rp = toParam(headers[k]) ?? 'row';
+  const cp = rp === 'column' ? 'col' : 'column';
+  const xp = `${T}//tr[*[${k + 1}][normalize-space()=__${rp}__]]/*[count((${T}//tr[th])[1]/*[normalize-space()=__${cp}__]/preceding-sibling::*)+1]${inner}`;
+  const code = `page.locator(\`xpath=${xp.replace(`__${rp}__`, `"\${${rp}}"`).replace(`__${cp}__`, `"\${${cp}}"`)}\`)`;
+  return {
+    kind: 'cell', count: body.length, vars: [rp, cp], rows, columns,
+    row: rows[body.indexOf(row)], column: headers[cell.cellIndex], code,
+    // The placeholders ARE the XPath literals: the client quotes and escapes them.
+    template: { playwright: { selectorTemplate: `xpath=${xp}`, syntax: 'xpath-literal' }, xpath: { selectorTemplate: xp, syntax: 'xpath-literal' } },
+  };
 }
 
 // ── U18b.2: structural repeats ──────────────────────────────────────────────

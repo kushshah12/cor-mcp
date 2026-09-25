@@ -158,7 +158,26 @@ function pickAlternatives(best, alternatives) {
  * application", five weak single-item locators and a 25-line lookalike list
  * to reach it.
  */
+function cellLead(p, framework) {
+  const also = (list, v) => {
+    const others = list.filter((x) => x !== v);
+    const more = others.length > VALUES_SHOWN ? `, … ${others.length - VALUES_SHOWN} more` : '';
+    return `(also: ${others.slice(0, VALUES_SHOWN).map((x) => `"${x}"`).join(', ')}${more})`;
+  };
+  const [rp, cp] = p.vars;
+  return [
+    `Recommended — parameterised by row and column: ${p.rows.length} rows × ${p.columns.length} columns; every row and column checked (${p.counted}/${p.counted}).`,
+    `  ${rp} = "${p.row}"   ${also(p.rows, p.row)}`,
+    `  ${cp} = "${p.column}"   ${also(p.columns, p.column)}`,
+    framework === 'playwright' ? `  ${p.code}` : `  XPath: ${p.template.xpath.selectorTemplate}`,
+    `  Registry template (xpath-literal): ${p.template.xpath.selectorTemplate}   (__${rp}__ / __${cp}__ are quoted XPath literals)`,
+    `  When the test reads more than one cell, write one function taking ${rp} and ${cp}.`,
+    '',
+  ];
+}
+
 function paramLead(params, framework, lookalikes) {
+  if (params.kind === 'cell') return cellLead(params, framework);
   const others = params.values.filter((v) => v !== params.value);
   const more = others.length > VALUES_SHOWN ? `, … ${others.length - VALUES_SHOWN} more` : '';
   const form = framework === 'playwright'
@@ -187,6 +206,7 @@ function paramLead(params, framework, lookalikes) {
 /** Why there is no template, or none for this framework. */
 function paramNote(params, framework) {
   if (!params) return [];
+  if (!params.template && params.kind === 'cell') return ['', `Not parameterised by row and column — ${params.reason}.`];
   if (!params.template) {
     const what = params.kind === 'group' ? `${params.count} options in this ${params.what}` : `${params.count} items share this shape`;
     return ['', `Not parameterised — ${what}, but ${params.reason}.`];

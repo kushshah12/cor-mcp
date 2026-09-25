@@ -30,8 +30,25 @@ const COUNT_MAX = 100;
  * DOM; here Playwright itself counts it with each value filled in, so the
  * string the agent gets is known to resolve, not assumed to.
  */
+const xpathLiteralOf = (v) => (!v.includes("'") ? `'${v}'` : !v.includes('"') ? `"${v}"` : `concat(${v.split("'").map((p) => `'${p}'`).join(`, "'", `)})`);
+
 export async function verifyTemplate(page, params) {
   if (!params?.template) return;
+  if (params.kind === 'cell') {
+    // The target's row with every column, and its column with every row.
+    const [rv, cv] = params.vars;
+    const combos = [...params.columns.map((c) => [params.row, c]), ...params.rows.map((r) => [r, params.column])];
+    const fill = (r, c) => params.template.playwright.selectorTemplate.replace(`__${rv}__`, () => xpathLiteralOf(r)).replace(`__${cv}__`, () => xpathLiteralOf(c));
+    const counts = await Promise.all(combos.map(([r, c]) => page.locator(fill(r, c)).count().catch(() => -1)));
+    const bad = counts.findIndex((n) => n !== 1);
+    if (bad !== -1) {
+      params.reason = `the template matched ${counts[bad] < 0 ? 'nothing parseable' : counts[bad]} for ${combos[bad].join(' / ')} when Playwright counted it`;
+      delete params.template;
+      return;
+    }
+    params.counted = combos.length;
+    return;
+  }
   const values = params.values.slice(0, COUNT_MAX);
   const pw = params.template.playwright.selectorTemplate;
   const counts = await Promise.all(values.map((v) =>
