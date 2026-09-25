@@ -8,6 +8,7 @@ import { scopedSnapshot } from './scope.js';
 import { beginAct, endAct, identityOf, revalidate, structuralPath } from './acts.js';
 import { parameterise, xpathLiteral } from './params.js';
 import { stateBound } from './state.js';
+import { removedMatch, saferScope } from './removed.js';
 
 let refs = new Map(); // ref -> element, replaced on every full snapshot
 const meta = new Map(); // ref -> { identity, path } — what the ref was issued for (U16)
@@ -104,14 +105,32 @@ function resolveTarget({ ref, selector }) {
 function inspect({ ref, selector, framework, max }) {
   const target = resolveTarget({ ref, selector });
   if (target.error) return target;
+  const candidates = candidatesFor(target.el, framework, max);
   return {
-    ...candidatesFor(target.el, framework, max),
+    ...candidates,
+    stateOnly: markStateOnly(candidates.locators, target.el),
     lookalikes: lookalikes(target.el),
     params: parameterise(target.el),
     stateBound: stateBoundFor(target.el, framework),
     // For silent capture (src/fingerprints.js) — never rendered.
     capture: { fingerprint: computeFingerprint(target.el), elementKey: structuralPath(target.el) },
   };
+}
+
+/**
+ * Candidates unique only because an act removed their other match (see
+ * removed.js): each is warned; for the top pick, the safer scoped form.
+ */
+function markStateOnly(locators, el) {
+  let top = null;
+  locators.forEach((l, i) => {
+    if (l.matchCount !== 1) return;
+    const what = removedMatch(l.value);
+    if (!what) return;
+    l.warnings = [...(l.warnings ?? []), `Unique only in this state — it also matches ${what}, which an act on this page removed`];
+    if (i === 0) top = { what, value: l.value, safer: saferScope(el, l.value) };
+  });
+  return top;
 }
 
 /** The state-bound warning with the twin's best locator (see state.js). */

@@ -1,0 +1,23 @@
+<!doctype html>
+<title>Cart live</title>
+<style>
+  .bag { cursor: pointer; display: inline-block; padding: 4px }
+  .float-cart { position: fixed; right: 0; top: 40px; width: 220px; background: #eee }
+</style>
+<header id="top"></header>
+<div class="float-cart">
+  <div class="float-cart__header"><span class="bag"><span class="bag__quantity">0</span></span> <span>Bag</span></div>
+</div>
+<button id="add">Add</button>
+<button id="close">Close cart</button>
+<button id="hide">Hide badge</button>
+<script>
+  // bstackdemo's behaviour: the header badge exists only while the cart is closed.
+  let count = 0;
+  const headerBadge = () => '<span class="bag bag--float-cart-closed"><span class="bag__quantity">' + count + '</span></span>';
+  document.getElementById('top').innerHTML = headerBadge();
+  const setCount = () => document.querySelectorAll('.bag__quantity').forEach((q) => (q.textContent = String(count)));
+  document.getElementById('add').onclick = () => { count += 1; setCount(); document.querySelector('#top .bag')?.remove(); };
+  document.getElementById('close').onclick = () => { document.getElementById('top').innerHTML = headerBadge(); };
+  document.getElementById('hide').onclick = () => { document.querySelector('#top .bag').style.display = 'none'; };
+</script>

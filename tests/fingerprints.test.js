@@ -2,7 +2,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer as createHttpServer } from 'node:http';
 import { spawn } from 'node:child_process';
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -11,7 +11,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
 import { createSession } from '../src/session.js';
-import { createFingerprintStore, FORMAT_VERSION, RETENTION_DAYS, redactText } from '../src/fingerprints.js';
+import { createFingerprintStore, FORMAT_VERSION, RETENTION_DAYS, redactText, storeFileFor } from '../src/fingerprints.js';
 import { expandGroups } from './helpers/outline.js';
 
 const COOKIE = 'SEKRET-COOKIE-9f8e7d6c5b4a39281706';
@@ -56,7 +56,9 @@ after(async () => {
 });
 
 const tempDir = () => mkdtempSync(join(tmpdir(), 'cor-fp-'));
-const readRecords = (dir) => JSON.parse(readFileSync(join(dir, '.cor', 'fingerprints.json'), 'utf8'));
+// The store lives under the user's home, outside the project; tests use their own.
+const HOME = tempDir();
+const readRecords = (dir, home = HOME) => JSON.parse(readFileSync(storeFileFor(dir, home), 'utf8'));
 
 async function connect(t, fingerprints) {
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
@@ -75,7 +77,7 @@ async function connect(t, fingerprints) {
 
 test('AE3: an inspected element is recorded with a format version and retrievable by its locator', async (t) => {
   const dir = tempDir();
-  const store = createFingerprintStore({ dir });
+  const store = createFingerprintStore({ home: HOME, dir });
   const call = await connect(t, store);
   const out = await call('cor_inspect', { selector: 'button', framework: 'cypress' });
   const { version, records } = readRecords(dir);
@@ -91,7 +93,7 @@ test('AE3: an inspected element is recorded with a format version and retrievabl
 
 test('the stored snapshot heals through healLocator() with no transformation', async (t) => {
   const dir = tempDir();
-  const call = await connect(t, createFingerprintStore({ dir }));
+  const call = await connect(t, createFingerprintStore({ home: HOME, dir }));
   await call('cor_inspect', { selector: 'button' });
   const { fingerprint } = readRecords(dir).records[0];
 
@@ -109,28 +111,47 @@ test('the stored snapshot heals through healLocator() with no transformation', a
   assert.ok(healed.similarity >= 0.4, `similarity ${healed.similarity} clears healLocator's default threshold`);
 });
 
-test('the ignore entry is created when absent and never duplicated', async (t) => {
-  const fresh = tempDir();
-  const store = createFingerprintStore({ dir: fresh });
-  const call = await connect(t, store);
+test('the store lives outside the project: nothing is written in the working folder', async (t) => {
+  const dir = tempDir();
+  const call = await connect(t, createFingerprintStore({ home: HOME, dir }));
   await call('cor_inspect', { selector: 'button' });
-  await call('cor_inspect', { selector: 'a' });
-  assert.equal(readFileSync(join(fresh, '.cor', '.gitignore'), 'utf8'), 'fingerprints.json\n');
+  assert.deepEqual(readdirSync(dir), [], 'the project folder is untouched');
+  assert.equal(readRecords(dir).records.length, 1);
+  assert.equal(readRecords(dir).folder, realpathSync(dir));
+  // Two folders with the same name never share a file.
+  const a = join(tempDir(), 'tests');
+  const b = join(tempDir(), 'tests');
+  assert.notEqual(storeFileFor(a, HOME), storeFileFor(b, HOME));
+  assert.match(storeFileFor(a, HOME), /[/\\]\.cor[/\\]fingerprints[/\\]tests-[0-9a-f]{6}\.json$/);
+});
 
-  // An existing .cor/.gitignore (no trailing newline) is appended to, once.
-  const existing = tempDir();
-  mkdirSync(join(existing, '.cor'));
-  writeFileSync(join(existing, '.cor', '.gitignore'), 'telemetry-pending.json');
-  const other = createFingerprintStore({ dir: existing });
-  const record = (n) => other.record({ url: `${base}/x`, elementKey: `k${n}`, fingerprint: { tag: 'a', attrs: {}, text: null, classes: [] }, locators: ['a'] });
-  record(1);
-  record(2);
-  assert.equal(readFileSync(join(existing, '.cor', '.gitignore'), 'utf8'), 'telemetry-pending.json\nfingerprints.json\n');
+test('a store an earlier version left in <folder>/.cor/ is moved once, and its .cor/ removed only if it was ours', () => {
+  const fp = { tag: 'a', attrs: {}, text: null, classes: [] };
+  const legacyRecord = { v: 1, page: `${base}/old`, elementKey: 'legacy', fingerprint: fp, locators: ['a.old'], firstSeen: new Date().toISOString(), lastSeen: new Date().toISOString() };
+  const seed = (dir, extra = {}, ignore = 'fingerprints.json\n') => {
+    mkdirSync(join(dir, '.cor'));
+    writeFileSync(join(dir, '.cor', 'fingerprints.json'), JSON.stringify({ version: 1, records: [legacyRecord] }));
+    writeFileSync(join(dir, '.cor', '.gitignore'), ignore);
+    for (const [name, body] of Object.entries(extra)) writeFileSync(join(dir, '.cor', name), body);
+  };
+
+  const ours = tempDir();
+  seed(ours);
+  const store = createFingerprintStore({ home: HOME, dir: ours });
+  assert.equal(store.lookup(`${base}/old`, 'a.old').length, 1, 'readable before the first write');
+  store.record({ url: `${base}/new`, elementKey: 'new', fingerprint: fp, locators: ['a.new'] });
+  assert.deepEqual(readRecords(ours).records.map((r) => r.elementKey).sort(), ['legacy', 'new']);
+  assert.equal(existsSync(join(ours, '.cor')), false, 'our own .cor/ is removed');
+
+  const shared = tempDir();
+  seed(shared, { 'telemetry-pending.json': '[]' }, 'fingerprints.json\ntelemetry-pending.json\n');
+  createFingerprintStore({ home: HOME, dir: shared }).record({ url: `${base}/new`, elementKey: 'n2', fingerprint: fp, locators: ['a'] });
+  assert.deepEqual(readdirSync(join(shared, '.cor')).sort(), ['.gitignore', 'telemetry-pending.json'], 'someone else\'s files stay; only ours goes');
 });
 
 test('inspecting the same element twice keeps one record and a valid file', async (t) => {
   const dir = tempDir();
-  const call = await connect(t, createFingerprintStore({ dir }));
+  const call = await connect(t, createFingerprintStore({ home: HOME, dir }));
   await call('cor_inspect', { selector: 'button', framework: 'cypress' });
   await call('cor_inspect', { selector: 'button', framework: 'playwright' });
   await call('cor_inspect', { selector: 'a' });
@@ -141,7 +162,7 @@ test('inspecting the same element twice keeps one record and a valid file', asyn
 
 test('only the fingerprint fields are stored, with emails, long numbers, tokens and URL queries masked', async (t) => {
   const dir = tempDir();
-  const call = await connect(t, createFingerprintStore({ dir }));
+  const call = await connect(t, createFingerprintStore({ home: HOME, dir }));
   for (const selector of ['a', 'button', 'input']) await call('cor_inspect', { selector });
   const { records } = readRecords(dir);
   const allowed = new Set(['aria-label', 'aria-labelledby', 'name', 'placeholder', 'type', 'role', 'title', 'alt', 'href', 'for']);
@@ -154,7 +175,7 @@ test('only the fingerprint fields are stored, with emails, long numbers, tokens 
   assert.equal(byTag.a.text, 'Order [number] for Jane');
   assert.deepEqual(byTag.button.classes, ['btn', 'user-[number]']);
   assert.equal(byTag.input.attrs.placeholder, '[email]');
-  const file = readFileSync(join(dir, '.cor', 'fingerprints.json'), 'utf8');
+  const file = readFileSync(storeFileFor(dir, HOME), 'utf8');
   for (const secret of ['typed@secret.com', 'jane.doe@example.com', '4815162342', TOKEN, 'token=']) {
     assert.ok(!file.includes(secret), `${secret} leaked into the file`);
   }
@@ -162,11 +183,11 @@ test('only the fingerprint fields are stored, with emails, long numbers, tokens 
 
 test('no cookie or token value reaches a record or a tool response', async (t) => {
   const dir = tempDir();
-  const call = await connect(t, createFingerprintStore({ dir }));
+  const call = await connect(t, createFingerprintStore({ home: HOME, dir }));
   const responses = [];
   responses.push(await call('cor_snapshot'));
   for (const selector of ['a', 'button', 'input']) responses.push(await call('cor_inspect', { selector }));
-  const file = readFileSync(join(dir, '.cor', 'fingerprints.json'), 'utf8');
+  const file = readFileSync(storeFileFor(dir, HOME), 'utf8');
   // The adopted storage state's cookie appears nowhere.
   assert.ok(!file.includes(COOKIE) && !responses.join('\n').includes(COOKIE));
   // A token in the page's own href is page content the agent sees anyway —
@@ -174,25 +195,27 @@ test('no cookie or token value reaches a record or a tool response', async (t) =
   assert.ok(!file.includes(TOKEN), 'token written to the fingerprint file');
   assert.ok(!file.includes('jane.doe@example.com'));
   // …and a locator carrying them is still found by its original, unmasked text.
-  const store = createFingerprintStore({ dir });
+  const store = createFingerprintStore({ home: HOME, dir });
   assert.equal(store.lookup(`${base}/account`, `a[aria-label="Orders for jane.doe@example.com"]`).length, 1);
   assert.equal(store.lookup(`${base}/account`, `a[href="/orders/123?token=${TOKEN}#details"]`).length, 1);
 });
 
-test('a write failure (read-only directory) does not fail the inspect', async (t) => {
+test('a write failure (read-only home) does not fail the inspect', async (t) => {
+  const home = tempDir();
   const dir = tempDir();
-  chmodSync(dir, 0o555);
-  t.after(() => chmodSync(dir, 0o755));
-  const call = await connect(t, createFingerprintStore({ dir }));
+  chmodSync(home, 0o555);
+  t.after(() => chmodSync(home, 0o755));
+  const call = await connect(t, createFingerprintStore({ home, dir }));
   const out = await call('cor_inspect', { selector: 'button' });
   assert.match(out, /^Best locator/);
-  assert.equal(existsSync(join(dir, '.cor')), false);
+  assert.equal(existsSync(join(home, '.cor')), false);
+  assert.deepEqual(readdirSync(dir), []);
 });
 
 test('records unseen for the retention period are pruned on the next write', () => {
   const dir = tempDir();
   let now = Date.parse('2026-01-01T00:00:00Z');
-  const store = createFingerprintStore({ dir, now: () => now });
+  const store = createFingerprintStore({ home: HOME, dir, now: () => now });
   const fp = { tag: 'a', attrs: {}, text: null, classes: [] };
   store.record({ url: `${base}/old`, elementKey: 'old', fingerprint: fp, locators: ['a'] });
   now += (RETENTION_DAYS + 1) * 86_400_000;
@@ -240,17 +263,21 @@ async function runBin(t, { cwd, args = [], env = {} }) {
 
 test('verification: through the bin, one record per element, nothing on stderr, identical responses; disabled writes nothing', async (t) => {
   const on = tempDir();
-  const withCapture = await runBin(t, { cwd: on });
+  const home = tempDir();
+  const withCapture = await runBin(t, { cwd: on, env: { HOME: home } });
   assert.equal(withCapture.stderr, '', 'capture is silent');
-  assert.equal(readRecords(on).records.length, 3, 'four inspects of three elements');
+  assert.equal(readRecords(on, home).records.length, 3, 'four inspects of three elements');
+  assert.deepEqual(readdirSync(on), [], 'nothing inside the working folder');
 
   const flagged = tempDir();
-  const withFlag = await runBin(t, { cwd: flagged, args: ['--no-fingerprints'] });
-  assert.equal(existsSync(join(flagged, '.cor')), false, '--no-fingerprints writes no file at all');
+  const flaggedHome = tempDir();
+  const withFlag = await runBin(t, { cwd: flagged, args: ['--no-fingerprints'], env: { HOME: flaggedHome } });
+  assert.equal(existsSync(join(flaggedHome, '.cor')), false, '--no-fingerprints writes no file at all');
   assert.deepEqual(withFlag.texts, withCapture.texts, 'tool responses are identical with capture on or off');
   assert.equal(withFlag.stderr, '');
 
   const env = tempDir();
-  await runBin(t, { cwd: env, env: { COR_FINGERPRINTS: 'off' } });
-  assert.equal(existsSync(join(env, '.cor')), false, 'COR_FINGERPRINTS=off writes no file');
+  const envHome = tempDir();
+  await runBin(t, { cwd: env, env: { COR_FINGERPRINTS: 'off', HOME: envHome } });
+  assert.equal(existsSync(join(envHome, '.cor')), false, 'COR_FINGERPRINTS=off writes no file');
 });

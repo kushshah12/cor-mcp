@@ -1,11 +1,16 @@
 // Silent fingerprint capture: what a later heal verifies against.
 //
 // Every successful cor_inspect appends (or refreshes) one record in
-// .cor/fingerprints.json under the project directory. Nothing is printed —
-// not to the tool response, not to stderr. The README states exactly what is
-// stored; keep this file and that section in step.
-import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+// ~/.cor/fingerprints/<folder>-<code>.json — one file per working folder,
+// kept OUTSIDE it. It used to live in <folder>/.cor/, where agents exploring
+// the project read it (1,500 chars in one run) and saw stale locators as if
+// they were advice. Nothing reads it yet; a future repair tool will.
+// Nothing is printed — not to the tool response, not to stderr. The README
+// states exactly what is stored; keep this file and that section in step.
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, readdirSync, realpathSync, renameSync, rmdirSync, unlinkSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
+import { basename, join, resolve } from 'node:path';
 
 export const FORMAT_VERSION = 1;
 export const RETENTION_DAYS = 90;
@@ -59,25 +64,58 @@ export function pageKey(url) {
 }
 
 // ── the store ───────────────────────────────────────────────────────────────
-/**
- * @param {{ dir?: string, enabled?: boolean, now?: () => number }} [options]
- */
-export function createFingerprintStore({ dir = process.cwd(), enabled = true, now = Date.now } = {}) {
-  const folder = join(dir, '.cor');
-  const file = join(folder, 'fingerprints.json');
+/** The store file for a working folder: its name plus a short code of its full path, so two folders named `tests` never share a file. */
+const realPath = (dir) => {
+  try {
+    return realpathSync(resolve(dir));
+  } catch {
+    return resolve(dir);
+  }
+};
 
-  function ensureIgnored() {
-    // A .gitignore inside .cor/ — the user's own .gitignore is never edited.
-    const ignore = join(folder, '.gitignore');
-    let current = '';
+export function storeFileFor(dir, home = homedir()) {
+  // The real path: a folder opened through a symlink (macOS /var → /private/var)
+  // is still one project with one history.
+  const full = realPath(dir);
+  const code = createHash('sha1').update(full).digest('hex').slice(0, 6);
+  const name = (basename(full) || 'root').replace(/[^\w.-]+/g, '_');
+  return join(home, '.cor', 'fingerprints', `${name}-${code}.json`);
+}
+
+/**
+ * @param {{ dir?: string, home?: string, enabled?: boolean, now?: () => number }} [options]
+ */
+export function createFingerprintStore({ dir = process.cwd(), home = homedir(), enabled = true, now = Date.now } = {}) {
+  const file = storeFileFor(dir, home);
+  const folder = join(home, '.cor', 'fingerprints');
+  const legacyFolder = join(dir, '.cor');
+  const legacy = join(legacyFolder, 'fingerprints.json');
+
+  /**
+   * Move a store written by an earlier version out of the project, once. The
+   * legacy .cor/ folder goes too, but only when nothing in it is someone
+   * else's: our file and a .gitignore that lists only it.
+   */
+  function migrate(records) {
+    if (!existsSync(legacy)) return records;
+    let old = [];
     try {
-      current = readFileSync(ignore, 'utf8');
+      old = JSON.parse(readFileSync(legacy, 'utf8')).records ?? [];
     } catch {
-      // absent — created below
+      // unreadable: nothing to carry over, still remove it below
     }
-    if (!current.split(/\r?\n/).includes('fingerprints.json')) {
-      writeFileSync(ignore, `${current}${current && !current.endsWith('\n') ? '\n' : ''}fingerprints.json\n`);
+    const key = (r) => `${r.page}|${r.elementKey}`;
+    const merged = [...records];
+    for (const r of old) if (!merged.some((m) => key(m) === key(r))) merged.push(r);
+    try {
+      unlinkSync(legacy);
+      const ignore = join(legacyFolder, '.gitignore');
+      if (existsSync(ignore) && readFileSync(ignore, 'utf8').trim() === 'fingerprints.json') unlinkSync(ignore);
+      if (readdirSync(legacyFolder).length === 0) rmdirSync(legacyFolder);
+    } catch {
+      // a read-only project keeps its old file; the merged copy lives in the new store
     }
+    return merged;
   }
 
   function load() {
@@ -96,11 +134,10 @@ export function createFingerprintStore({ dir = process.cwd(), enabled = true, no
     if (!enabled || !fingerprint) return;
     try {
       mkdirSync(folder, { recursive: true });
-      ensureIgnored();
       const at = new Date(now()).toISOString();
       const page = pageKey(url);
       const cutoff = now() - RETENTION_DAYS * 86_400_000;
-      const records = load().filter((r) => Date.parse(r.lastSeen) >= cutoff);
+      const records = migrate(load()).filter((r) => Date.parse(r.lastSeen) >= cutoff);
 
       const existing = records.find((r) => r.page === page && r.elementKey === elementKey);
       const stored = redactFingerprint(fingerprint);
@@ -117,7 +154,7 @@ export function createFingerprintStore({ dir = process.cwd(), enabled = true, no
 
       // Write-then-rename, so a crash mid-write never leaves half a file.
       const tmp = `${file}.${process.pid}.tmp`;
-      writeFileSync(tmp, `${JSON.stringify({ version: FORMAT_VERSION, records }, null, 2)}\n`);
+      writeFileSync(tmp, `${JSON.stringify({ version: FORMAT_VERSION, folder: realPath(dir), records }, null, 2)}\n`);
       renameSync(tmp, file);
     } catch {
       // Capture must never fail or slow down an inspect, and it is silent by
@@ -129,7 +166,13 @@ export function createFingerprintStore({ dir = process.cwd(), enabled = true, no
   function lookup(url, locator) {
     const page = pageKey(url);
     const wanted = locator && redactLocator(locator);
-    return load().filter((r) => r.page === page && (!wanted || r.locators.includes(wanted)));
+    let legacyRecords = [];
+    try {
+      legacyRecords = JSON.parse(readFileSync(legacy, 'utf8')).records ?? []; // not yet migrated
+    } catch {
+      // none
+    }
+    return [...load(), ...legacyRecords].filter((r) => r.page === page && (!wanted || r.locators.includes(wanted)));
   }
 
   return { record, lookup, file, enabled };

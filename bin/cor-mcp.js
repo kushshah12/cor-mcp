@@ -27,7 +27,7 @@ process.stdin.on('end', shutdown);
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
-// Silent capture to .cor/fingerprints.json in the project directory; see the README.
+// Silent capture to ~/.cor/fingerprints/<folder>-<code>.json, outside the project; see the README.
 const fingerprints = createFingerprintStore({
   enabled: !values['no-fingerprints'] && process.env.COR_FINGERPRINTS !== 'off',
 });

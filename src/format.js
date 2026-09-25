@@ -201,6 +201,30 @@ function stateBoundNote(bound) {
   ];
 }
 
+const cssCode = (framework, css) => {
+  const q = `'${css.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+  if (framework === 'playwright') return `page.locator(${q})`;
+  if (framework === 'cypress') return `cy.get(${q})`;
+  return `CSS ${css}`;
+};
+
+/**
+ * The top pick is unique only because an act removed its other match (the
+ * header cart badge, gone while the cart is open). When that element is back,
+ * the locator matches two.
+ */
+function stateOnlyNote(stateOnly, framework) {
+  if (!stateOnly) return [];
+  const out = [
+    '',
+    `⚠ Unique only in this state: it also matches ${stateOnly.what}, which an act on this page removed — when that element is back, this locator matches more than one.`,
+  ];
+  out.push(stateOnly.safer
+    ? `  Unique in both states: ${cssCode(framework, stateOnly.safer)}`
+    : '  No ancestor tells the two apart; scope it by the region the element belongs to, or add a test attribute.');
+  return out;
+}
+
 /** A template usable in this framework, or null. */
 const usableTemplate = (params, framework) =>
   (params?.template && (framework === 'playwright' || params.template.xpath) ? params : null);
@@ -240,6 +264,8 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
       if (s.points) out.push(`  ${s.direction === 'positive' ? '+' : '-'} ${clause(s.message)}`);
     }
   }
+
+  out.push(...stateOnlyNote(result.stateOnly, framework));
 
   if (result.rankingNote) out.push('', `Why this order: ${result.rankingNote}`);
   const profile = profileLine(result.profile);

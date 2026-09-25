@@ -18,6 +18,7 @@
 import { computeFingerprint } from '@corlabs/engine/core';
 import { HEADING, deepQueryAll, isControl, isVisible, roleAndName } from './dom.js';
 import { containersFor, label, statesOf } from './outline.js';
+import { rememberRemoved } from './removed.js';
 
 const visibleHeadings = () => [...document.querySelectorAll(HEADING)].filter(isVisible);
 
@@ -144,7 +145,11 @@ export function endAct(issueRef) {
 
   for (const [el, was] of before) {
     if (!nowSet.has(el)) {
-      if (!rerendered.has(el)) changes.push({ kind: 'disappeared', role: was.role, name: was.name });
+      if (!rerendered.has(el)) {
+        changes.push({ kind: 'disappeared', role: was.role, name: was.name });
+        // Removed, not hidden: a hidden element is still counted, a removed one never is.
+        if (!el.isConnected) rememberRemoved(el, `${was.role}${was.name ? ` "${was.name}"` : ''}`);
+      }
       continue;
     }
     const is = describe(el);
