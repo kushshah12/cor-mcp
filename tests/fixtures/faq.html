@@ -13,6 +13,8 @@
 <div class="menu"><div class="menu-group" data-open-icon="/img/web.svg"><button class="menu-group__btn">Open</button></div><div class="menu-group" data-open-icon="/img/app.svg"><button class="menu-group__btn">Open</button></div></div>
 <!-- Two prices per plan: the class alone does not pick one inside an item. -->
 <div class="plans"><div class="plan"><h4 class="plan__name">Basic</h4><span class="plan__price">$5</span><span class="plan__price">$50</span></div><div class="plan"><h4 class="plan__name">Pro</h4><span class="plan__price">$9</span><span class="plan__price">$90</span></div></div>
+<!-- A menu: each item holds only its link. Its own text as a template would add nothing. -->
+<ul class="nav"><li class="nav__item"><a href="/a">Alpha</a></li><li class="nav__item"><a href="/b">Beta</a></li><li class="nav__item"><a href="/c">Gamma</a></li></ul>
 <script>
   for (const q of document.querySelectorAll('.faq-item__question')) q.addEventListener('click', () => q.parentElement.classList.toggle('open'));
 </script>

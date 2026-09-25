@@ -95,3 +95,8 @@ test('a target whose class repeats inside its item is not located by class alone
   assert.equal(p.template, undefined);
   assert.match(p.reason, /not the only one of its kind inside its item/);
 });
+
+test('an item holding only its link gets no own-text template', async () => {
+  const p = await params('.nav__item:nth-child(2) a');
+  assert.ok(!p?.template, JSON.stringify(p));
+});

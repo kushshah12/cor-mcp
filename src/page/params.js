@@ -122,11 +122,20 @@ function slotsFor(targetItem, target, { allowSelf = false } = {}) {
   const candidates = [...targetItem.querySelectorAll('*')].filter((el) =>
     !el.contains(target) && !target.contains(el) && isVisible(el) && text(el) &&
     text(el).length <= LABEL_MAX && leafish(el));
-  const rank = (el) => (el.matches(HEADING) ? 0 : /title|name|heading|label/i.test(el.className) ? 1 : 2);
+  // A name comes before the item's controls; a heading or line after them
+  // titles a features list ("Desktop & Mobile, plus:"), not the item.
+  // Visible controls only: a hidden toggle comes before its own label, and that label is a name ("Team").
+  const firstControl = [...targetItem.querySelectorAll('*')].find((el) => isControl(el) && isVisible(el));
+  const before = (el) => !firstControl || Boolean(el.compareDocumentPosition(firstControl) & Node.DOCUMENT_POSITION_FOLLOWING);
+  const rank = (el) => (before(el) ? 0 : 3) + (el.matches(HEADING) ? 0 : /title|name|heading|label/i.test(el.className) ? 1 : 2);
   candidates.sort((a, b) => rank(a) - rank(b));
   // U18b.2: when the target IS the item's identifying text (an FAQ question),
   // its own text is the last choice of parameter.
-  if (allowSelf && isVisible(target) && text(target) && text(target).length <= LABEL_MAX && leafish(target)) candidates.push(target);
+  // Only when the item holds more than the target (an FAQ item has its
+  // answer): a menu <li> holding just its link would give a template that
+  // says nothing getByRole('link', { name }) does not.
+  const more = [...targetItem.querySelectorAll('*')].some((el) => el !== target && !el.contains(target) && !target.contains(el) && squash(el.textContent));
+  if (allowSelf && more && isVisible(target) && text(target) && text(target).length <= LABEL_MAX && leafish(target)) candidates.push(target);
   const labelSlots = [];
   for (const label of candidates) {
     const tag = label.tagName.toLowerCase();
@@ -136,7 +145,7 @@ function slotsFor(targetItem, target, { allowSelf = false } = {}) {
     if (targetItem.querySelector(sel) !== label) continue;
     const xpathSel = cls ? `${tag}[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]` : tag;
     labelSlots.push({
-      kind: 'label', sel, xpathSel,
+      kind: 'label', sel, xpathSel, rank: rank(label),
       param: /question/i.test(label.className) ? 'question' : label.matches(HEADING) || /title/i.test(label.className) ? 'title' : /name/i.test(label.className) ? 'name' : columnHeader(label) ?? 'value',
       valueOf: (item) => text(item.querySelector(sel)),
       matches: (item, v) => [...item.querySelectorAll(sel)].some((el) => text(el) === v),
@@ -144,9 +153,9 @@ function slotsFor(targetItem, target, { allowSelf = false } = {}) {
   }
   // The plan's order: a test attribute, then what a person reads, then any other stable attribute.
   return [
-    ...attrs.filter((a) => TEST_ATTRS.includes(a)).map(attrSlot),
+    ...attrs.filter((a) => TEST_ATTRS.includes(a)).map((a) => ({ ...attrSlot(a), rank: -1 })),
     ...labelSlots,
-    ...attrs.filter((a) => !TEST_ATTRS.includes(a)).map(attrSlot),
+    ...attrs.filter((a) => !TEST_ATTRS.includes(a)).map((a) => ({ ...attrSlot(a), rank: 10 })),
   ];
 }
 
@@ -308,17 +317,73 @@ function structuralTemplate(target) {
   return templateFor(target, targetItem, items, itemSel, inner, { allowSelf: true });
 }
 
+// ── U18b.3: mixed naming ────────────────────────────────────────────────────
+// Items named by a heading on some and a label on others (BrowserStack's Team
+// card is named by its toggle label; Team Ultimate by an h3).
+
+/** Naming candidates from EVERY item — the heading-less item has none of its own. */
+function namingSelectors(items) {
+  const seen = new Map();
+  for (const item of items) {
+    const els = [...item.querySelectorAll('*')].filter((el) => !el.matches(INTERACTIVE) && !el.querySelector(INTERACTIVE)
+      && isVisible(el) && text(el) && text(el).length <= LABEL_MAX && leafish(el));
+    for (const el of els) {
+      const tag = el.tagName.toLowerCase();
+      const cls = namingClasses(el)[0];
+      const sel = cls ? `${tag}.${cssEscape(cls)}` : tag;
+      if (item.querySelector(sel) !== el || seen.has(sel)) continue;
+      const first = [...item.querySelectorAll('*')].find((c) => isControl(c) && isVisible(c));
+      const beforeControls = !first || Boolean(el.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING);
+      const rank = (beforeControls ? 0 : 3) + (el.matches(HEADING) ? 0 : /title|name|heading|label/i.test(el.className) || tag === 'label' ? 1 : 2);
+      seen.set(sel, { sel, xpathSel: cls ? `${tag}[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]` : tag, rank, heading: el.matches(HEADING) });
+    }
+  }
+  return [...seen.values()].sort((a, b) => a.rank - b.rank);
+}
+
+/** Pairs of selectors that together name every item: the first one present wins. */
+function eitherSlots(items) {
+  const cands = namingSelectors(items).slice(0, 6);
+  const slots = [];
+  for (let i = 0; i < cands.length; i++) {
+    for (let j = i + 1; j < cands.length; j++) {
+      const [a, b] = [cands[i], cands[j]];
+      const read = (item) => text(item.querySelector(a.sel)) || text(item.querySelector(b.sel));
+      if (items.every((it) => hasIn(it, a.sel)) || items.every((it) => hasIn(it, b.sel))) continue; // one alone covers them: a plain slot
+      slots.push({
+        // Just after a single name of the same rank, before any weaker one.
+        kind: 'either', sel: `${a.sel} or ${b.sel}`, sels: [a, b], rank: Math.max(a.rank, b.rank) + 0.5,
+        param: a.heading || /title/i.test(a.sel) ? 'title' : /name/i.test(a.sel) ? 'name' : 'value',
+        valueOf: read,
+        matches: (item, v) => [a.sel, b.sel].some((sel) => [...item.querySelectorAll(sel)].some((el) => text(el) === v)),
+      });
+    }
+  }
+  return slots;
+}
+const hasIn = (item, sel) => Boolean(item.querySelector(sel));
+
 /**
  * The check shared by U18 and U18b.2: try each slot, best first, and return
  * the first whose every value picks exactly its own item; else the reason the
  * best option failed.
  */
-function templateFor(target, targetItem, items, itemSel, inner, { allowSelf = false } = {}) {
-  const all = [...document.querySelectorAll(itemSel.css)];
+function templateFor(target, targetItem, items, itemSel0, inner, { allowSelf = false } = {}) {
+  let all = [...document.querySelectorAll(itemSel0.css)];
+  // Hidden copies of the items (BrowserStack keeps every product's cards in
+  // the page) make the plain item selector ambiguous; the template then names
+  // visible items only — what both agents wrote by hand.
+  const visibleOnly = all.some((el) => !isVisible(el)) && items.every(isVisible);
+  if (visibleOnly) all = all.filter(isVisible);
+  const itemSel = visibleOnly ? { ...itemSel0, visible: true } : itemSel0;
 
   // The reason reported is the BEST option's: it is what a person would try first.
   let blocked = null;
-  for (const slot of slotsFor(targetItem, target, { allowSelf })) {
+  // Every way of naming the items, best first: a test attribute, a name
+  // before the controls (on its own, or a heading-or-label pair), then text
+  // after the controls, then other attributes.
+  const slots = [...slotsFor(targetItem, target, { allowSelf }), ...eitherSlots(items)].sort((a, b) => a.rank - b.rank);
+  for (const slot of slots) {
     const what = slot.kind === 'attribute' ? slot.attr : `${slot.sel} "${slot.valueOf(targetItem)}"`;
     const values = items.map((i) => slot.valueOf(i));
     const missing = values.filter((v) => !v).length;
@@ -346,13 +411,20 @@ function render(slot, itemSel, inner, values, self) {
   const p = slot.param;
   const ph = `__${p}__`;
   let code; let pw; let xpath;
+  const vis = itemSel.visible ? '.filter({ visible: true })' : '';
+  const css = itemSel.visible ? `${itemSel.css}:visible` : itemSel.css;
   if (slot.kind === 'attribute') {
-    code = `page.locator(\`${itemSel.css}[${slot.attr}="\${${p}}"]\`)${inner.code}`;
-    pw = `${itemSel.css}[${slot.attr}="${ph}"] >> ${inner.pw}`;
+    code = `page.locator(\`${itemSel.css}[${slot.attr}="\${${p}}"]\`)${vis}${inner.code}`;
+    pw = `${css}[${slot.attr}="${ph}"] >> ${inner.pw}`;
     xpath = inner.xpath && `${itemSel.xpath}[@${slot.attr}=${ph}]${inner.xpath}`;
+  } else if (slot.kind === 'either') {
+    const [a, b] = slot.sels;
+    code = `page.locator(${q(itemSel.css)})${vis}.filter({ has: page.locator(${q(a.sel)}).getByText(${p}, { exact: true }).or(page.locator(${q(b.sel)}).getByText(${p}, { exact: true })) })${inner.code}`;
+    pw = `${css}:has(${a.sel}:text-is("${ph}"), ${b.sel}:text-is("${ph}")) >> ${inner.pw}`;
+    xpath = inner.xpath && `${itemSel.xpath}[.//${a.xpathSel}[normalize-space()=${ph}] or .//${b.xpathSel}[normalize-space()=${ph}]]${inner.xpath}`;
   } else {
-    code = `page.locator(${q(itemSel.css)}).filter({ has: page.locator(${q(slot.sel)}).getByText(${p}, { exact: true }) })${inner.code}`;
-    pw = `${itemSel.css}:has(${slot.sel}:text-is("${ph}")) >> ${inner.pw}`;
+    code = `page.locator(${q(itemSel.css)})${vis}.filter({ has: page.locator(${q(slot.sel)}).getByText(${p}, { exact: true }) })${inner.code}`;
+    pw = `${css}:has(${slot.sel}:text-is("${ph}")) >> ${inner.pw}`;
     xpath = inner.xpath && `${itemSel.xpath}[.//${slot.xpathSel}[normalize-space()=${ph}]]${inner.xpath}`;
   }
   return {
@@ -363,6 +435,7 @@ function render(slot, itemSel, inner, values, self) {
     code,
     // Registry form (@corlabs/client selectorTemplate): the placeholder sits
     // inside a CSS string in `pw` and IS the literal in `xpath`.
-    template: { playwright: { selectorTemplate: pw, syntax: 'css-string' }, xpath: xpath ? { selectorTemplate: xpath, syntax: 'xpath-literal' } : null },
+    // XPath cannot say "visible": when hidden copies matter there is no XPath form.
+    template: { playwright: { selectorTemplate: pw, syntax: 'css-string' }, xpath: xpath && !itemSel.visible ? { selectorTemplate: xpath, syntax: 'xpath-literal' } : null },
   };
 }
