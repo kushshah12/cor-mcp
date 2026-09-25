@@ -85,3 +85,13 @@ test('the client receives instructions: parameterised functions and a locator su
   assert.match(text, /write one function that takes the parameter/);
   assert.match(text, /final summary, list each locator you used .* COR score, and the runner-up/);
 });
+
+test('the instructions cover page-object projects: templates become methods, existing methods are graded and reused (POM)', async (t) => {
+  const client = await connect(t, createServer());
+  const text = client.getInstructions();
+  assert.match(text, /check whether the project has page objects/);
+  assert.match(text, /a Parameterised block becomes one method taking the parameter/);
+  assert.match(text, /a Variants line becomes an action method that clicks the toggle first/);
+  assert.match(text, /run cor_grade on its locator/);
+  assert.match(text, /fix that method in place rather than adding a second one/);
+});

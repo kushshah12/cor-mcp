@@ -258,3 +258,11 @@ test('the weakest step sets the score even when it is not the first', async () =
   assert.ok(steps[1].score < steps[0].score);
   assert.equal(Number(/Point-in-time — true on this page now: (\d+)/.exec(out.text)[1]), steps[1].score);
 });
+
+test('a page-object locator is graded as written: this.page receivers, nested in has: too (POM reuse check)', async () => {
+  await open('chains.html');
+  const out = await grade("this.page.locator('div.plan-card').filter({ has: this.page.getByRole('heading', { name: 'Team Ultimate', exact: true }) }).getByRole('button', { name: 'Choose' })");
+  assert.equal(out.isError, false, out.text);
+  assert.match(out.text, /^Healthy — resolves to exactly one element/);
+  assert.match(out.text, /filter has: getByRole\('heading'/);
+});

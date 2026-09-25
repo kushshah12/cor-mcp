@@ -21,6 +21,11 @@ export const INSTRUCTIONS = [
   'When cor_inspect returns a Parameterised block and the test touches more than one of those items, or the codebase uses page objects, ' +
     'write one function that takes the parameter (e.g. addToCart(title)) instead of a locator per item, and use the listed values as test data when a data-driven test fits.',
   'If the codebase already follows a locator convention (e.g. data-testid page objects), you may choose a listed alternative that fits it; say so.',
+  'Page objects: before writing a locator, check whether the project has page objects (a pages/ or page-objects/ folder, classes wrapping a page). ' +
+    'If it does, put each locator on the page object for that URL — a Parameterised block becomes one method taking the parameter; ' +
+    'a Variants line becomes an action method that clicks the toggle first — and write the test against those methods, following the file\'s existing style.',
+  'Reuse before adding: if a page object already has a method for the element, run cor_grade on its locator (write it out with literal arguments). ' +
+    'Healthy → reuse the method; broken or fragile → fix that method in place rather than adding a second one.',
   'In your final summary, list each locator you used on one line: the locator, its COR score, and the runner-up with its score — ' +
     'so the user can ask for a different choice.',
 ].join('\n');
