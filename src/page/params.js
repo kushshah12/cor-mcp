@@ -363,35 +363,94 @@ function tableStep(table) {
   return document.querySelectorAll('table').length === 1 ? '//table' : null;
 }
 
+const isSectionRow = (r) => r.cells.length === 1 && r.cells[0].colSpan > 1;
+/** A header row: header cells only (a blank corner cell allowed), none of them a row header. */
+const isHeaderRow = (r) => r.cells.length > 1 && Boolean(r.querySelector('th'))
+  && ![...r.cells].some((c) => c.getAttribute('scope') === 'row' || (c.tagName === 'TD' && text(c)));
+
+/**
+ * U19.4. The header row for a table that has none of its own: the nearest
+ * table before it, under a shared ancestor, whose header row is as wide.
+ * BrowserStack's comparison puts the plan headers in their own table above
+ * one table per feature group.
+ */
+function separateHeader(table, width) {
+  for (let a = table.parentElement; a && a !== document.body; a = a.parentElement) {
+    const before = [...a.querySelectorAll('table')].filter((t) => t !== table && isVisible(t)
+      && (t.compareDocumentPosition(table) & Node.DOCUMENT_POSITION_FOLLOWING));
+    const row = before.reverse().map((t) => [...t.rows].find((r) => isHeaderRow(r) && r.cells.length === width)).find(Boolean);
+    if (row) return row;
+  }
+  return null;
+}
+
+/**
+ * A cell's name: its text; or, when a visible heading names it ("Team Ultimate"
+ * over "$ 375 / month"), that heading; or, when the cell also holds a price or
+ * hidden text (a tooltip), its first visible line of text that is not a number
+ * — BrowserStack's "Team" is a toggle label, and "Bug Capture" hides its
+ * description in a tooltip.
+ */
+function cellName(c) {
+  const heading = [...c.querySelectorAll(HEADING)].find(isVisible);
+  if (heading) return { name: text(heading), part: true };
+  const whole = squash(c.textContent);
+  const hidden = [...c.querySelectorAll('*')].some((el) => text(el) && !isVisible(el));
+  if (!PRICE.test(whole) && !hidden) return { name: whole, part: false };
+  const leaf = [...c.querySelectorAll('*')].find((el) => isVisible(el) && text(el) && ![...el.children].some(text)
+    && !NUMERIC.test(text(el)) && !PRICE.test(text(el)));
+  return leaf ? { name: text(leaf), part: true } : null;
+}
+
+const xpathCount = (xp) => {
+  try {
+    return document.evaluate(xp, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+  } catch {
+    return null;
+  }
+};
+const soleHit = (xp, el) => {
+  const hits = xpathCount(xp);
+  return hits?.snapshotLength === 1 && hits.snapshotItem(0) === el;
+};
+
 /** U18b.4. Null when the target is not a table cell's content (a control keeps U18's row template). */
 function cellTemplate(target) {
   const cell = target.closest('td, th');
   if (!cell || (target !== cell && isControl(target))) return null;
   const table = cell.closest('table');
-  const all = [...table.rows];
-  const header = all.find((r) => r.querySelector('th') && r.cells.length > 1);
   const row = cell.parentElement;
+  // Full-width group rows ("TESTING TOOLKIT UTILITIES") title rows; they are not rows.
+  const all = [...table.rows].filter((r) => !isSectionRow(r));
+  if (!all.includes(row)) return null;
+  const own = all.find(isHeaderRow);
+  const header = own ?? separateHeader(table, row.cells.length);
   if (!header || header === row) return null;
   // Checked before anything that counts cells: with a span, rows and header differ in length.
-  if (all.some((r) => [...r.cells].some((c) => c.colSpan > 1))) {
+  if ([...all, header].some((r) => [...r.cells].some((c) => c.colSpan > 1))) {
     return { kind: 'cell', count: all.length - 1, reason: 'a header or cell spans more than one column, so positions do not line up' };
   }
   const body = all.filter((r) => r !== header && isVisible(r) && r.cells.length === header.cells.length);
   if (!body.includes(row)) return null;
   const no = (reason) => ({ kind: 'cell', count: body.length, reason });
-  const headers = [...header.cells].map((c) => squash(c.textContent));
+  const headerNames = [...header.cells].map(cellName);
+  const headers = headerNames.map((n) => n?.name ?? '');
   const dup = (list) => list.find((v, i) => list.indexOf(v) !== i);
-  // The key column: the first whose cells all name their row — text, unique,
-  // not a price. A leading checkbox or actions column is skipped (selectorshub).
-  const k = headers.findIndex((_, i) => {
-    const keys = body.map((r) => squash(r.cells[i].textContent));
-    return keys.every((v) => v && !PRICE.test(v)) && !dup(keys);
-  });
+  // The key column: a row header (scope="row") first, else the first whose
+  // cells all name their row — text, unique, not a price. A leading checkbox
+  // or actions column is skipped (selectorshub).
+  const names = (i) => body.map((r) => cellName(r.cells[i]));
+  const keys = (i) => names(i).map((n) => n?.name ?? '');
+  const order = [...headers.keys()].sort((a, b) => Number(cell.parentElement.cells[b]?.getAttribute('scope') === 'row') - Number(cell.parentElement.cells[a]?.getAttribute('scope') === 'row'));
+  const k = order.find((i) => {
+    const ks = keys(i);
+    return ks.every((v) => v && !PRICE.test(v)) && !dup(ks);
+  }) ?? -1;
   if (k === -1) {
     const first = body.map((r) => squash(r.cells[0].textContent));
     return no(dup(first) ? `two rows share the key "${dup(first)}"` : 'no column names every row with unique text');
   }
-  const rows = body.map((r) => squash(r.cells[k].textContent));
+  const rows = keys(k);
   // Columns without header text are left out as values; the target's must have one.
   const columns = headers.filter(Boolean);
   if (!headers[cell.cellIndex]) return no('the column has no header text');
@@ -408,7 +467,28 @@ function cellTemplate(target) {
   }
   const rp = toParam(headers[k]) ?? 'row';
   const cp = rp === 'column' ? 'col' : 'column';
-  const xp = `${T}//tr[*[${k + 1}][normalize-space()=__${rp}__]]/*[count((${T}//tr[th])[1]/*[normalize-space()=__${cp}__]/preceding-sibling::*)+1]${inner}`;
+  // A name that is part of its cell is matched on the element holding it.
+  const is = (part, v) => (part ? `descendant-or-self::*[normalize-space()=${v}]` : `normalize-space()=${v}`);
+  const build = (scope) => {
+    const t = `${scope}${T}`;
+    let H = `(${t}//tr[th])[1]`;
+    if (!own) {
+      const ht = tableStep(header.closest('table'));
+      if (!ht) return null;
+      H = `(${scope}${ht}//tr[count(th)=${header.querySelectorAll('th').length}][count(*)=${header.cells.length}])[1]`;
+    }
+    const rowPart = names(k).some((n) => n.part);
+    const colPart = headerNames.some((n) => n?.part);
+    return `${t}//tr[*[${k + 1}][${is(rowPart, `__${rp}__`)}]]/*[count(${H}/*[${is(colPart, `__${cp}__`)}]/preceding-sibling::*)+1]${inner}`;
+  };
+  const fill = (xp) => xp.replace(`__${rp}__`, xpathLiteral(rows[body.indexOf(row)])).replace(`__${cp}__`, xpathLiteral(headers[cell.cellIndex]));
+  // A hidden copy of the table (another product's tab) needs a stable scope.
+  let xp = build('');
+  if (xp && !soleHit(fill(xp), target)) {
+    const scope = stableScope(own ? [table] : [table, header.closest('table')], 'table');
+    xp = scope ? build(scope.xpath) : null;
+  }
+  if (!xp) return no('the row and column names do not single out the cell');
   const code = `page.locator(\`xpath=${xp.replace(`__${rp}__`, `"\${${rp}}"`).replace(`__${cp}__`, `"\${${cp}}"`)}\`)`;
   return {
     kind: 'cell', count: body.length, vars: [rp, cp], rows, columns,

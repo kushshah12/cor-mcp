@@ -92,6 +92,7 @@ test('the instructions cover page-object projects: templates become methods, exi
   assert.match(text, /check whether the project has page objects/);
   assert.match(text, /a Parameterised block becomes one method taking the parameter/);
   assert.match(text, /a Variants line becomes an action method that clicks the toggle first/);
-  assert.match(text, /run cor_grade on its locator/);
+  assert.match(text, /pass its locator to cor_grade as written, with param set to the method's argument/);
+  assert.doesNotMatch(text, /literal arguments/);
   assert.match(text, /fix that method in place rather than adding a second one/);
 });

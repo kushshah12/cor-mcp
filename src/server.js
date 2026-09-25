@@ -24,7 +24,7 @@ export const INSTRUCTIONS = [
   'Page objects: before writing a locator, check whether the project has page objects (a pages/ or page-objects/ folder, classes wrapping a page). ' +
     'If it does, put each locator on the page object for that URL — a Parameterised block becomes one method taking the parameter; ' +
     'a Variants line becomes an action method that clicks the toggle first — and write the test against those methods, following the file\'s existing style.',
-  'Reuse before adding: if a page object already has a method for the element, run cor_grade on its locator (write it out with literal arguments). ' +
+  'Reuse before adding: if a page object already has a method for the element, pass its locator to cor_grade as written, with param set to the method\'s argument — one call proves it for every value on the page. ' +
     'Healthy → reuse the method; broken or fragile → fix that method in place rather than adding a second one.',
   'In your final summary, list each locator you used on one line: the locator, its COR score, and the runner-up with its score — ' +
     'so the user can ask for a different choice.',
