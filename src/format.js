@@ -677,7 +677,7 @@ export function renderActResult(result) {
     return `The page navigated${headings}. Earlier refs expired — call cor_snapshot.`;
   }
   const out = [];
-  if (!result.changes?.length && !result.texts?.length) {
+  if (!result.changes?.length && !result.texts?.length && !result.shownGroups?.length) {
     out.push('No visible change. If you expected one, the act may not have landed — check the target, or try cor_press.');
   } else if (result.changes?.length) {
     out.push('Changes:');

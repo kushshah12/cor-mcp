@@ -103,6 +103,27 @@ let textsBefore = null; // Map<element, text>
 const MAX_TEXTS = 8;
 const TEXT_MAX = 80;
 
+/**
+ * Is `el` clipped away by a collapsed ancestor — height or width 0 with
+ * overflow hidden? BrowserStack's FAQ answer opens by growing such a wrapper:
+ * its text always has a box of its own, so it read as visible before the click.
+ */
+function collapsedAway(el, cache) {
+  const seen = [];
+  let hit = false;
+  for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {
+    if (cache.has(a)) { hit = cache.get(a); break; }
+    seen.push(a);
+    const r = a.getBoundingClientRect();
+    if (r.height === 0 || r.width === 0) {
+      const cs = getComputedStyle(a);
+      if (/hidden|clip/.test(cs.overflow + cs.overflowX + cs.overflowY)) { hit = true; break; }
+    }
+  }
+  for (const a of seen) cache.set(a, hit);
+  return hit;
+}
+
 /** Visible elements with their own text, outside any control (a control's name is in the control diff), in page order. */
 function textLeaves() {
   const texts = new Map();
@@ -112,8 +133,9 @@ function textLeaves() {
     if (!el || !t.nodeValue.trim() || /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(el.tagName)) continue;
     texts.set(el, (texts.get(el) ?? '') + t.nodeValue);
   }
+  const collapsed = new Map();
   for (const [el, text] of texts) {
-    if (closestControl(el) || !isVisible(el)) texts.delete(el);
+    if (closestControl(el) || !isVisible(el) || collapsedAway(el, collapsed)) texts.delete(el);
     else texts.set(el, squash(text));
   }
   return texts;

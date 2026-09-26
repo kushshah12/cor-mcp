@@ -118,6 +118,13 @@ function regionsNamed(query) {
   }
   const pick = (match) => named.filter((n) => n.text && match(n.text.toLowerCase()));
   const hits = pick((t) => t === want);
+  // U21b: the name of a control (the FAQ question just clicked) names the
+  // region around it, as its ref would. Only when exactly one control has it.
+  if (!hits.length) {
+    const controls = deepQueryAll(isControl).filter((el) => isShown(el) && squash(roleAndName(el).name).toLowerCase() === want);
+    const region = controls.length === 1 ? regionOfElement(controls[0]) : null;
+    if (region) return [{ ...region, label: region.label ?? clip(squash(query), 50) }];
+  }
   const chosen = hits.length ? hits : pick((t) => t.includes(want));
   // Two names can resolve to one region (a column header cell's own heading).
   const regions = [];

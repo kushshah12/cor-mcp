@@ -26,6 +26,7 @@ export const INSTRUCTIONS = [
     'Adding a step to a template (card.locator(\'.price\')) makes a new locator: the step can match several elements inside an item.',
   'To see what an action changes — a new price, an answer that opens, the page a link leads to — act with it and read the reply of cor_click, cor_fill or cor_press: ' +
     'it lists changed and new text with refs (cor_inspect them) and the new page\'s headings. Do not write scripts to read the page.',
+  'Put independent calls in one turn — the elements you need to inspect, the locators you need to grade — rather than one call per turn: each turn re-reads the whole conversation.',
   'If the codebase already follows a locator convention (e.g. data-testid page objects), you may choose a listed alternative that fits it; say so.',
   'Page objects: before writing a locator, check whether the project has page objects (a pages/ or page-objects/ folder, classes wrapping a page). ' +
     'If it does, put each locator on the page object for that URL — a Parameterised block becomes one method taking the parameter; ' +
