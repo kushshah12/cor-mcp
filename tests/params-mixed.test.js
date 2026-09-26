@@ -93,9 +93,9 @@ test('a card whose name is a toggle label lists its other labels as variants, an
   assert.equal(await run(p.code, p.param, 'Team Pro').count(), 1);
   // …but its content is the variant's only after the click the note asks for.
   await page.getByText('Team Pro', { exact: true }).click();
-  assert.equal(await run(p.code, p.param, 'Team Pro').evaluate((el) => el.closest('.card').querySelector('.card__price').textContent), '$200 / month');
+  assert.equal(await run(p.code, p.param, 'Team Pro').evaluate((el) => el.closest('.card').querySelector('.card__price:not([hidden])').textContent), '$200 / month');
   await page.getByText('Team', { exact: true }).click();
-  assert.equal(await run(p.code, p.param, 'Team').evaluate((el) => el.closest('.card').querySelector('.card__price').textContent), '$150 / month');
+  assert.equal(await run(p.code, p.param, 'Team').evaluate((el) => el.closest('.card').querySelector('.card__price:not([hidden])').textContent), '$150 / month');
 });
 
 test('cor_inspect says how to reach a variant', async () => {

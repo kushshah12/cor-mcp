@@ -20,6 +20,8 @@ export const INSTRUCTIONS = [
   'COR finds, scores and match-counts locators on a live page. Use cor_snapshot to pick an element and cor_inspect to get its locator.',
   'When cor_inspect returns a Parameterised block and the test touches more than one of those items, or the codebase uses page objects, ' +
     'write one function that takes the parameter (e.g. addToCart(title)) instead of a locator per item, and use the listed values as test data when a data-driven test fits.',
+  'Before running the tests, pass each locator you wrote or extended yourself — anything not copied as-is from cor_inspect — to cor_grade, with param when it takes one. ' +
+    'Adding a step to a template (card.locator(\'.price\')) makes a new locator: the step can match several elements inside an item.',
   'If the codebase already follows a locator convention (e.g. data-testid page objects), you may choose a listed alternative that fits it; say so.',
   'Page objects: before writing a locator, check whether the project has page objects (a pages/ or page-objects/ folder, classes wrapping a page). ' +
     'If it does, put each locator on the page object for that URL — a Parameterised block becomes one method taking the parameter; ' +

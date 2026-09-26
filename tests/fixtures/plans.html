@@ -12,7 +12,7 @@
 <div class="grid">
   <div class="card">
     <div class="toggle"><input type="radio" id="t1" name="tv" checked><label for="t1">Team</label><input type="radio" id="t2" name="tv"><label for="t2">Team Pro</label></div>
-    <p class="card__price">$150 / month</p><button>Choose</button>
+    <p class="card__price">$150 / month</p><p class="card__price" hidden>$200 / month</p><button>Choose</button>
     <h4 class="card__features">Desktop &amp; Mobile, plus:</h4>
   </div>
   <div class="card"><h3 class="card__title">Team Ultimate</h3><p class="card__price">$375 / month</p><button>Choose</button><h4 class="card__features">Bundle includes:</h4></div>
@@ -23,8 +23,8 @@
   <div class="card"><h3 class="card__title">Team Ultimate</h3><p class="card__price">$299 / month</p><button>Choose</button></div>
 </div>
 <script>
-  // The Team card shows Team Pro's price once its toggle is clicked.
+  // The Team card holds one price per variant and shows the selected one (BrowserStack).
   for (const r of document.querySelectorAll('input[name="tv"]')) {
-    r.addEventListener('change', () => { r.closest('.card').querySelector('.card__price').textContent = r.id === 't2' ? '$200 / month' : '$150 / month'; });
+    r.addEventListener('change', () => { r.closest('.card').querySelectorAll('.card__price').forEach((p, i) => { p.hidden = i !== (r.id === 't2' ? 1 : 0); }); });
   }
 </script>

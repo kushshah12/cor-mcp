@@ -87,3 +87,16 @@ test('object shorthand for the parameter ({ name, exact: true }) — how the pag
   assert.equal(out.isError, false, out.text);
   assert.match(out.text, /Works for 2 of 3 items/);
 });
+
+// From the plain-prompt BrowserStack run (2026-09-26): the agent extended COR's
+// plan-card template with the price and ran the suite without grading it; the
+// Team card holds one price per variant, so the price step matched 2 and the
+// first run failed on strict mode. One grade across every value catches it.
+test('a step added to a template is proven per item: two prices in one card are flagged', async () => {
+  const card = "page.locator('div.card').filter({ visible: true }).filter({ has: page.getByText(title, { exact: true }) })";
+  const bad = await call('cor_grade', { selector: `${card}.locator('.card__price')`, param: 'title', values: ['Team', 'Team Ultimate'] });
+  assert.match(bad.text, /^ {2}"Team": ✗ 2 matches/m, bad.text);
+  assert.match(bad.text, /^ {2}"Team Ultimate": ✓ 1 match/m);
+  const good = await call('cor_grade', { selector: `${card}.locator('.card__price').filter({ visible: true })`, param: 'title', values: ['Team', 'Team Ultimate'] });
+  assert.match(good.text, /^ {2}"Team": ✓ 1 match/m, good.text);
+});

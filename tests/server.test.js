@@ -86,6 +86,13 @@ test('the client receives instructions: parameterised functions and a locator su
   assert.match(text, /final summary, list each locator you used .* COR score, and the runner-up/);
 });
 
+test('the instructions ask the agent to grade locators it wrote or extended itself before running the tests', async (t) => {
+  const client = await connect(t, createServer());
+  const text = client.getInstructions();
+  assert.match(text, /Before running the tests, pass each locator you wrote or extended yourself .* to cor_grade, with param when it takes one/);
+  assert.match(text, /Adding a step to a template .* can match several elements inside an item/);
+});
+
 test('the instructions cover page-object projects: templates become methods, existing methods are graded and reused (POM)', async (t) => {
   const client = await connect(t, createServer());
   const text = client.getInstructions();
