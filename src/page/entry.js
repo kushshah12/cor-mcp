@@ -85,7 +85,8 @@ function afterAct() {
 }
 
 /** Resolve a ref or a selector to exactly one element. */
-function resolveTarget({ ref, selector }) {
+function resolveTarget({ ref, selector, element }) {
+  if (element) return { el: element }; // resolved by Playwright (a selector that is not CSS)
   if (ref) {
     const el = refs.get(ref);
     if (!el) return { error: 'unknown-ref' };
@@ -102,8 +103,8 @@ function resolveTarget({ ref, selector }) {
   return { el: matches[0] };
 }
 
-function inspect({ ref, selector, framework, max }) {
-  const target = resolveTarget({ ref, selector });
+function inspect({ ref, selector, element, framework, max }) {
+  const target = resolveTarget({ ref, selector, element });
   if (target.error) return target;
   const candidates = candidatesFor(target.el, framework, max);
   return {

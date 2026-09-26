@@ -59,9 +59,11 @@ test('inspect says to click the label and assert on the input — and both work 
   await fresh();
   const snap = await call('cor_snapshot');
   const out = await call('cor_inspect', { ref: refOf(snap, /radio "For Teams" \[ref=(e\d+)\]/) });
-  assert.match(out, /Hidden input, operated through its visible label "For Teams":/);
-  assert.match(out, /change it: page\.getByText\('For Teams', \{ exact: true \}\)\.click\(\)/);
-  assert.match(out, /check it: {2}await expect\(page\.getByLabel\('For Teams', \{ exact: true \}\)\)\.toBeChecked\(\)/);
+  // U21: the group template says it (change it / check it); the single-item
+  // note is left out rather than repeat a page-wide click beside a scoped one.
+  assert.match(out, /change it: page\.(?:locator\('[^']+'\)\.)?getByText\(plan, \{ exact: true \}\)\.click\(\)/, out);
+  assert.match(out, /check it: {2}page\.getByLabel\(plan, \{ exact: true \}\)/);
+  assert.doesNotMatch(out, /Hidden input, operated through its visible label/);
   await page.getByText('For Teams', { exact: true }).click();
   assert.equal(await page.getByLabel('For Teams', { exact: true }).isChecked(), true);
   assert.equal(await page.textContent('#plan'), 'teams');

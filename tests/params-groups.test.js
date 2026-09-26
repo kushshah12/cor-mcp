@@ -97,6 +97,7 @@ test('cor_inspect renders the group template, with the act form for a hidden tog
   const out = await call('cor_inspect', { selector: '#pt2' });
   assert.match(out, /^Recommended — parameterised: 2 options in this radio group/m);
   assert.match(out, /planTypeSelector = "For Individuals"/);
-  assert.match(out, /change it: page\.getByText\(planTypeSelector, \{ exact: true \}\)\.click\(\)/);
+  // U21: scoped to the toggle's container (the fixture repeats "For Teams" in a promo line).
+  assert.match(out, /change it: page\.locator\('div\.toggle'\)\.getByText\(planTypeSelector, \{ exact: true \}\)\.click\(\)/);
   assert.match(out, /page\.getByLabel\(planTypeSelector, \{ exact: true \}\)/);
 });

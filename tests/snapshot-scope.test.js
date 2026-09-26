@@ -90,7 +90,7 @@ test('a section led by a page-level heading runs to the next heading of its leve
   await open('pricing.html');
   const users = await call('cor_snapshot', { within: 'Users' });
   const lines = users.text.split('\n').filter((l) => l.startsWith('- '));
-  assert.equal(lines[0], '- heading "Users"');
+  assert.match(lines[0], /^- heading "Users" \[ref=e\d+\]$/); // U21: headings and text lines carry refs
   assert.deepEqual(lines.slice(1, 4).map((l) => l.replace(/ \[ref=e\d+\]/, '')), ['- text "Alice"', '- button "Delete"', '- text "Bob"']);
   assert.doesNotMatch(users.text, /Team Ultimate|Choose/, 'nothing before the heading');
 });
@@ -115,7 +115,7 @@ test('an unknown name is an actionable error listing the headings; a stale ref i
 test('a flex row reads as one line; inline markup does not split words', async () => {
   await open('long');
   const price = await call('cor_snapshot', { within: 'Price' });
-  assert.match(price.text, /- text "\$ 375 \/ month"\n- text "Hello world"/);
+  assert.match(price.text, /- text "\$ 375 \/ month" \[ref=e\d+\]\n- text "Hello world" \[ref=e\d+\]/);
 });
 
 test('a long region is capped and says how to narrow it', async () => {

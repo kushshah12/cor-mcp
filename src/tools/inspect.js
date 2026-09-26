@@ -3,6 +3,7 @@ import { callPage } from '../page-runtime.js';
 import { renderAmbiguousScope, renderInspect, renderScoped, renderSnapshot } from '../format.js';
 import { REF, checkRef, goneError } from './refs.js';
 import { applyIdVerdicts, checkIds, numberedIds } from '../id-stability.js';
+import { parseGradable } from '../grade-parse.js';
 
 export const FRAMEWORKS = ['playwright', 'cypress', 'selenium', 'webdriverio', 'nightwatch', 'testcafe', 'puppeteer'];
 
@@ -31,6 +32,18 @@ const COUNT_MAX = 100;
  * string the agent gets is known to resolve, not assumed to.
  */
 const xpathLiteralOf = (v) => (!v.includes("'") ? `'${v}'` : !v.includes('"') ? `"${v}"` : `concat(${v.split("'").map((p) => `'${p}'`).join(`, "'", `)})`);
+
+/** Playwright's count of `code` with `param` set to each value, or null when the code is not a form cor_grade reads. */
+async function countCode(page, code, param, values) {
+  let parsed;
+  try {
+    parsed = parseGradable(code, { param });
+  } catch {
+    return null;
+  }
+  if (!parsed.usesParam) return null;
+  return Promise.all(values.map((v) => parsed.build(page, v).count().catch(() => -1)));
+}
 
 export async function verifyTemplate(page, params) {
   if (!params?.template) return;
@@ -61,6 +74,36 @@ export async function verifyTemplate(page, params) {
     return;
   }
   params.counted = values.length;
+  // U21: the code the agent copies, counted too — it is written differently
+  // from the registry form (roles, .or()), so it is proven on its own.
+  const codeCounts = await countCode(page, params.code, params.param, values);
+  if (codeCounts) {
+    const miss = codeCounts.findIndex((c) => c !== 1);
+    if (miss !== -1) {
+      params.reason = `the code form matched ${codeCounts[miss]} for "${values[miss]}" when Playwright counted it`;
+      delete params.template;
+      return;
+    }
+    params.codeCounted = values.length;
+  }
+  // A click that does not single out each option is not offered. There is no
+  // wider fallback: a page-wide getByText matches at least what a scoped one does.
+  if (params.act) {
+    const acts = await countCode(page, params.act, params.param, params.values);
+    const miss = acts ? acts.findIndex((c) => c !== 1) : -1;
+    if (miss !== -1) {
+      params.actReason = `the label text "${params.values[miss]}" matched ${acts[miss]} elements for the click`;
+      delete params.act;
+    }
+  }
+  // Equivalent mutant, kept on purpose: variantsOf already requires each
+  // variant name to find only its own item, and no page shape tried breaks
+  // this count. It stays as the proof step for an action copied verbatim.
+  if (params.variantAct) {
+    const shown = (params.variants ?? []).flatMap((v) => [v.of, ...v.values]);
+    const acts = await countCode(page, params.variantAct, params.param, shown);
+    if (!acts || acts.some((c) => c !== 1)) delete params.variantAct;
+  }
   if (params.template.xpath) {
     const xcounts = await callPage(page, 'countXpath', { template: params.template.xpath.selectorTemplate, values });
     if (xcounts.some((c) => c !== 1)) params.template.xpath = null;
@@ -136,7 +179,7 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
           '(a test attribute) instead of a fragile locator. Use the locator as given; write the surrounding test code yourself.',
         inputSchema: {
           ref: z.string().optional().describe('Element ref from the latest cor_snapshot, e.g. "e4".'),
-          selector: z.string().optional().describe('CSS selector matching exactly one element — alternative to ref.'),
+          selector: z.string().optional().describe('CSS or Playwright selector (:text-is, >>, text=) matching exactly one element — alternative to ref.'),
           framework: z.enum(FRAMEWORKS).default('playwright').describe('Test framework to render and rank for.'),
           all: z.boolean().optional().describe('List every alternative. By default: the runner-up and the best of each other locator kind, up to 3.'),
         },
@@ -145,9 +188,18 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
         if (Boolean(ref) === Boolean(selector)) throw new Error('Pass exactly one of ref (from cor_snapshot) or selector.');
         const page = await openPage();
         if (ref) checkRef(session, ref);
-        const result = await callPage(page, 'inspect', { ref, selector, framework, max: 6 });
+        let result = await callPage(page, 'inspect', { ref, selector, framework, max: 6 });
         if (result.error === 'unknown-ref' || result.error === 'detached') throw goneError(ref);
-        if (result.error === 'invalid-selector') throw new Error(`"${selector}" is not a valid CSS selector.`);
+        if (result.error === 'invalid-selector') {
+          // U21: not CSS — a Playwright selector (:text-is, >>, text=)? Playwright resolves it.
+          const matches = page.locator(selector);
+          const count = await matches.count().catch(() => null);
+          if (count === null) throw new Error(`"${selector}" is not a valid selector (CSS or Playwright).`);
+          if (count === 1) {
+            const element = await matches.elementHandle();
+            result = await callPage(page, 'inspect', { element, framework, max: 6 }).finally(() => element.dispose());
+          } else result = { error: 'match-count', count };
+        }
         if (result.error === 'match-count') {
           throw new Error(
             result.count === 0

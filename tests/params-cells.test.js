@@ -47,7 +47,8 @@ const fill = (p, row, column) => interpolateTemplate(
   { selectorTemplate: p.template.playwright.selectorTemplate, vars: p.vars.map((v) => ({ varName: v, syntax: p.template.playwright.syntax })) },
   { [p.vars[0]]: row, [p.vars[1]]: column },
 );
-const run = (p, row, column) => new Function('page', p.vars[0], p.vars[1], `return ${p.code};`)(page, row, column);
+// The code is a helper taking (row, column) since U21 — readable parts, not one long XPath.
+const run = (p, row, column) => new Function('page', `return ${p.code};`)(page)(row, column);
 
 test('a cell: two parameters, the row key and the column header, every combination on its row and column checked', async () => {
   const p = await params('table.users tbody tr:nth-child(2) td:nth-child(2)');

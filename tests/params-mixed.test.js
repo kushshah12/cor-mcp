@@ -101,7 +101,8 @@ test('a card whose name is a toggle label lists its other labels as variants, an
 test('cor_inspect says how to reach a variant', async () => {
   const out = await call('cor_inspect', { selector: '.grid .card:nth-child(2) button' });
   assert.match(out, /\(3\/3, variants included\)/);
-  assert.match(out, /Variants: "Team Pro" is shown by the "Team" item after clicking its toggle — page\.getByText\('Team Pro', \{ exact: true \}\)\.click\(\) first; the template then finds that item\./);
+  // U21: one toggle action taking the name, not a literal click.
+  assert.match(out, /Variants: "Team Pro" sits behind the "Team" item's toggle\. Show a variant: page\.locator\('div\[data-product-id="live"\] div\.card'\)\.locator\('label'\)\.getByText\(title, \{ exact: true \}\)\.click\(\) — one action taking title\. Then the template finds its item\./);
 });
 
 test('a card without a toggle has no variants', async () => {

@@ -169,7 +169,7 @@ function cellLead(p, framework) {
     `Recommended — parameterised by row and column: ${p.rows.length} rows × ${p.columns.length} columns; every row and column checked (${p.counted}/${p.counted}).`,
     `  ${rp} = "${p.row}"   ${also(p.rows, p.row)}`,
     `  ${cp} = "${p.column}"   ${also(p.columns, p.column)}`,
-    framework === 'playwright' ? `  ${p.code}` : `  XPath: ${p.template.xpath.selectorTemplate}`,
+    ...(framework === 'playwright' ? `const cell = ${p.code};`.split('\n').map((l) => `  ${l}`) : [`  XPath: ${p.template.xpath.selectorTemplate}`]),
     `  Registry template (xpath-literal): ${p.template.xpath.selectorTemplate}   (__${rp}__ / __${cp}__ are quoted XPath literals)`,
     `  When the test reads more than one cell, write one function taking ${rp} and ${cp}.`,
     '',
@@ -185,13 +185,17 @@ function paramLead(params, framework, lookalikes) {
       ...(params.act
         ? [`  change it: ${params.act}.click()   — the inputs are hidden; their labels are what a user clicks`,
           `  check it:  ${params.code}`]
-        : [`  ${params.code}`]),
+        : params.actReason
+          ? [`  change it: click the option's label, scoped by hand to the toggle — ${params.actReason}, so no text click is offered`,
+            `  check it:  ${params.code}`]
+          : [`  ${params.code}`]),
       `  Registry template (${params.template.playwright.syntax}): ${params.template.playwright.selectorTemplate}`,
     ]
     : [`  XPath: ${params.template.xpath.selectorTemplate}   (__${params.param}__ is the quoted XPath literal)`];
   const noun = params.kind === 'group' ? 'option' : 'item';
-  const variantLines = (params.variants ?? []).flatMap((v) => v.values.map((x) =>
-    `  Variants: "${x}" is shown by the "${v.of}" item after clicking its toggle — page.getByText('${x.replace(/'/g, "\\'")}', { exact: true }).click() first; the template then finds that item.`));
+  const variantLines = (params.variants ?? []).flatMap((v) => v.values.map((x) => (params.variantAct && framework === 'playwright'
+    ? `  Variants: "${x}" sits behind the "${v.of}" item's toggle. Show a variant: ${params.variantAct}.click() — one action taking ${params.param}. Then the template finds its item.`
+    : `  Variants: "${x}" is shown by the "${v.of}" item after clicking its toggle — page.getByText('${x.replace(/'/g, "\\'")}', { exact: true }).click() first; the template then finds that item.`)));
   const out = [
     params.kind === 'group'
       ? `Recommended — parameterised: ${params.count} options in this ${params.what}; every value checked, each finds exactly its own option (${params.count}/${params.count}).`
@@ -322,7 +326,8 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
   }
 
   out.push(...stateOnlyNote(result.stateOnly, framework));
-  out.push(...viaLabelNote(result.viaLabel, framework));
+  // The group template already says how to change and check it (scoped); the page-wide note would contradict it.
+  if (!(result.params?.template && (result.params.act || result.params.actReason))) out.push(...viaLabelNote(result.viaLabel, framework));
 
   if (result.rankingNote) out.push('', `Why this order: ${result.rankingNote}`);
   const profile = profileLine(result.profile);
@@ -643,7 +648,7 @@ export function renderScoped(scoped, within, { unstableIds = new Set() } = {}) {
   const lines = scoped.lines.map((line) => {
     if (line.kind === 'leaf') return `- ${leafText(line, unstableIds)}`;
     if (line.kind === 'cell') return `- cell "${line.column}" [ref=${line.ref}]: ${line.content}`;
-    return `- ${line.kind} "${line.text}"`;
+    return `- ${line.kind} "${line.text}"${line.ref ? ` [ref=${line.ref}]` : ''}`;
   });
   if (scoped.truncated) lines.push(`… ${scoped.truncated} more lines — pass a narrower region as within.`);
   return [head, note, '', ...lines].join('\n');
@@ -683,6 +688,9 @@ export function renderActResult(result) {
         out.push(c.container ? `+ ${c.container}: ${leaves}${more}` : `+ ${leaves}${more}`);
       } else if (c.kind === 'disappeared') {
         out.push(`- ${c.role}${c.name ? ` "${c.name}"` : ''}`);
+      } else if (c.kind === 'gone') {
+        const shown = c.controls.slice(0, 6).map((g) => `${g.role}${g.name ? ` "${g.name}"` : ''}${g.count > 1 ? ` ×${g.count}` : ''}`);
+        out.push(`- gone (${c.total}): ${shown.join(', ')}${c.controls.length > 6 ? `, …${c.controls.length - 6} more kinds` : ''}`);
       } else {
         const parts = [];
         if (c.was.name !== c.is.name) parts.push(`"${c.was.name}" → "${c.is.name}"`);
@@ -693,11 +701,20 @@ export function renderActResult(result) {
     }
     if (result.more) out.push(`…and ${result.more} more changes — cor_snapshot for the whole page.`);
   }
-  if (result.texts?.length) {
+  if (result.texts?.length || result.shownGroups?.length) {
     out.push('Text:');
     for (const t of result.texts) {
       const where = t.where ? ` in ${t.where}` : '';
       out.push(t.was === null ? `+ "${t.text}" [ref=${t.ref}]${where}` : `~ "${t.was}" → "${t.text}" [ref=${t.ref}]${where}`);
+    }
+    for (const g of result.shownGroups ?? []) {
+      const eg = g.examples.map((e) => `"${e.text}" [ref=${e.ref}]`).join(', ');
+      if (g.count === 1) out.push(`+ ${eg}${g.where ? ` in ${g.where}` : ''}`);
+      else {
+        out.push(g.where
+          ? `+ ${g.count} new lines in ${g.where}, e.g. ${eg} — cor_snapshot within: "${g.label}" for all`
+          : `+ ${g.count} new lines, e.g. ${eg}`);
+      }
     }
     if (result.moreTexts) out.push(`…and ${result.moreTexts} more text changes — cor_snapshot within a region for all its text.`);
   }
@@ -705,7 +722,16 @@ export function renderActResult(result) {
   const stale = Object.entries(dropped);
   const refParts = [`${kept} still valid`];
   if (rebound.length) refParts.push(`${rebound.join(', ')} re-bound to the re-rendered element`);
-  if (stale.length) refParts.push(`stale: ${stale.map(([ref, why]) => `${ref} (${why})`).join(', ')}`);
+  if (stale.length) {
+    // U21: grouped by reason — BrowserStack's For Individuals click listed ~65
+    // refs, each with the same reason (about 3k characters).
+    const byWhy = new Map();
+    for (const [ref, why] of stale) byWhy.set(why, [...(byWhy.get(why) ?? []), ref]);
+    const groups = [...byWhy].map(([why, refs]) => (refs.length > 3
+      ? `${refs.slice(0, 3).join(', ')}, … ${refs.length} refs (${why})`
+      : refs.map((r) => `${r} (${why})`).join(', ')));
+    refParts.push(`stale: ${groups.join('; ')}`);
+  }
   out.push(`Refs: ${refParts.join('; ')}.`);
   return out.join('\n');
 }

@@ -28,6 +28,8 @@
 <!-- A lone radio is not a group. -->
 <label><input type="radio" name="solo" value="x"> Only one</label>
 <p id="state"></p>
+<!-- Marketing copy repeats a toggle's text: an unscoped getByText("For Teams") finds two. -->
+<p class="promo">For Teams</p>
 <script>
   for (const r of document.querySelectorAll('input[type=radio]')) r.addEventListener('change', () => (document.getElementById('state').textContent = r.name + '=' + r.value));
 </script>

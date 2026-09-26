@@ -94,6 +94,7 @@ test('a control whose own text changes is reported once, as a control — not ag
 test('many new lines are capped, with a count of the rest', async () => {
   const snap = await fresh();
   const out = await raw('cor_click', { ref: refFor(snap, /button "Show all features"/) });
-  assert.equal(out.split('\n').filter((l) => /^\+ "Feature \d+"/.test(l)).length, 8, out);
-  assert.match(out, /…and 4 more text changes/);
+  // U21: more new lines than the cap are summed up, with examples and refs.
+  assert.match(out, /^\+ 12 new lines, e\.g\. "Feature 1" \[ref=e\d+\], "Feature 2" \[ref=e\d+\], "Feature 3" \[ref=e\d+\]$/m, out);
+  assert.doesNotMatch(out, /^\+ "Feature 4"/m);
 });

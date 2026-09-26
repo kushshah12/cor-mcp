@@ -139,14 +139,41 @@ function textChanges(issueRef, headings) {
       gone.set(text, gone.get(text) - 1);
       continue;
     }
-    const where = containersFor(el, headings).at(-1);
-    out.push({ was: was === undefined ? null : clip(was, TEXT_MAX), text: clip(text, TEXT_MAX), el,
+    const containers = containersFor(el, headings);
+    const inner = containers.at(-1);
+    // An item named by this very text says nothing more ("in item \"Live\"").
+    const where = inner?.label === text ? containers.at(-2) ?? null : inner ?? null;
+    const region = containers.find((c) => c.type !== 'item' && c.type !== 'row' && c.label) ?? null;
+    out.push({ was: was === undefined ? null : clip(was, TEXT_MAX), text: clip(text, TEXT_MAX), el, region,
       where: where ? `${where.type}${where.label ? ` "${where.label}"` : ''}` : null });
   }
   textsBefore = null;
+  // U21: a newly shown section (BrowserStack's individual plans) is summed up
+  // per region with a within hint, not listed line by line.
+  const shown = out.filter((t) => t.was === null);
+  const changed = out.filter((t) => t.was !== null);
+  let listed = out;
+  let shownGroups = [];
+  let unlisted = 0;
+  if (shown.length > MAX_TEXTS) {
+    const groups = new Map();
+    for (const t of shown) {
+      const key = t.region?.node ?? null;
+      if (!groups.has(key)) groups.set(key, { region: t.region, items: [] });
+      groups.get(key).items.push(t);
+    }
+    const all = [...groups.values()];
+    listed = changed;
+    unlisted = all.slice(4).reduce((n, g) => n + g.items.length, 0); // regions past the fourth: counted, not dropped
+    shownGroups = all.slice(0, 4).map(({ region, items }) => ({
+      where: region ? `${region.type} "${region.label}"` : null, label: region?.label ?? null, count: items.length,
+      examples: items.slice(0, region ? 1 : 3).map((t) => ({ text: t.text, ref: issueRef(t.el) })),
+    }));
+  }
   return {
-    texts: out.slice(0, MAX_TEXTS).map(({ el, ...t }) => ({ ...t, ref: issueRef(el) })),
-    moreTexts: Math.max(0, out.length - MAX_TEXTS),
+    texts: listed.slice(0, MAX_TEXTS).map(({ el, region, ...t }) => ({ ...t, ref: issueRef(el) })),
+    moreTexts: Math.max(0, listed.length - MAX_TEXTS) + unlisted,
+    shownGroups,
   };
 }
 
@@ -191,10 +218,15 @@ export function endAct(issueRef) {
   }
   for (const { container, leaves } of groups.values()) changes.push({ kind: 'appeared', container, leaves });
 
+  // U21: removed controls are counted by role and name, then reported as one
+  // line — the plain-prompt run's For Individuals click listed each on its own
+  // line, the same ones twice (4.4k characters).
+  const goneByName = new Map();
   for (const [el, was] of before) {
     if (!nowSet.has(el)) {
       if (!rerendered.has(el)) {
-        changes.push({ kind: 'disappeared', role: was.role, name: was.name });
+        const key = `${was.role}|${was.name}`;
+        goneByName.set(key, { role: was.role, name: was.name, count: (goneByName.get(key)?.count ?? 0) + 1 });
         // Removed, not hidden: a hidden element is still counted, a removed one never is.
         if (!el.isConnected) rememberRemoved(el, `${was.role}${was.name ? ` "${was.name}"` : ''}`);
       }
@@ -205,6 +237,9 @@ export function endAct(issueRef) {
       changes.push({ kind: 'changed', role: is.role, name: is.name, was, is });
     }
   }
+  const total = [...goneByName.values()].reduce((n, g) => n + g.count, 0);
+  if (total === 1) changes.push({ kind: 'disappeared', ...[...goneByName.values()][0] });
+  else if (total > 1) changes.push({ kind: 'gone', total, controls: [...goneByName.values()] });
   before = null;
   return { changes: changes.slice(0, MAX_CHANGES), more: Math.max(0, changes.length - MAX_CHANGES), ...textChanges(issueRef, headings) };
 }

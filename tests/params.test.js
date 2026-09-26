@@ -136,12 +136,13 @@ test('cor_inspect renders the block: code for Playwright, XPath for others', asy
   const pw = await call('cor_inspect', { selector: '#shop .card:nth-child(1) button' });
   assert.match(pw, /Recommended — parameterised: 5 items share this shape; every value checked, each finds exactly its own item \(5\/5\)/);
   assert.match(pw, /title = "Phone 12" {3}\(also: "Phone 12 Mini", "Phone 12 Pro", "12\\" Monitor"|title = "Phone 12" {3}\(also: "Phone 12 Mini", "Phone 12 Pro", "12" Monitor"/);
-  assert.match(pw, /getByText\(title, \{ exact: true \}\)/);
+  // U21: an h3 title is filtered by the heading role, not its class.
+  assert.match(pw, /getByRole\('heading', \{ name: title, exact: true \}\)/);
   assert.match(pw, /Registry template \(css-string\): div\.card:has\(h3\.card-title:text-is\("__title__"\)\)/);
   assert.match(pw, /write one function taking title/);
   const se = await call('cor_inspect', { selector: '#shop .card:nth-child(1) button', framework: 'selenium' });
   assert.match(se, /XPath: \/\/div\[contains\(concat\(' ', normalize-space\(@class\), ' '\), ' card '\)\]/);
-  assert.doesNotMatch(se, /getByText\(title/);
+  assert.doesNotMatch(se, /getByText\(title|getByRole\('heading'/);
 });
 
 test('a template Playwright cannot count as one per value is withdrawn', async () => {

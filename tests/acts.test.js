@@ -152,8 +152,8 @@ test('opening a dialog reports it with refs usable at once; closing reports what
   assert.ok(await inspectOk(email), 'a ref from the act response works without a snapshot');
 
   const closed = await call('cor_click', { ref: pay });
-  assert.match(closed.text, /^- textbox "Email"$/m);
-  assert.match(closed.text, /^- button "Pay"$/m);
+  // U21: several removed controls are one line.
+  assert.match(closed.text, /^- gone \(2\): textbox "Email", button "Pay"$/m);
 });
 
 test('a state change is reported; a no-op says nothing visibly changed', async () => {

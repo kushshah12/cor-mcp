@@ -139,10 +139,20 @@ function contentOf(region, issueRef) {
   const testIdSelector = DEFAULT_TEST_ID_ATTRIBUTES.map((a) => `[${a}]`).join(',');
   const lines = [];
   let buffer = '';
+  let pieces = []; // the text nodes in the buffer
+  // U21: a text line's ref is the element holding all of it, so an answer or
+  // a price can be inspected (the plain-prompt run's agent guessed selectors).
+  const holder = () => {
+    let a = pieces[0].parentElement;
+    while (a && !pieces.every((t) => a.contains(t))) a = a.parentElement;
+    return a;
+  };
   const flush = () => {
     const text = squash(buffer);
+    const el = pieces.length ? holder() : null;
     buffer = '';
-    if (text && lines.at(-1)?.text !== text) lines.push({ kind: 'text', text: clip(text, TEXT_MAX) });
+    pieces = [];
+    if (text && lines.at(-1)?.text !== text) lines.push({ kind: 'text', text: clip(text, TEXT_MAX), ref: el ? issueRef(el) : null });
   };
   const emitted = new Set();
   const emitLeaf = (el) => {
@@ -165,7 +175,10 @@ function contentOf(region, issueRef) {
     })();
     for (const child of node.childNodes) {
       if (child.nodeType === 3) {
-        if (region.contains(child.parentElement) || region.contains(child)) buffer += child.nodeValue;
+        if (region.contains(child.parentElement) || region.contains(child)) {
+          buffer += child.nodeValue;
+          if (child.nodeValue.trim()) pieces.push(child);
+        }
         continue;
       }
       if (child.nodeType !== 1) continue;
@@ -185,7 +198,7 @@ function contentOf(region, issueRef) {
       }
       if (inside && child.matches(HEADING)) {
         flush();
-        lines.push({ kind: 'heading', text: clip(squash(child.textContent), TEXT_MAX) });
+        lines.push({ kind: 'heading', text: clip(squash(child.textContent), TEXT_MAX), ref: issueRef(child) });
         continue;
       }
       if (inside && child.tagName === 'IMG' && child.getAttribute('alt')) {

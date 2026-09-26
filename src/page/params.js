@@ -248,7 +248,22 @@ function groupTemplate(target) {
       xpath: null,
     },
   };
-  if (hidden) out.act = `page.getByText(${param}${opt})`;
+  if (hidden) {
+    // U21: scoped to the nearest named container the labels share, so the
+    // same words elsewhere (marketing copy) do not break the click. Playwright
+    // counts it in verifyTemplate; a scope that does not single the label out
+    // falls back to the page-wide form.
+    const labels = members.map(visibleLabelOf);
+    let scope = null;
+    for (let a = labels[0].parentElement; a && a !== document.body && !scope; a = a.parentElement) {
+      if (!labels.every((l) => a.contains(l))) continue;
+      // A base class, not a BEM modifier: `card-toggle--medium` is a size; a restyle changes it.
+      const names = namingClasses(a);
+      const cls = names.find((c) => !c.includes('--')) ?? names[0];
+      if (cls) scope = `${a.tagName.toLowerCase()}.${cssEscape(cls)}`;
+    }
+    out.act = scope ? `page.locator(${q(scope)}).getByText(${param}${opt})` : `page.getByText(${param}${opt})`;
+  }
   return out;
 }
 
@@ -434,16 +449,16 @@ function cellTemplate(target) {
   const all = [...table.rows].filter((r) => !isSectionRow(r));
   if (!all.includes(row)) return null;
   const own = all.find(isHeaderRow);
-  const header = own ?? separateHeader(table, row.cells.length);
-  if (!header || header === row) return null;
+  const header0 = own ?? separateHeader(table, row.cells.length);
+  if (!header0 || header0 === row) return null;
   // Checked before anything that counts cells: with a span, rows and header differ in length.
-  if ([...all, header].some((r) => [...r.cells].some((c) => c.colSpan > 1))) {
+  if ([...all, header0].some((r) => [...r.cells].some((c) => c.colSpan > 1))) {
     return { kind: 'cell', count: all.length - 1, reason: 'a header or cell spans more than one column, so positions do not line up' };
   }
-  const body = all.filter((r) => r !== header && isVisible(r) && r.cells.length === header.cells.length);
+  const body = all.filter((r) => r !== header0 && isVisible(r) && r.cells.length === header0.cells.length);
   if (!body.includes(row)) return null;
   const no = (reason) => ({ kind: 'cell', count: body.length, reason });
-  const headerNames = [...header.cells].map(cellName);
+  const headerNames = [...header0.cells].map(cellName);
   const headers = headerNames.map((n) => n?.name ?? '');
   const dup = (list) => list.find((v, i) => list.indexOf(v) !== i);
   // The key column: a row header (scope="row") first, else the first whose
@@ -479,27 +494,46 @@ function cellTemplate(target) {
   const cp = rp === 'column' ? 'col' : 'column';
   // A name that is part of its cell is matched on the element holding it.
   const is = (part, v) => (part ? `descendant-or-self::*[normalize-space()=${v}]` : `normalize-space()=${v}`);
-  const build = (scope) => {
-    const t = `${scope}${T}`;
-    let H = `(${t}//tr[th])[1]`;
+  const rowPart = names(k).some((n) => n.part);
+  const colPart = headerNames.some((n) => n?.part);
+  // U21: the header table's first row of several header cells — never its
+  // width, so a plan column added later is fine. The header table comes
+  // before the rows (separateHeader), so [1] never reaches a data row; a
+  // title row above the header ("Compare plans", one spanning cell) is skipped.
+  const HEADER_ROW = 'tr[count(th)>1]';
+  const partsFor = (scope) => {
+    const tables = `${scope}${T}`;
+    let header = `(${tables}//tr[th])[1]`;
     if (!own) {
-      const ht = tableStep(header.closest('table'));
+      const ht = tableStep(header0.closest('table'));
       if (!ht) return null;
-      H = `(${scope}${ht}//tr[count(th)=${header.querySelectorAll('th').length}][count(*)=${header.cells.length}])[1]`;
+      header = `(${scope}${ht}//${HEADER_ROW})[1]`;
     }
-    const rowPart = names(k).some((n) => n.part);
-    const colPart = headerNames.some((n) => n?.part);
-    return `${t}//tr[*[${k + 1}][${is(rowPart, `__${rp}__`)}]]/*[count(${H}/*[${is(colPart, `__${cp}__`)}]/preceding-sibling::*)+1]${inner}`;
+    return { tables, header, sameTable: own || tableStep(header0.closest('table')) === T };
   };
-  const fill = (xp) => xp.replace(`__${rp}__`, xpathLiteral(rows[body.indexOf(row)])).replace(`__${cp}__`, xpathLiteral(headers[cell.cellIndex]));
+  const xpathOf = ({ tables, header }, rv, cv) =>
+    `${tables}//tr[*[${k + 1}][${is(rowPart, rv)}]]/*[count(${header}/*[${is(colPart, cv)}]/preceding-sibling::*)+1]${inner}`;
+  const fill = (parts) => xpathOf(parts, xpathLiteral(rows[body.indexOf(row)]), xpathLiteral(headers[cell.cellIndex]));
   // A hidden copy of the table (another product's tab) needs a stable scope.
-  let xp = build('');
-  if (xp && !soleHit(fill(xp), target)) {
-    const scope = stableScope(own ? [table] : [table, header.closest('table')], 'table');
-    xp = scope ? build(scope.xpath) : null;
+  let parts = partsFor('');
+  if (parts && !soleHit(fill(parts), target)) {
+    const scope = stableScope(own ? [table] : [table, header0.closest('table')], 'table');
+    parts = scope ? partsFor(scope.xpath) : null;
   }
-  if (!xp) return no('the row and column names do not single out the cell');
-  const code = `page.locator(\`xpath=${xp.replace(`__${rp}__`, `"\${${rp}}"`).replace(`__${cp}__`, `"\${${cp}}"`)}\`)`;
+  if (!parts) return no('the row and column names do not single out the cell');
+  const xp = xpathOf(parts, `__${rp}__`, `__${cp}__`);
+  // What an SDET can review: the same XPath, built from named parts.
+  const js = (x) => JSON.stringify(x);
+  const headerCode = own ? `\`(\${tables}//tr[th])[1]\`` : parts.sameTable ? `\`(\${tables}//${HEADER_ROW})[1]\`` : js(parts.header);
+  const code = [
+    `(${rp}, ${cp}) => {`,
+    `  const tables = ${js(parts.tables)};`,
+    `  const header = ${headerCode};`,
+    `  const row = \`\${tables}//tr[*[${k + 1}][${is(rowPart, `"\${${rp}}"`)}]]\`;`,
+    `  const columnNo = \`count(\${header}/*[${is(colPart, `"\${${cp}}"`)}]/preceding-sibling::*) + 1\`;`,
+    `  return page.locator(\`xpath=\${row}/*[\${columnNo}]${inner}\`);`,
+    '}',
+  ].join('\n');
   return {
     kind: 'cell', count: body.length, vars: [rp, cp], rows, columns,
     row: rows[body.indexOf(row)], column: headers[cell.cellIndex], code,
@@ -645,14 +679,33 @@ function templateFor(target, targetItem, items, itemSel0, inner, { allowSelf = f
       blocked ??= `${what} does not pick each item on its own`;
       continue;
     }
-    const out = render(slot, itemSel, inner, values, items.indexOf(targetItem));
+    const out = render(slot, itemSel, inner, values, items.indexOf(targetItem), items);
     out.variants = variantsOf(items, slot, values, all);
+    // U21: one action taking the name shows any variant (the agent wrote
+    // selectTeamPro() with the name typed in, from a literal click).
+    if (out.variants.length) {
+      const sels = slot.kind === 'either' ? slot.sels.map((x) => x.sel) : [slot.sel];
+      const labelSel = sels.find((sel) => items.some((it) => it.querySelector(sel)?.closest('label')));
+      if (labelSel) out.variantAct = `${out.every}.locator(${q(labelSel)}).getByText(${slot.param}, { exact: true })`;
+    }
     return out;
   }
   return { count: items.length, reason: blocked ?? 'no attribute or label inside the item tells the items apart' };
 }
 
-function render(slot, itemSel, inner, values, self) {
+/**
+ * U21: how the code names an item by `sel` — the heading role where every
+ * such element is a heading whose accessible name is its text (an SDET reads
+ * getByRole('heading') as intent; a class is layout), else the class.
+ */
+function namedBy(sel, p, items) {
+  const els = items.map((it) => it.querySelector(sel)).filter(Boolean);
+  const heading = els.length && els.every((el) => el.matches(HEADING) && !el.closest('[aria-hidden="true"]')
+    && roleAndName(el).role === 'heading' && squash(roleAndName(el).name) === text(el));
+  return heading ? `page.getByRole('heading', { name: ${p}, exact: true })` : `page.locator(${q(sel)}).getByText(${p}, { exact: true })`;
+}
+
+function render(slot, itemSel, inner, values, self, items) {
   const p = slot.param;
   const ph = `__${p}__`;
   let code; let pw; let xpath;
@@ -664,11 +717,11 @@ function render(slot, itemSel, inner, values, self) {
     xpath = inner.xpath && `${itemSel.xpath}[@${slot.attr}=${ph}]${inner.xpath}`;
   } else if (slot.kind === 'either') {
     const [a, b] = slot.sels;
-    code = `page.locator(${q(itemSel.css)})${vis}.filter({ has: page.locator(${q(a.sel)}).getByText(${p}, { exact: true }).or(page.locator(${q(b.sel)}).getByText(${p}, { exact: true })) })${inner.code}`;
+    code = `page.locator(${q(itemSel.css)})${vis}.filter({ has: ${namedBy(a.sel, p, items)}.or(${namedBy(b.sel, p, items)}) })${inner.code}`;
     pw = `${css}:has(${a.sel}:text-is("${ph}"), ${b.sel}:text-is("${ph}")) >> ${inner.pw}`;
     xpath = inner.xpath && `${itemSel.xpath}[.//${a.xpathSel}[normalize-space()=${ph}] or .//${b.xpathSel}[normalize-space()=${ph}]]${inner.xpath}`;
   } else {
-    code = `page.locator(${q(itemSel.css)})${vis}.filter({ has: page.locator(${q(slot.sel)}).getByText(${p}, { exact: true }) })${inner.code}`;
+    code = `page.locator(${q(itemSel.css)})${vis}.filter({ has: ${namedBy(slot.sel, p, items)} })${inner.code}`;
     pw = `${css}:has(${slot.sel}:text-is("${ph}")) >> ${inner.pw}`;
     xpath = inner.xpath && `${itemSel.xpath}[.//${slot.xpathSel}[normalize-space()=${ph}]]${inner.xpath}`;
   }
