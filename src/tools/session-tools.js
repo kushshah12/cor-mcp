@@ -65,7 +65,7 @@ async function act(session, page, perform) {
     // (and our injected runtime) survives it: BrowserStack's Monthly toggle
     // rewrites the URL in place. Only a new document expires the refs.
     const sameDocument = await page.evaluate(() => Boolean(window.__corMcp)).catch(() => false);
-    if (!sameDocument) return { navigated: true };
+    if (!sameDocument) return { navigated: true, headings: await headingsOf(page) };
   }
   try {
     const after = await callPage(page, 'afterAct');
@@ -77,6 +77,11 @@ async function act(session, page, perform) {
     return { navigated: true };
   }
 }
+
+/** The new page's first visible h1–h2 headings, so a navigation says where it went (U20). */
+const headingsOf = (page) => page.evaluate(() => [...document.querySelectorAll('h1,h2')]
+  .filter((h) => h.getBoundingClientRect().height > 0)
+  .map((h) => h.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 3)).catch(() => []);
 
 /** Run `fn(element, arg)` in the page on `handle`; throws the page-side error message if it returns one. */
 async function onHandle(handle, fn, arg) {

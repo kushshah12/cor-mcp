@@ -107,7 +107,7 @@ function regionsNamed(query) {
   const named = [];
   for (const h of visibleHeadings()) named.push({ text: squash(h.textContent), make: () => ({ ...headingRegion(h), kind: 'section' }) });
   for (const n of document.querySelectorAll(LANDMARK_SELECTOR)) {
-    if (isVisible(n)) named.push({ text: ariaLabel(n) ?? '', make: () => ({ ...nodeRegion(n), kind: LANDMARKS.find(([, s]) => n.matches(s))[0] }) });
+    if (isVisible(n)) named.push({ text: ariaLabel(n) ?? LANDMARKS.find(([, sel]) => n.matches(sel))[0], make: () => ({ ...nodeRegion(n), kind: LANDMARKS.find(([, s]) => n.matches(s))[0] }) });
   }
   for (const n of document.querySelectorAll(ITEM)) {
     if (isVisible(n)) named.push({ text: ownText(n, ITEM) ?? '', make: () => ({ ...nodeRegion(n), kind: 'item' }) });

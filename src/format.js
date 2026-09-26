@@ -378,6 +378,43 @@ function markers(leaf, unstableIds) {
 }
 
 const GROUP_MIN = 3;
+const RUN_LEGEND = 'N× role "name": identical controls, one ref each in page order.';
+
+// U20. A link list with this many controls folds to one line, unless it holds
+// half the page or more (then there would be nothing left to see). Tables and
+// rows never fold: the "each:" grouping already keeps them to one line a row,
+// and they are what tests read. BrowserStack pricing's footer: 66 links.
+const FOLD_MIN = 25;
+const NO_FOLD = new Set(['table', 'row', 'column']);
+const controlCount = (node) => (node.kind === 'leaf' ? 1 : node.children.reduce((n, c) => n + controlCount(c), 0));
+const leavesOf = (node) => (node.kind === 'leaf' ? [node] : node.children.flatMap(leavesOf));
+
+// The name cor_snapshot within takes: sections and items always have a label;
+// an unlabelled landmark goes by its type ("footer"). Tables never fold.
+const foldName = (node) => node.label ?? node.type;
+
+function foldLine(node, total) {
+  const count = controlCount(node);
+  const name = foldName(node);
+  if (NO_FOLD.has(node.type) || count < FOLD_MIN || count * 2 >= total) return null;
+  const roles = new Map();
+  for (const leaf of leavesOf(node)) roles.set(leaf.role, (roles.get(leaf.role) ?? 0) + 1);
+  // Only link lists fold (footers, site menus): a section of fields, buttons
+  // or a table is what tests act on. selectorshub's "iframe and table" folded without this.
+  if ((roles.get('link') ?? 0) < count * 0.8) return null;
+  const size = [...roles].map(([role, n]) => `${n} ${role}${n === 1 ? '' : /(s|x|ch)$/.test(role) ? 'es' : 's'}`).join(', ');
+  // What is inside, by its named parts: `(sections "PRODUCTS", "RESOURCES", …)`.
+  const named = node.children.filter((c) => c.kind === 'container' && c.label);
+  const parts = named.length ? ` (${named[0].type}s ${named.slice(0, 6).map((c) => `"${c.label}"`).join(', ')}${named.length > 6 ? ', …' : ''})` : '';
+  return `${containerText(node)}: ${size}, folded${parts} — cor_snapshot within: "${name}" lists them`;
+}
+
+/** Same role, name and markers: controls an agent tells apart only by position. */
+const runKey = (item, unstableIds) => {
+  const [node] = item.nodes;
+  return !item.hinted && item.nodes.length === 1 && node.kind === 'leaf' && !HINT_IN.test(node.hint ?? '')
+    ? `${node.role}|${node.name}|${markers(node, unstableIds)}` : null;
+};
 const HINT_IN = /^in "(.*)"$/;
 
 /**
@@ -427,9 +464,20 @@ function renderGroup(run, depth, unstableIds, out) {
 }
 
 /** Chains of single-child containers fold into one line: `section "Team Ultimate" › button "Choose"`. */
-function renderNodes(nodes, depth, unstableIds, out, stats = { groups: 0 }) {
+function renderNodes(nodes, depth, unstableIds, out, stats = { groups: 0, runs: 0, total: Infinity }) {
   const items = itemsOf(nodes);
   for (let i = 0; i < items.length;) {
+    const key = runKey(items[i], unstableIds);
+    let k = i + 1;
+    while (key && k < items.length && runKey(items[k], unstableIds) === key) k++;
+    if (key && k - i >= GROUP_MIN) {
+      const [first] = items[i].nodes;
+      const extra = markers(first, unstableIds);
+      out.push(`${'  '.repeat(depth)}- ${k - i}× ${controlText(first)}: ${items.slice(i, k).map((it) => it.nodes[0].ref).join(', ')}${extra ? ` ${extra}` : ''}`);
+      stats.runs += 1;
+      i = k;
+      continue;
+    }
     const shape = shapeOf(items[i]);
     let j = i + 1;
     while (shape && j < items.length && shapeOf(items[j]) === shape) j++;
@@ -441,6 +489,11 @@ function renderNodes(nodes, depth, unstableIds, out, stats = { groups: 0 }) {
     }
     for (const item of items.slice(i, j)) {
       for (let node of item.nodes) {
+        const folded = node.kind === 'container' ? foldLine(node, stats.total) : null;
+        if (folded) {
+          out.push(`${'  '.repeat(depth)}- ${folded}`);
+          continue;
+        }
         const prefix = [];
         while (node.kind === 'container' && node.children.length === 1) {
           prefix.push(containerText(node));
@@ -462,10 +515,10 @@ function renderNodes(nodes, depth, unstableIds, out, stats = { groups: 0 }) {
  */
 export function renderSnapshot(snapshot, { unstableIds = new Set() } = {}) {
   const head = `${snapshot.title ? `"${snapshot.title}" ` : ''}${snapshot.url} — ${snapshot.count} interactive element${snapshot.count === 1 ? '' : 's'}`;
-  const stats = { groups: 0 };
+  const stats = { groups: 0, runs: 0, total: snapshot.count };
   const lines = renderNodes(snapshot.tree, 0, unstableIds, [], stats);
   const viaLabel = (nodes) => nodes.some((n) => (n.kind === 'leaf' ? n.viaLabel : viaLabel(n.children)));
-  const legend = [SNAPSHOT_LEGEND, stats.groups && GROUP_LEGEND, viaLabel(snapshot.tree) && VIA_LABEL_LEGEND].filter(Boolean).join(' ');
+  const legend = [SNAPSHOT_LEGEND, stats.groups && GROUP_LEGEND, stats.runs && RUN_LEGEND, viaLabel(snapshot.tree) && VIA_LABEL_LEGEND].filter(Boolean).join(' ');
   return [head, legend, '', ...lines].join('\n');
 }
 
@@ -610,11 +663,14 @@ const leafBrief = (l) => `${l.role}${l.name ? ` "${l.name}"` : ''}${l.value ? ` 
 
 /** What an act changed, and what happened to the refs. */
 export function renderActResult(result) {
-  if (result.navigated) return 'The page navigated: earlier refs expired — call cor_snapshot.';
+  if (result.navigated) {
+    const headings = result.headings?.length ? ` — headings: ${result.headings.map((h) => `"${h}"`).join(', ')}` : '';
+    return `The page navigated${headings}. Earlier refs expired — call cor_snapshot.`;
+  }
   const out = [];
-  if (!result.changes?.length) {
+  if (!result.changes?.length && !result.texts?.length) {
     out.push('No visible change. If you expected one, the act may not have landed — check the target, or try cor_press.');
-  } else {
+  } else if (result.changes?.length) {
     out.push('Changes:');
     for (const c of result.changes) {
       if (c.kind === 'appeared') {
@@ -632,6 +688,14 @@ export function renderActResult(result) {
       }
     }
     if (result.more) out.push(`…and ${result.more} more changes — cor_snapshot for the whole page.`);
+  }
+  if (result.texts?.length) {
+    out.push('Text:');
+    for (const t of result.texts) {
+      const where = t.where ? ` in ${t.where}` : '';
+      out.push(t.was === null ? `+ "${t.text}" [ref=${t.ref}]${where}` : `~ "${t.was}" → "${t.text}" [ref=${t.ref}]${where}`);
+    }
+    if (result.moreTexts) out.push(`…and ${result.moreTexts} more text changes — cor_snapshot within a region for all its text.`);
   }
   const { kept, rebound, dropped } = result.refs ?? { kept: 0, rebound: [], dropped: {} };
   const stale = Object.entries(dropped);

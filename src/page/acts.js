@@ -16,7 +16,7 @@
 // so the agent can act on them without a snapshot), disappeared, or changed
 // state, grouped under a container that appeared with them.
 import { computeFingerprint } from '@corlabs/engine/core';
-import { HEADING, deepQueryAll, isControl, isShown, isVisible, roleAndName } from './dom.js';
+import { HEADING, clip, closestControl, deepQueryAll, isControl, isShown, isVisible, roleAndName, squash } from './dom.js';
 import { containersFor, label, statesOf } from './outline.js';
 import { rememberRemoved } from './removed.js';
 
@@ -96,10 +96,58 @@ function describe(el) {
   };
 }
 
+// U20 — text too: a price after switching to Monthly, an FAQ answer that
+// opened. Reporting only controls sent the plain-prompt run's agent to 13.6k
+// characters of DOM probes to read them.
+let textsBefore = null; // Map<element, text>
+const MAX_TEXTS = 8;
+const TEXT_MAX = 80;
+
+/** Visible elements with their own text, outside any control (a control's name is in the control diff), in page order. */
+function textLeaves() {
+  const texts = new Map();
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+    const el = t.parentElement;
+    if (!el || !t.nodeValue.trim() || /^(SCRIPT|STYLE|NOSCRIPT|TEMPLATE)$/.test(el.tagName)) continue;
+    texts.set(el, (texts.get(el) ?? '') + t.nodeValue);
+  }
+  for (const [el, text] of texts) {
+    if (closestControl(el) || !isVisible(el)) texts.delete(el);
+    else texts.set(el, squash(text));
+  }
+  return texts;
+}
+
 /** Called just before an act. */
 export function beginAct() {
   before = new Map(deepQueryAll(isControl).filter(isShown).map((el) => [el, describe(el)]));
+  textsBefore = textLeaves();
   return true;
+}
+
+/** Text that changed or appeared, each with a ref and its region. A re-render showing the same text is no change. */
+function textChanges(issueRef, headings) {
+  const now = textLeaves();
+  const gone = new Map(); // text → how many nodes that showed it are gone or hidden
+  for (const [el, text] of textsBefore) if (!now.has(el)) gone.set(text, (gone.get(text) ?? 0) + 1);
+  const out = [];
+  for (const [el, text] of now) {
+    const was = textsBefore.get(el);
+    if (was === text) continue;
+    if (was === undefined && gone.get(text)) {
+      gone.set(text, gone.get(text) - 1);
+      continue;
+    }
+    const where = containersFor(el, headings).at(-1);
+    out.push({ was: was === undefined ? null : clip(was, TEXT_MAX), text: clip(text, TEXT_MAX), el,
+      where: where ? `${where.type}${where.label ? ` "${where.label}"` : ''}` : null });
+  }
+  textsBefore = null;
+  return {
+    texts: out.slice(0, MAX_TEXTS).map(({ el, ...t }) => ({ ...t, ref: issueRef(el) })),
+    moreTexts: Math.max(0, out.length - MAX_TEXTS),
+  };
 }
 
 const MAX_CHANGES = 15;
@@ -158,5 +206,5 @@ export function endAct(issueRef) {
     }
   }
   before = null;
-  return { changes: changes.slice(0, MAX_CHANGES), more: Math.max(0, changes.length - MAX_CHANGES) };
+  return { changes: changes.slice(0, MAX_CHANGES), more: Math.max(0, changes.length - MAX_CHANGES), ...textChanges(issueRef, headings) };
 }
