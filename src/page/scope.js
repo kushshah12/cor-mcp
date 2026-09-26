@@ -6,6 +6,7 @@
 // A name that fits several regions is not guessed at — the candidates come
 // back, each with a ref inside it, for the agent to choose.
 import { DEFAULT_TEST_ID_ATTRIBUTES, isUnstableClass } from '@corlabs/engine/core';
+import { columnNameOf } from './params.js';
 import { HEADING, clip, deepQueryAll, hasControl, isControl, isShown, isVisible, roleAndName, squash, visibleLabelOf } from './dom.js';
 import {
   CELL, ITEM, LANDMARKS, TABLE, ariaLabel, containersFor, headingLevel, label, ownText, rowKey, statesOf,
@@ -205,6 +206,27 @@ function contentOf(region, issueRef) {
   return { lines: lines.slice(0, MAX_LINES), truncated: Math.max(0, lines.length - MAX_LINES) };
 }
 
+/**
+ * A table row's cells by column, each with a ref: the route to a cell's
+ * row × column template (U19.4). The plain-prompt run's agent never inspected
+ * a comparison cell — nothing in a row had a ref — and computed the column by
+ * header index instead.
+ */
+function cellsOf(row, issueRef) {
+  return [...row.cells].filter(isVisible).map((cell, i) => {
+    const text = squash(cell.innerText);
+    const control = deepQueryAll(isControl, cell).find(isShown);
+    const img = [...cell.querySelectorAll('img[alt]')].find((el) => isVisible(el) && el.alt.trim());
+    let content = '(empty)';
+    if (control && (!text || squash(control.innerText) === text)) {
+      const { role, name } = roleAndName(control);
+      content = `${role}${name ? ` "${name}"` : ''}`;
+    } else if (text) content = `"${clip(text, TEXT_MAX)}"`;
+    else if (img) content = `img "${clip(squash(img.alt), TEXT_MAX)}"`;
+    return { kind: 'cell', column: columnNameOf(cell) ?? `${i + 1}`, ref: issueRef(cell), content };
+  });
+}
+
 /** The first visible control inside a region — a ref the agent can pass back as `within`. */
 function sampleIn(region) {
   return deepQueryAll(isControl, region.root).find((el) => region.contains(el) && isShown(el)) ?? null;
@@ -240,5 +262,6 @@ export function scopedSnapshot({ ref, text, refs, issueRef }) {
     };
   }
   const [region] = regions;
+  if (region.kind === 'row' && region.root.cells) return { region: { kind: region.kind, label: region.label }, lines: cellsOf(region.root, issueRef), truncated: 0 };
   return { region: { kind: region.kind, label: region.label }, ...contentOf(region, issueRef) };
 }

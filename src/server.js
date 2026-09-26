@@ -19,7 +19,9 @@ export function defaultTools(session, fingerprints = null) {
 export const INSTRUCTIONS = [
   'COR finds, scores and match-counts locators on a live page. Use cor_snapshot to pick an element and cor_inspect to get its locator.',
   'When cor_inspect returns a Parameterised block and the test touches more than one of those items, or the codebase uses page objects, ' +
-    'write one function that takes the parameter (e.g. addToCart(title)) instead of a locator per item, and use the listed values as test data when a data-driven test fits.',
+    'write one function that takes the parameter (e.g. addToCart(title)) instead of a locator per item. ' +
+    'When the test covers every item ("every FAQ question", "all plans"), loop over the Every item locator instead of typing the values, so an item added later is tested too; use the listed values only for items the test names.',
+  'To read a table value, cor_snapshot within the row\'s name — it lists the row\'s cells by column with refs — then cor_inspect the cell for a row × column template.',
   'Before running the tests, pass each locator you wrote or extended yourself — anything not copied as-is from cor_inspect — to cor_grade, with param when it takes one. ' +
     'Adding a step to a template (card.locator(\'.price\')) makes a new locator: the step can match several elements inside an item.',
   'To see what an action changes — a new price, an answer that opens, the page a link leads to — act with it and read the reply of cor_click, cor_fill or cor_press: ' +

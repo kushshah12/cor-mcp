@@ -199,6 +199,9 @@ function paramLead(params, framework, lookalikes) {
     `  ${params.param} = "${params.value}"   (also: ${others.slice(0, VALUES_SHOWN).map((v) => `"${v}"`).join(', ')}${more})`,
     ...variantLines,
     ...form,
+    ...(params.every && framework === 'playwright'
+      ? [`  Every item (${params.count} now): ${params.every} — loop over it (for (const item of await ….all())) when the test covers every item, so one added later is tested too.`]
+      : []),
     `  When the test touches more than one ${noun}, write one function taking ${params.param} instead of a locator per ${noun}.`,
   ];
   // Every lookalike is one of the items, so picking "the wrong one" is just a different value.
@@ -639,6 +642,7 @@ export function renderScoped(scoped, within, { unstableIds = new Set() } = {}) {
   const note = 'All text in this region, in page order. Its refs are added to the current snapshot\'s; refs expire on navigation and any act.';
   const lines = scoped.lines.map((line) => {
     if (line.kind === 'leaf') return `- ${leafText(line, unstableIds)}`;
+    if (line.kind === 'cell') return `- cell "${line.column}" [ref=${line.ref}]: ${line.content}`;
     return `- ${line.kind} "${line.text}"`;
   });
   if (scoped.truncated) lines.push(`… ${scoped.truncated} more lines — pass a narrower region as within.`);

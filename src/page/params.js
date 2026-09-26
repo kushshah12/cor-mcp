@@ -414,6 +414,16 @@ const soleHit = (xp, el) => {
   return hits?.snapshotLength === 1 && hits.snapshotItem(0) === el;
 };
 
+/** A cell's column name, from its table's header row or a separate header table; null when there is none. */
+export function columnNameOf(cell) {
+  const row = cell.parentElement;
+  const table = cell.closest('table');
+  if (!table || !row?.cells) return null;
+  const header = [...table.rows].find(isHeaderRow) ?? separateHeader(table, row.cells.length);
+  if (!header || header === row || header.cells.length !== row.cells.length) return null;
+  return cellName(header.cells[cell.cellIndex])?.name || null;
+}
+
 /** U18b.4. Null when the target is not a table cell's content (a control keeps U18's row template). */
 function cellTemplate(target) {
   const cell = target.closest('td, th');
@@ -668,6 +678,8 @@ function render(slot, itemSel, inner, values, self) {
     value: values[self],
     values,
     code,
+    // Every item, to loop over when the test covers them all (plain-prompt run: the FAQ questions were typed in).
+    every: `page.locator(${q(itemSel.css)})${vis}`,
     // Registry form (@corlabs/client selectorTemplate): the placeholder sits
     // inside a CSS string in `pw` and IS the literal in `xpath`.
     // XPath cannot say "visible": when hidden copies matter there is no XPath form.
