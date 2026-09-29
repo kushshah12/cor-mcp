@@ -3,6 +3,7 @@ import { callPage } from '../page-runtime.js';
 import { renderAmbiguousScope, renderInspect, renderScoped, renderSnapshot } from '../format.js';
 import { REF, checkRef, goneError } from './refs.js';
 import { applyIdVerdicts, checkIds, numberedIds } from '../id-stability.js';
+import { wozNotes } from '../woz.js';
 import { parseGradable } from '../grade-parse.js';
 
 export const FRAMEWORKS = ['playwright', 'cypress', 'selenium', 'webdriverio', 'nightwatch', 'testcafe', 'puppeteer'];
@@ -215,7 +216,8 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
           result.rankingNote = `Demoted ${top.value} (score ${top.score}) — its id changes on every page load (${top.volatileId.id} was ${top.volatileId.seen} on a fresh load). Ranked ${best.value} first.`;
         }
         const refsLive = Boolean(session.refs && !session.refs.staleBecause);
-        const response = text(renderInspect(result, { refsLive, framework, all }));
+        const reply = renderInspect(result, { refsLive, framework, all });
+        const response = text(reply + wozNotes(reply));
         if (fingerprints && result.locators.length) {
           fingerprints.record({ url: page.url(), ...result.capture, locators: result.locators.map((l) => l.value) });
         }
