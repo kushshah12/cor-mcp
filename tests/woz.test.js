@@ -73,3 +73,27 @@ test('an entry matches the element\'s template data, in any framework mode, and 
   assert.equal(wozNotes('await $("#x")', { item: 'div.card' }), '\n\nCARD');
   assert.equal(wozNotes('await $("#x")', null), '');
 });
+
+test('the framework comes from the argument, else the project package.json', async () => {
+  const { wozFramework } = await import('../src/woz.js');
+  const project = (deps) => {
+    const dir = mkdtempSync(join(tmpdir(), 'woz-proj-'));
+    if (deps) writeFileSync(join(dir, 'package.json'), JSON.stringify({ devDependencies: deps }));
+    return dir;
+  };
+  assert.equal(wozFramework('cypress', project({ '@wdio/cli': '9' })), 'cypress');
+  assert.equal(wozFramework('playwright', project({ '@wdio/cli': '9' })), 'webdriverio');
+  assert.equal(wozFramework(undefined, project({ webdriverio: '9' })), 'webdriverio');
+  assert.equal(wozFramework('playwright', project({ cypress: '16' })), 'cypress');
+  assert.equal(wozFramework('playwright', project({ '@playwright/test': '1' })), null);
+  assert.equal(wozFramework('playwright', project(null)), null);
+});
+
+test('with no COR_WOZ_FILE, the helpers shipped for the framework are used', async () => {
+  const { wozNotes } = await import('../src/woz.js');
+  delete process.env.COR_WOZ_FILE;
+  const params = { item: 'div[data-plan-type="teams"] div.simplification-card' };
+  assert.match(wozNotes('', params, 'webdriverio'), /WebdriverIO \(8 and 9\) helper/);
+  assert.match(wozNotes('', params, 'cypress'), /Cypress \(15 and 16\) helper/);
+  assert.equal(wozNotes('', { item: 'div.other' }, 'webdriverio'), '');
+});

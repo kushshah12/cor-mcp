@@ -217,7 +217,7 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
         }
         const refsLive = Boolean(session.refs && !session.refs.staleBecause);
         const reply = renderInspect(result, { refsLive, framework, all });
-        const response = text(reply + wozNotes(reply, result.params));
+        const response = text(reply + wozNotes(reply, result.params, framework));
         if (fingerprints && result.locators.length) {
           fingerprints.record({ url: page.url(), ...result.capture, locators: result.locators.map((l) => l.value) });
         }
