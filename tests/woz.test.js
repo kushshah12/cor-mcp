@@ -63,3 +63,13 @@ test('with COR_WOZ_FILE, only entries whose match is in the reply are appended',
   assert.ok(reply.endsWith(MARK), reply);
   assert.ok(!reply.includes('NEVER'));
 });
+
+test('an entry matches the element\'s template data, in any framework mode, and takes a list of alternatives', async (t) => {
+  const { wozNotes } = await import('../src/woz.js');
+  const file = join(mkdtempSync(join(tmpdir(), 'woz-')), 'woz.json');
+  writeFileSync(file, JSON.stringify([{ match: ['nope', 'div.card'], text: 'CARD' }, { match: 'nope', text: 'NEVER' }]));
+  process.env.COR_WOZ_FILE = file;
+  t.after(() => delete process.env.COR_WOZ_FILE);
+  assert.equal(wozNotes('await $("#x")', { item: 'div.card' }), '\n\nCARD');
+  assert.equal(wozNotes('await $("#x")', null), '');
+});

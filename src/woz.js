@@ -4,12 +4,14 @@ import { readFileSync } from 'node:fs';
 
 /**
  * Hand-written text to append to a cor_inspect reply. COR_WOZ_FILE names a JSON
- * array of { match, text }: an entry applies when `match` occurs in the reply
- * (the template's item selector). Re-read on every call so edits apply mid-run.
+ * array of { match, text }: an entry applies when `match` (a string, or a list of alternatives) occurs in the element's
+ * template (`params`, present in every framework mode) or in the reply. Re-read on
+ * every call so edits apply mid-run.
  */
-export function wozNotes(reply) {
+export function wozNotes(reply, params) {
   const file = process.env.COR_WOZ_FILE;
   if (!file) return '';
   const entries = JSON.parse(readFileSync(file, 'utf8'));
-  return entries.filter((e) => reply.includes(e.match)).map((e) => `\n\n${e.text}`).join('');
+  const haystack = `${JSON.stringify(params ?? null)}\n${reply}`;
+  return entries.filter((e) => [].concat(e.match).some((m) => haystack.includes(m))).map((e) => `\n\n${e.text}`).join('');
 }
