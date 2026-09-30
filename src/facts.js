@@ -16,6 +16,8 @@ const AMBIGUITY = {
 /** What the framework does when a locator matches several elements, from the engine's failure mode; null when unknown. */
 export const ambiguityConsequence = (failureMode) => AMBIGUITY[failureMode] ?? null;
 
+const BARE_TAG = /^[a-z][\w-]*$/i;
+
 const clip = (s) => (s.length <= MAX_LEN ? s : `${s.slice(0, MAX_LEN - 1)}…`);
 const many = (n, one, other) => (n === 1 ? one : other);
 
@@ -50,7 +52,8 @@ export function factsFor(result) {
   if (changing) {
     facts.push({ type: 'changing-value', text: 'the locator\'s text holds a value that changes (a price or percentage) — use the stable part of the name' });
   }
-  const loose = locators.find((l) => l.matchCount > 1 && AMBIGUITY[l.resolution?.failureMode]);
+  // a bare tag (`input`) matches everything and nobody would pick it: not worth a line
+  const loose = locators.find((l) => l.matchCount > 1 && AMBIGUITY[l.resolution?.failureMode] && !BARE_TAG.test(l.value ?? ''));
   if (loose) {
     facts.push({ type: 'ambiguity-consequence', text: `a locator matching ${loose.matchCount} elements: ${AMBIGUITY[loose.resolution.failureMode]}` });
   }

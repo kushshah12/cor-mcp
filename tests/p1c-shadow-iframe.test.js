@@ -9,7 +9,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
 import { createSession } from '../src/session.js';
 import { factsFor } from '../src/facts.js';
-import { framesNote } from '../src/format.js';
+import { framesNote, renderInspect } from '../src/format.js';
 
 const CARDS = `<div class="card"><h3>Team</h3><button>Choose</button></div><div class="card"><h3>Pro</h3><button>Choose</button></div>`;
 const attach = (hostId, html) => `<div id="${hostId}"></div><script>document.getElementById('${hostId}').attachShadow({ mode: 'open' }).innerHTML = ${JSON.stringify(html)};</script>`;
@@ -152,4 +152,47 @@ test('iframe check: the note is a line of its own — unit', () => {
   assert.deepEqual(framesNote([]), []);
   assert.deepEqual(framesNote(undefined), []);
   assert.match(framesNote([{ name: null, sameOrigin: false }])[0], /^Not listed: 1 iframe — unnamed \(another site\)\./);
+});
+
+// ── Cypress: the shadow setting is the fix, not a test attribute ──
+test('P1c V2: Cypress on a control in a shadow root is told the setting, with the locator that works once it is on', async () => {
+  await open('/only');
+  await call('cor_snapshot');
+  const { text } = await call('cor_inspect', { ref: 'e1', framework: 'cypress' });
+  assert.match(text, /^No locator found here resolves to exactly this element\./m);
+  assert.match(text, /^Cypress does not look inside a shadow root unless told to\. With the setting on this finds exactly this element: cy\.get\('#only', \{ includeShadowDom: true \}\)$/m);
+  assert.match(text, /^ {2}or set includeShadowDom: true once in the Cypress config and use cy\.get\('#only'\)\.$/m);
+  assert.doesNotMatch(text, /Add a test attribute/, 'not an application problem');
+});
+
+test('P1c V2: the Cypress fix is only offered when the piercing query finds exactly this element', async () => {
+  await open('/cards'); // two identical Choose buttons: no candidate is unique even with piercing
+  await call('cor_snapshot');
+  const cards = (await call('cor_inspect', { ref: 'e1', framework: 'cypress' })).text;
+  assert.doesNotMatch(cards, /includeShadowDom/);
+  assert.match(cards, /Add a test attribute/, 'falls back to the application change');
+  await open('/light');
+  assert.doesNotMatch((await call('cor_inspect', { selector: '#plain', framework: 'cypress' })).text, /includeShadowDom/, 'never in the light DOM');
+  await open('/only');
+  await call('cor_snapshot');
+  for (const fw of ['playwright', 'webdriverio']) assert.doesNotMatch((await call('cor_inspect', { ref: 'e1', framework: fw })).text, /includeShadowDom/, `${fw} needs no setting`);
+});
+
+test('P1c: the ambiguity fact skips a bare tag selector — nobody would pick it — and keeps a real candidate', () => {
+  const many = (value) => ({ locators: [{ value, matchCount: 39, resolution: { failureMode: 'strict-mode-error' } }] });
+  assert.deepEqual(factsFor(many('input')), []);
+  assert.deepEqual(factsFor(many('my-card')), []);
+  assert.deepEqual(factsFor(many('.btn')).map((f) => f.type), ['ambiguity-consequence']);
+  assert.deepEqual(factsFor(many('input.btn')).map((f) => f.type), ['ambiguity-consequence']);
+});
+
+test('P1c V2: the Cypress shadow advice needs Cypress, a shadow root and a fix — unit', () => {
+  const loc = { value: '#x', code: "cy.get('#x')", strategy: 'css', score: 90, tier: 'good', tierLabel: 'Good', matchCount: 0, signals: [], resolution: { usable: false, status: 'broken', message: 'Matches no elements' } };
+  const base = { framework: 'cypress', locators: [loc], profile: null, params: null };
+  const advice = (result, framework) => renderInspect({ ...base, ...result }, { framework });
+  assert.match(advice({ shadow: { depth: 1, host: '#h' }, shadowFix: { selector: '#x' } }, 'cypress'), /cy\.get\('#x', \{ includeShadowDom: true \}\)/);
+  assert.doesNotMatch(advice({ shadowFix: { selector: '#x' } }, 'cypress'), /includeShadowDom/, 'no shadow root, no advice');
+  assert.doesNotMatch(advice({ shadow: { depth: 1, host: '#h' }, shadowFix: { selector: '#x' } }, 'playwright'), /includeShadowDom/, 'not for another framework');
+  assert.doesNotMatch(advice({ shadow: { depth: 1, host: '#h' }, shadowFix: null }, 'cypress'), /includeShadowDom/, 'no fix, no advice');
+  assert.match(advice({ shadow: { depth: 1, host: '#h' }, shadowFix: { selector: "a[title='x']" } }, 'cypress'), /cy\.get\('a\[title=\\'x\\'\]', \{ includeShadowDom/, 'quotes escaped');
 });

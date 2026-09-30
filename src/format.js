@@ -336,7 +336,12 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
     const fix = addTestId(result);
     const closest = `${best.code || best.value} — ${best.resolution.message ?? best.resolution.status}`;
     out.push(`No locator found here resolves to exactly this element. The closest (not usable as written): ${closest}.`);
-    if (fix) out.push('Add a test attribute (this requires an application change):', `  ${fix.snippet}`);
+    if (framework === 'cypress' && result.shadow && result.shadowFix) {
+      // Cypress reaches into a shadow root only when told to: not an application problem.
+      const sel = result.shadowFix.selector.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+      out.push(`Cypress does not look inside a shadow root unless told to. With the setting on this finds exactly this element: cy.get('${sel}', { includeShadowDom: true })`,
+        `  or set includeShadowDom: true once in the Cypress config and use cy.get('${sel}').`);
+    } else if (fix) out.push('Add a test attribute (this requires an application change):', `  ${fix.snippet}`);
     else out.push('Scope a locator to the element\'s container by hand and grade it with cor_grade.');
   } else if (SUB_FLOOR.has(best.tier)) {
     const fix = addTestId(result);

@@ -115,6 +115,7 @@ function inspect({ ref, selector, element, framework, max }) {
     collapsed: collapsedAway(target.el, new Map()),
     testAttrs: hasTestAttributes(),
     shadow: shadowOf(target.el),
+    shadowFix: framework === 'cypress' ? cypressShadowFix(target.el, candidates.locators) : null,
     params: parameterise(target.el),
     stateBound: stateBoundFor(target.el, framework),
     // For silent capture (src/fingerprints.js) — never rendered.
@@ -285,6 +286,28 @@ function shadowOf(el) {
   if (!depth) return null;
   const cls = [...host.classList][0];
   return { depth, host: host.id ? `#${host.id}` : `${host.tagName.toLowerCase()}${cls ? `.${cls}` : ''}` };
+}
+
+/** Every element matching `selector`, in the document and inside open shadow roots. */
+function queryDeep(selector, root = document) {
+  const out = [...root.querySelectorAll(selector)];
+  for (const host of root.querySelectorAll('*')) if (host.shadowRoot) out.push(...queryDeep(selector, host.shadowRoot));
+  return out;
+}
+
+/**
+ * Cypress does not look inside a shadow root unless `includeShadowDom` is set. The first ranked CSS candidate that,
+ * with that setting on (a piercing query), finds exactly this element — or null. Only for an element in a shadow root.
+ */
+function cypressShadowFix(el, locators) {
+  if (!shadowOf(el)) return null; // only to skip a walk of the whole page: the renderer also requires a shadow root
+  for (const l of locators) {
+    if (/::shadow|^\/|^\(/.test(l.value)) continue; // not CSS: cy.get cannot take it
+    let hits;
+    try { hits = queryDeep(l.value); } catch { continue; }
+    if (hits.length === 1 && hits[0] === el) return { selector: l.value };
+  }
+  return null;
 }
 
 /** Iframes a reader of the top document cannot see into: visible ones, with what names them. */
