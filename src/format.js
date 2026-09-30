@@ -328,10 +328,10 @@ function viaLabelNote(labelText, framework) {
 const usableTemplate = (params, framework, helper) =>
   (params?.template && (framework === 'playwright' || params.template.xpath || helper) ? params : null);
 
-export function renderInspect(result, { refsLive = false, framework = result.framework, all = false, dataCyNote = false, typescript = false, major = null } = {}) {
+export function renderInspect(result, { refsLive = false, framework = result.framework, all = false, dataCyNote = false, typescript = false, major = null, testingLibrary = false } = {}) {
   // P3a: WebdriverIO (and, in P3b, Cypress) get idiomatic helper code rendered from the checked template.
   const helper = framework !== 'playwright' && result.params?.template && result.params.model
-    ? renderHelper(framework, result.params, { typescript, major }) : null;
+    ? renderHelper(framework, result.params, { typescript, major, testingLibrary }) : null;
   const lead = usableTemplate(result.params, framework, helper?.code ? helper : null);
   // The template covers the lookalikes only when they are all its items.
   const covered = lead && result.lookalikes && result.lookalikes.items.length === lead.count;

@@ -172,14 +172,12 @@ test('P3a: a WebdriverIO 8 project is not told the idioms were tested on 9 — t
   assert.doesNotMatch(out, /conformance-tested\./);
 });
 
-test('P3a: Playwright and Cypress output is not changed by the WebdriverIO renderer', async (t) => {
+test('P3a: Playwright output is not changed by the WebdriverIO renderer', async (t) => {
   const call = await connect(t);
   await call('cor_open', { url: `${base}/p3a-either.html` });
   const pw = await call('cor_inspect', { selector: '.grid .plan:nth-child(2) button', framework: 'playwright' });
   assert.match(pw, /^ {2}Proof: counted by Playwright, every value\.$/m);
   assert.doesNotMatch(pw, /\$\$\(|isDisplayed/);
-  const cy = await call('cor_inspect', { selector: '.grid .plan:nth-child(2) button', framework: 'cypress' });
-  assert.doesNotMatch(cy, /\$\$\(|isDisplayed|conformance-tested/);
 });
 
 test('P3a R1: a page the renderer declines still shows the checked XPath form, so nothing is lost', async (t) => {

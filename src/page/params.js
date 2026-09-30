@@ -100,6 +100,36 @@ function leafCss(target, item, items) {
 }
 
 /**
+ * P3b: the target inside each item as CSS for Cypress's `.find()`. Exactly one SHOWN match per item; when an item holds twins of
+ * the target (a Choose per toggle state) the selector must match every twin — a class that names one state's button would break
+ * when the toggle changes — and the helper filters `:visible`. `shown` says that filter is needed.
+ */
+function leafCssCy(target, item, items, named) {
+  const tag = target.tagName.toLowerCase();
+  const twinsIn = (it) => (named ? [...it.querySelectorAll('*')].filter((el) => isControl(el) && roleAndName(el).role === named.role && roleAndName(el).name === named.name).length : 1);
+  const tries = LEAF_ATTRS.flatMap((a) => {
+    const v = target.getAttribute(a);
+    return v && !PATH_LIKE.test(v) && !isUnstableValue(v, a) ? [`${tag}[${a}=${cssString(v)}]`] : [];
+  });
+  const names = namingClasses(target);
+  const cls = names.find((c) => !c.includes('--')) ?? names[0];
+  if (cls) tries.push(`${tag}.${cssEscape(cls)}`);
+  tries.push(tag);
+  for (const sel of tries) {
+    let shown = false;
+    const ok = items.every((it) => {
+      const hits = [...it.querySelectorAll(sel)];
+      const twins = twinsIn(it);
+      if (hits.length !== twins || hits.filter(isVisible).length !== 1) return false;
+      if (twins > 1) shown = true;
+      return true;
+    });
+    if (ok && item.querySelector(sel) && [...item.querySelectorAll(sel)].filter(isVisible)[0] === target) return { css: sel, shown };
+  }
+  return null;
+}
+
+/**
  * The elements WebdriverIO's `aria/<name>` finds under `root` (measured on 9.32, scripts/conformance): controls answering to
  * the name — hidden ones too — and elements with a role of their own (a heading) or an aria-label / title / placeholder equal
  * to it. Plain text (<p>, <span>) is found only when no control answers, so it is not counted here.
@@ -148,7 +178,8 @@ function innerOf(target, item, items) {
   const aria = hasRole ? ariaOf(target, items, role, name) : { ok: false, twins: false };
   // A css leaf is state-bound when the item holds twins of the target: the shown one changes with the toggle.
   const twins = hasRole && [...item.querySelectorAll('*')].some((el) => el !== target && isControl(el) && roleAndName(el).role === role && roleAndName(el).name === name);
-  inner.leaf = { role: hasRole ? role : null, name: hasRole ? name : own, css: twins ? null : leafCss(target, item, items), aria: aria.ok, twins: aria.twins };
+  inner.leaf = { role: hasRole ? role : null, name: hasRole ? name : own, css: twins ? null : leafCss(target, item, items), aria: aria.ok, twins: aria.twins,
+    cy: leafCssCy(target, item, items, hasRole ? { role, name } : null) };
   return inner;
 }
 
@@ -631,7 +662,7 @@ function cssInner(target, targetItem, items) {
     code: `.locator(${q(sel)})`, pw: sel,
     xpath: `//${tag}${cls ? `[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]` : ''}`,
     count: (it) => it.querySelectorAll(sel).length,
-    leaf: { role: null, name: text(target), css: sel, aria: false },
+    leaf: { role: null, name: text(target), css: sel, aria: false, cy: { css: sel, shown: false } },
   };
 }
 

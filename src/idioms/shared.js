@@ -15,4 +15,5 @@ export function helperName(css) {
 
 export const MAX_LINE = 120;
 export const MAX_LINES = 8;
-export const withinBar = (lines) => lines.length <= MAX_LINES && lines.every((l) => l.length <= MAX_LINE);
+/** R4: the helper is at most 8 lines; no line of it or of its uses is over 120 characters. */
+export const withinBar = (define, uses = []) => define.length <= MAX_LINES && [...define, ...uses].every((l) => l.length <= MAX_LINE);

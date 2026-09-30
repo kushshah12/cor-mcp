@@ -56,7 +56,7 @@ function group(params, ts) {
     uses.push(`${from}(\`label=\${${p}}\`).click()`);
     idioms.push('group.label-click');
   }
-  if (!withinBar([define, ...uses])) return { none: 'the helper does not fit the readability bar (8 lines, 120 characters)' };
+  if (!withinBar([define], uses)) return { none: 'the helper does not fit the readability bar (8 lines, 120 characters)' };
   return { define, uses, idioms, code: [define, ...uses].join('\n'), kind: 'group', call: `${name}(${p})` };
 }
 
@@ -102,7 +102,7 @@ export function render(params, { typescript = false } = {}) {
     uses.push(`${name}(${model.param}).$(\`${model.toggle}=\${${model.param}}\`).click()`);
     idioms.push('variant.click');
   }
-  if (!withinBar([...found.lines, ...uses])) return { none: 'the helper does not fit the readability bar (8 lines, 120 characters)' };
+  if (!withinBar(found.lines, uses)) return { none: 'the helper does not fit the readability bar (8 lines, 120 characters)' };
   const define = found.lines.join('\n');
   return { define, uses, idioms, code: [define, ...uses].join('\n') };
 }
