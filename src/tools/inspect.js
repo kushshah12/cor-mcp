@@ -231,7 +231,8 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
         // once per session: the note is about the page, not this element
         const dataCyNote = !dataCyNoted && framework === 'cypress' && result.testAttrs === false;
         if (dataCyNote) dataCyNoted = true;
-        const reply = renderInspect(result, { refsLive, framework, all, dataCyNote });
+        const detected = session.detection.candidates.find((c) => c.framework === framework);
+        const reply = renderInspect(result, { refsLive, framework, all, dataCyNote, typescript: Boolean(detected?.typescript), major: detected?.version ?? null });
         const response = text(reply);
         if (fingerprints && result.locators.length) {
           fingerprints.record({ url: page.url(), ...result.capture, locators: result.locators.map((l) => l.value) });

@@ -1,0 +1,26 @@
+<!doctype html>
+<title>P3a heading-or-label items with hidden copies and a toggle</title>
+<style>
+  .grid { display: flex; gap: 12px } .plan { border: 1px solid #ccc; padding: 8px; width: 220px }
+  .toggle input { position: absolute; opacity: 0; width: 0; height: 0 } .toggle label { cursor: pointer; padding: 2px 6px; border: 1px solid #888 }
+  .copies { display: none }
+</style>
+<!-- item.either + variant.click + visible filter + shown twin: BrowserStack's Team card holds a Choose per toggle state (one hidden), and is named by its toggle label, Team Ultimate by a heading.
+     The same cards also exist as hidden copies for another product and no attribute tells the copies apart. -->
+<div class="grid">
+  <div class="plan">
+    <div class="toggle"><input type="radio" id="t1" name="tv" checked><label for="t1">Team</label><input type="radio" id="t2" name="tv"><label for="t2">Team Pro</label></div>
+    <p class="plan__price">$150 / month</p><p class="plan__price" hidden>$200 / month</p><button class="pick">Choose</button><button class="pick" hidden>Choose</button>
+  </div>
+  <div class="plan"><h3 class="plan__title">Team Ultimate</h3><p class="plan__price">$375 / month</p><button>Choose</button></div>
+  <div class="plan"><h3 class="plan__title">Volume</h3><p>Inquire for pricing</p><button>Contact Sales</button></div>
+</div>
+<div class="copies">
+  <div class="plan"><h3 class="plan__title">Team Ultimate</h3><p class="plan__price">$299 / month</p><button>Choose</button></div>
+  <div class="plan"><h3 class="plan__title">Volume</h3><p>Other</p><button>Contact Sales</button></div>
+</div>
+<script>
+  for (const r of document.querySelectorAll('input[name="tv"]')) {
+    r.addEventListener('change', () => { r.closest('.plan').querySelectorAll('.plan__price, .pick').forEach((p) => { const i = [...r.closest('.plan').querySelectorAll('.' + p.className.split(' ')[0])].indexOf(p); p.hidden = i !== (r.id === 't2' ? 1 : 0); }); });
+  }
+</script>

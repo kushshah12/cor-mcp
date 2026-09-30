@@ -2,6 +2,7 @@
 // a reader that truncates still gets the answer.
 
 import { ambiguityConsequence, factsLines } from './facts.js';
+import { everyItem, renderHelper } from './idioms/index.js';
 
 const RUNNER_NAMES = { webdriverio: 'WebdriverIO', cypress: 'Cypress', playwright: 'Playwright' };
 
@@ -10,6 +11,12 @@ const RUNNER_NAMES = { webdriverio: 'WebdriverIO', cypress: 'Cypress', playwrigh
 const proofLine = (framework) => (framework === 'playwright'
   ? '  Proof: counted by Playwright, every value.'
   : "  Proof: checked with the browser's XPath engine for every value; the XPath is used as it is.");
+
+// P3a (spec §8): a helper rendered from a checked template. L2 only when its idioms passed conformance on this
+// framework major; otherwise L3 — it says so rather than claim more.
+const helperProof = (framework, h) => (h.level === 'L2'
+  ? `  Proof: rendered from a checked template (every value's item checked in the page); ${RUNNER_NAMES[framework]} ${h.ranOn} idioms conformance-tested.`
+  : `  Proof: emulated — not run in ${RUNNER_NAMES[framework]}. The template was checked in the page for every value; its ${RUNNER_NAMES[framework]} idioms were not conformance-tested on this version.`);
 
 /** Tiers below this are declined as the answer: the fix is in the application. */
 const SUB_FLOOR = new Set(['risky', 'unstable']);
@@ -198,7 +205,7 @@ function everyOther(params, framework) {
   return [`  Every item (${params.count} now): ${call} — loop over it when the test covers every item, so one added later is tested too.`];
 }
 
-function paramLead(params, framework, lookalikes) {
+function paramLead(params, framework, lookalikes, helper = null) {
   if (params.kind === 'cell') return cellLead(params, framework);
   const others = params.values.filter((v) => v !== params.value);
   const more = others.length > VALUES_SHOWN ? `, … ${others.length - VALUES_SHOWN} more` : '';
@@ -213,25 +220,29 @@ function paramLead(params, framework, lookalikes) {
           : [`  ${params.code}`]),
       `  Registry template (${params.template.playwright.syntax}): ${params.template.playwright.selectorTemplate}`,
     ]
-    : [`  XPath: ${params.template.xpath.selectorTemplate}   (__${params.param}__ is the quoted XPath literal)`];
+    : helper ? helper.code.split('\n').map((l) => `  ${l}`)
+      : [`  XPath: ${params.template.xpath.selectorTemplate}   (__${params.param}__ is the quoted XPath literal)`];
   const noun = params.kind === 'group' ? 'option' : 'item';
   const variantLines = (params.variants ?? []).flatMap((v) => v.values.map((x) => (params.variantAct && framework === 'playwright'
     ? `  Variants: "${x}" sits behind the "${v.of}" item's toggle. Show a variant: ${params.variantAct}.click() — one action taking ${params.param}. Then the template finds its item.`
     : framework === 'playwright'
       ? `  Variants: "${x}" is shown by the "${v.of}" item after clicking its toggle — page.getByText('${x.replace(/'/g, "\\'")}', { exact: true }).click() first; the template then finds that item.`
-      // R5: never Playwright syntax for another framework; the click form comes with the idiom tables (phase 3).
-      : `  Variants: "${x}" is shown by the "${v.of}" item after clicking its toggle's label — click it first; the template then finds that item. (No ${RUNNER_NAMES[framework] ?? framework} form for the click yet.)`)));
+      : helper?.idioms.includes('variant.click')
+        ? `  Variants: "${x}" sits behind the "${v.of}" item's toggle — the helper's last line clicks it, then the helper finds that item.`
+        // R5: never Playwright syntax for another framework.
+        : `  Variants: "${x}" is shown by the "${v.of}" item after clicking its toggle's label — click it first; the template then finds that item. (No ${RUNNER_NAMES[framework] ?? framework} form for the click yet.)`)));
   const out = [
     params.kind === 'group'
       ? `Recommended — parameterised: ${params.count} options in this ${params.what}; every value checked, each finds exactly its own option (${params.count}/${params.count}).`
       : `Recommended — parameterised: ${params.count} items share this shape; every value checked, each finds exactly its own item (${params.counted ?? params.count}/${params.counted ?? params.count}${params.variants?.length ? ', variants included' : ''}).`,
-    proofLine(framework),
+    helper ? helperProof(framework, helper) : proofLine(framework),
     `  ${params.param} = "${params.value}"   (also: ${others.slice(0, VALUES_SHOWN).map((v) => `"${v}"`).join(', ')}${more})`,
     ...variantLines,
     ...form,
     ...(params.every && framework === 'playwright'
       ? [`  Every item (${params.count} now): ${params.every} — loop over it (for (const item of await ….all())) when the test covers every item, so one added later is tested too.`]
-      : everyOther(params, framework)),
+      : helper ? [`  Every item (${params.count} now): ${everyItem(framework, params.model)} — loop over it when the test covers every item, so one added later is tested too.`]
+        : everyOther(params, framework)),
     `  When the test touches more than one ${noun}, write one function taking ${params.param} instead of a locator per ${noun}.`,
   ];
   // Every lookalike is one of the items, so picking "the wrong one" is just a different value.
@@ -312,14 +323,17 @@ function viaLabelNote(labelText, framework) {
 }
 
 /** A template usable in this framework, or null. */
-const usableTemplate = (params, framework) =>
-  (params?.template && (framework === 'playwright' || params.template.xpath) ? params : null);
+const usableTemplate = (params, framework, helper) =>
+  (params?.template && (framework === 'playwright' || params.template.xpath || helper) ? params : null);
 
-export function renderInspect(result, { refsLive = false, framework = result.framework, all = false, dataCyNote = false } = {}) {
-  const lead = usableTemplate(result.params, framework);
+export function renderInspect(result, { refsLive = false, framework = result.framework, all = false, dataCyNote = false, typescript = false, major = null } = {}) {
+  // P3a: WebdriverIO (and, in P3b, Cypress) get idiomatic helper code rendered from the checked template.
+  const helper = framework !== 'playwright' && result.params?.template && result.params.model
+    ? renderHelper(framework, result.params, { typescript, major }) : null;
+  const lead = usableTemplate(result.params, framework, helper?.code ? helper : null);
   // The template covers the lookalikes only when they are all its items.
   const covered = lead && result.lookalikes && result.lookalikes.items.length === lead.count;
-  const out = lead ? paramLead(lead, framework, covered ? result.lookalikes : null) : [];
+  const out = lead ? paramLead(lead, framework, covered ? result.lookalikes : null, helper?.code ? helper : null) : [];
   if (result.lookalikes && !covered) out.push(...lookalikeWarning(result.lookalikes, refsLive));
   const [best, ...alternatives] = result.locators;
 

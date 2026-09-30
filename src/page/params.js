@@ -83,8 +83,43 @@ function itemSelector(items) {
   return null;
 }
 
+// P3a: the target inside its item, for the WebdriverIO and Cypress renderers — checked in EVERY item, not only the target's.
+const LEAF_ATTRS = [...TEST_ATTRS, 'name', 'aria-label', 'value', 'title', 'alt'];
+function leafCss(target, item, items) {
+  const tag = target.tagName.toLowerCase();
+  const tries = LEAF_ATTRS.flatMap((a) => {
+    const v = target.getAttribute(a);
+    return v && !PATH_LIKE.test(v) && !isUnstableValue(v, a) ? [`${tag}[${a}=${cssString(v)}]`] : [];
+  });
+  const names = namingClasses(target);
+  const cls = names.find((c) => !c.includes('--')) ?? names[0];
+  if (cls) tries.push(`${tag}.${cssEscape(cls)}`);
+  tries.push(tag);
+  // Hidden twins count: `$(css)` takes the first match, shown or not.
+  return tries.find((sel) => items.every((it) => it.querySelectorAll(sel).length === 1) && item.querySelector(sel) === target) ?? null;
+}
+
+/**
+ * WebdriverIO's `aria/<name>` finds by name, any role, hidden included. What it finds inside each item: controls named so,
+ * and any element whose own text is the name. `twins`: more than one control of the target's role and name in an item
+ * (BrowserStack's Team card holds a hidden Choose per toggle state) — the shown one is the answer, so the helper filters.
+ * `ok` is false when something else answers to the name.
+ */
+function ariaOf(target, items, role, name) {
+  if (!name || name.includes('"')) return { ok: false, twins: false };
+  let twins = false;
+  for (const item of items) {
+    const hits = [...item.querySelectorAll('*')].filter((el) => (isControl(el)
+      ? squash(roleAndName(el).name) === name
+      : text(el) === name && ![...el.children].some((c) => text(c) === name)));
+    if (!hits.length || hits.some((el) => !isControl(el) || roleAndName(el).role !== role)) return { ok: false, twins: false };
+    if (hits.length > 1) twins = true;
+  }
+  return { ok: true, twins };
+}
+
 /** How to find the target inside its item: role + name, or its text. */
-function innerOf(target, item) {
+function innerOf(target, item, items) {
   const { role, name } = roleAndName(target);
   const tag = target.tagName.toLowerCase();
   const own = text(target);
@@ -99,7 +134,12 @@ function innerOf(target, item) {
     : { code: `.getByText(${q(own)}, { exact: true })`, pw: `text=${cssString(own)}`, xpath: xpathStep,
       // Playwright's text match takes the smallest element with that text.
       count: (it) => [...it.querySelectorAll('*')].filter((el) => text(el) === own && ![...el.children].some((c) => text(c) === own)).length };
-  return inner.count(item) === 1 ? inner : null;
+  if (inner.count(item) !== 1) return null;
+  const aria = hasRole ? ariaOf(target, items, role, name) : { ok: false, twins: false };
+  // A css leaf is state-bound when the item holds twins of the target: the shown one changes with the toggle.
+  const twins = hasRole && [...item.querySelectorAll('*')].some((el) => el !== target && isControl(el) && roleAndName(el).role === role && roleAndName(el).name === name);
+  inner.leaf = { role: hasRole ? role : null, name: hasRole ? name : own, css: twins ? null : leafCss(target, item, items), aria: aria.ok, twins: aria.twins };
+  return inner;
 }
 
 /**
@@ -287,7 +327,7 @@ export function parameterise(target) {
   if (items.length < 2) return null;
   const itemSel = itemSelector(items);
   if (!itemSel) return { count: items.length, reason: 'the items share no class or tag that names them' };
-  const inner = innerOf(target, targetItem);
+  const inner = innerOf(target, targetItem, items);
   if (!inner) return { count: items.length, reason: 'the element is not the only one of its kind inside its item' };
   return templateFor(target, targetItem, items, itemSel, inner);
 }
@@ -569,6 +609,7 @@ function cssInner(target, targetItem, items) {
     code: `.locator(${q(sel)})`, pw: sel,
     xpath: `//${tag}${cls ? `[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]` : ''}`,
     count: (it) => it.querySelectorAll(sel).length,
+    leaf: { role: null, name: text(target), css: sel, aria: false },
   };
 }
 
@@ -688,7 +729,7 @@ function templateFor(target, targetItem, items, itemSel0, inner, { allowSelf = f
     if (out.variants.length) {
       const sels = slot.kind === 'either' ? slot.sels.map((x) => x.sel) : [slot.sel];
       const labelSel = sels.find((sel) => items.some((it) => it.querySelector(sel)?.closest('label')));
-      if (labelSel) out.variantAct = `${out.every}.locator(${q(labelSel)}).getByText(${slot.param}, { exact: true })`;
+      if (labelSel) { out.variantAct = `${out.every}.locator(${q(labelSel)}).getByText(${slot.param}, { exact: true })`; out.model.toggle = labelSel; }
     }
     return out;
   }
@@ -706,6 +747,8 @@ function namedBy(sel, p, items) {
     && roleAndName(el).role === 'heading' && squash(roleAndName(el).name) === text(el));
   return heading ? `page.getByRole('heading', { name: ${p}, exact: true })` : `page.locator(${q(sel)}).getByText(${p}, { exact: true })`;
 }
+
+const nameSels = (slot) => (slot.kind === 'either' ? slot.sels.map((x) => x.sel) : [slot.sel]);
 
 function render(slot, itemSel, inner, values, self, items) {
   const p = slot.param;
@@ -737,6 +780,14 @@ function render(slot, itemSel, inner, values, self, items) {
     every: `page.locator(${q(itemSel.css)})${vis}`,
     // P1c: the same item selector as a plain CSS string, for the WebdriverIO and Cypress lines.
     everyCss: itemSel.css,
+    // P3a: what the WebdriverIO and Cypress renderers read (src/idioms/) — the same item, name slot and leaf that were just checked.
+    model: {
+      kind: 'item', param: p, item: { css: itemSel.css, visible: Boolean(itemSel.visible) }, leaf: inner.leaf ?? null,
+      slot: slot.kind === 'attribute' ? { kind: 'attribute', attr: slot.attr }
+        : { kind: slot.kind, sels: nameSels(slot),
+          // getText() reports the text as displayed, so a text-transform changes what it returns.
+          transformed: items.some((it) => nameSels(slot).some((sel) => { const el = it.querySelector(sel); return el && getComputedStyle(el).textTransform !== 'none'; })) },
+    },
     // Registry form (@corlabs/client selectorTemplate): the placeholder sits
     // inside a CSS string in `pw` and IS the literal in `xpath`.
     // XPath cannot say "visible": when hidden copies matter there is no XPath form.

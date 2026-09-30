@@ -1,0 +1,7 @@
+<!doctype html>
+<title>P3a items where another element answers to the button's name, and a class only one item has</title>
+<style>.card { border: 1px solid #ccc; padding: 8px; margin: 4px; width: 220px }</style>
+<!-- aria/Open would also find the heading "Open" inside the second card; `only-here` marks one card's button only -->
+<div class="card" data-testid="first"><h3>First</h3><button class="go">Open</button></div>
+<div class="card" data-testid="second"><h3>Open</h3><button class="go only-here">Open</button></div>
+<div class="card" data-testid="third"><h3>Third</h3><button class="go">Open</button></div>

@@ -51,7 +51,8 @@ test('P1c V1: an item template names what checked it — Playwright counted it; 
   await call('cor_open', { url: `${base}/plans.html` });
   const pw = await call('cor_inspect', { selector: CARD, framework: 'playwright' });
   assert.match(pw, /^ {2}Proof: counted by Playwright, every value\.$/m);
-  for (const fw of ['webdriverio', 'cypress']) {
+  // P3a: WebdriverIO now gets a rendered helper with its own proof line (tests/p3a-wdio-renderer.test.js); Cypress waits for P3b.
+  for (const fw of ['cypress']) {
     const out = await call('cor_inspect', { selector: CARD, framework: fw });
     assert.match(out, /^ {2}Proof: checked with the browser's XPath engine for every value; the XPath is used as it is\.$/m, fw);
     assert.doesNotMatch(out, /counted by Playwright/, `${fw} is not told Playwright counted it`);
@@ -155,7 +156,8 @@ test('P1c R5: the Variants line is never Playwright syntax for WebdriverIO or Cy
   await call('cor_open', { url: `${base}/plans.html` });
   const pw = await call('cor_inspect', { selector: CARD, framework: 'playwright' });
   assert.match(pw, /Variants: "Team Pro" sits behind the "Team" item's toggle\. Show a variant: page\./);
-  for (const [fw, name] of [['webdriverio', 'WebdriverIO'], ['cypress', 'Cypress']]) {
+  // P3a: WebdriverIO's Variants line names its own helper's click (tests/p3a-wdio-renderer.test.js); Cypress waits for P3b.
+  for (const [fw, name] of [['cypress', 'Cypress']]) {
     const out = await call('cor_inspect', { selector: CARD, framework: fw });
     const line = out.split('\n').find((l) => l.includes('Variants:'));
     assert.ok(line, fw);
