@@ -1,3 +1,4 @@
+import { frameHint } from '../frames.js';
 import { z } from 'zod';
 import { callPage } from '../page-runtime.js';
 import { renderAmbiguousScope, renderInspect, renderScoped, renderSnapshot } from '../format.js';
@@ -215,7 +216,7 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
         if (result.error === 'match-count') {
           throw new Error(
             result.count === 0
-              ? `No element matches "${selector}". Call cor_snapshot and pass a ref instead.`
+              ? `No element matches "${selector}". Call cor_snapshot and pass a ref instead.${await frameHint(page)}`
               : `"${selector}" matches ${result.count} elements — narrow it to one, or call cor_snapshot and pass a ref.`,
           );
         }

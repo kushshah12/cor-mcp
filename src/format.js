@@ -23,6 +23,8 @@ const RESOLUTION_SIGNALS = new Set(['unique-match', 'no-match', 'multiple-matche
 function pointInTime(l) {
   const count = l.matchCount === null || l.matchCount === undefined || l.matchCount < 0 ? 'match count unknown'
     : `${l.matchCount} match${l.matchCount === 1 ? '' : 'es'}`;
+  // A wrong element's score describes a locator that names something else: say that, not "Excellent".
+  if (l.resolution?.status === 'wrong-element') return `not this element · ${count}`;
   return `${l.score} ${l.tierLabel ?? l.tier ?? 'unscored'} · ${count}`;
 }
 
@@ -327,7 +329,16 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
     return out.join('\n');
   }
 
-  if (SUB_FLOOR.has(best.tier)) {
+  // P3: a candidate that does not resolve to exactly this element never leads, whatever it scores
+  // (on a shadow-DOM page the host's id scored 93 and named the wrong element).
+  const unusable = best.resolution?.usable === false;
+  if (unusable) {
+    const fix = addTestId(result);
+    const closest = `${best.code || best.value} — ${best.resolution.message ?? best.resolution.status}`;
+    out.push(`No locator found here resolves to exactly this element. The closest (not usable as written): ${closest}.`);
+    if (fix) out.push('Add a test attribute (this requires an application change):', `  ${fix.snippet}`);
+    else out.push('Scope a locator to the element\'s container by hand and grade it with cor_grade.');
+  } else if (SUB_FLOOR.has(best.tier)) {
     const fix = addTestId(result);
     if (lead) {
       out.push(`For this one item alone there is no durable locator (best is ${best.tierLabel})${fix ? ` — a test attribute would fix that: ${fix.snippet}` : ''}.`);
@@ -356,15 +367,18 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
   // The group template already says how to change and check it (scoped); the page-wide note would contradict it.
   if (!(result.params?.template && (result.params.act || result.params.actReason))) out.push(...viaLabelNote(result.viaLabel, framework));
 
-  if (result.rankingNote) out.push('', `Why this order: ${result.rankingNote}`);
+  // With no usable candidate the engine's ordering note and the durable annotation would describe a locator we just declined.
+  if (result.rankingNote && !unusable) out.push('', `Why this order: ${result.rankingNote}`);
   const profile = profileLine(result.profile);
   if (profile) out.push(profile);
 
-  out.push(
-    '',
-    'Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:',
-    durableLine(result),
-  );
+  if (!unusable) {
+    out.push(
+      '',
+      'Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:',
+      durableLine(result),
+    );
+  }
 
   if (!lead) out.push(...paramNote(result.params, framework));
   out.push(...stateBoundNote(result.stateBound));
@@ -554,7 +568,18 @@ export function renderSnapshot(snapshot, { unstableIds = new Set() } = {}) {
   const lines = renderNodes(snapshot.tree, 0, unstableIds, [], stats);
   const viaLabel = (nodes) => nodes.some((n) => (n.kind === 'leaf' ? n.viaLabel : viaLabel(n.children)));
   const legend = [SNAPSHOT_LEGEND, stats.groups && GROUP_LEGEND, stats.runs && RUN_LEGEND, viaLabel(snapshot.tree) && VIA_LABEL_LEGEND].filter(Boolean).join(' ');
-  return [head, legend, '', ...lines].join('\n');
+  return [head, legend, ...framesNote(snapshot.frames), '', ...lines].join('\n');
+}
+
+/**
+ * The iframes COR cannot read: it lists and inspects the top document only, so the controls
+ * inside a frame are missing from the snapshot and cannot be reached — said, not silently left out.
+ */
+export function framesNote(frames) {
+  if (!frames?.length) return [];
+  const named = frames.slice(0, 3).map((f) => `${f.name ? `"${f.name}"` : 'unnamed'} (${f.sameOrigin ? 'same origin' : 'another site'})`).join(', ');
+  const more = frames.length > 3 ? ` and ${frames.length - 3} more` : '';
+  return [`Not listed: ${frames.length} iframe${frames.length === 1 ? '' : 's'} — ${named}${more}. COR reads the top document only; controls inside a frame are not in this list and cannot be inspected or acted on yet.`];
 }
 
 const REIDENTIFY = 'Re-identify the element: cor_snapshot, then cor_inspect its ref.';

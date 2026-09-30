@@ -1,3 +1,4 @@
+import { frameHint } from '../frames.js';
 import { z } from 'zod';
 import { callPage, handleFromPage } from '../page-runtime.js';
 import { renderActResult } from '../format.js';
@@ -59,7 +60,7 @@ async function resolveElement(session, page, { ref, target: selector }) {
   } catch (error) {
     throw new Error(`"${selector}" could not be used: ${error.message.split('\n')[0]}`);
   }
-  if (handles.length === 0) throw new Error(`No element matches "${selector}" on ${page.url()}.`);
+  if (handles.length === 0) throw new Error(`No element matches "${selector}" on ${page.url()}.${await frameHint(page)}`);
   if (handles.length > 1) {
     throw new Error(`"${selector}" matches ${handles.length} elements — narrow it to exactly one before acting.`);
   }

@@ -2,7 +2,7 @@
 // evaluated on demand — see src/page-runtime.js. Only JSON crosses back to
 // Node; no DOM handle leaves the page.
 import { LocatorEngine, computeFingerprint, extractElementInfo, scoreLocator } from '@corlabs/engine/core';
-import { deepQueryAll, isControl, hintsFor, isShown, roleAndName, squash, visibleLabelOf } from './dom.js';
+import { deepQueryAll, isControl, hintsFor, isShown, isVisible, roleAndName, squash, visibleLabelOf } from './dom.js';
 import { buildOutline } from './outline.js';
 import { scopedSnapshot } from './scope.js';
 import { beginAct, collapsedAway, endAct, identityOf, revalidate, structuralPath } from './acts.js';
@@ -45,7 +45,7 @@ function snapshot() {
   refs = new Map();
   meta.clear();
   const outline = buildOutline(issueRef);
-  return { url: location.href, title: document.title, ...outline, live: [...refs.keys()] };
+  return { url: location.href, title: document.title, ...outline, frames: framesOf(), live: [...refs.keys()] };
 }
 
 /**
@@ -114,6 +114,7 @@ function inspect({ ref, selector, element, framework, max }) {
     lookalikes: lookalikes(target.el),
     collapsed: collapsedAway(target.el, new Map()),
     testAttrs: hasTestAttributes(),
+    shadow: shadowOf(target.el),
     params: parameterise(target.el),
     stateBound: stateBoundFor(target.el, framework),
     // For silent capture (src/fingerprints.js) — never rendered.
@@ -273,7 +274,29 @@ function xpathFindsOnly({ element, template, value }) {
   return hits.snapshotLength === 1 && hits.snapshotItem(0) === element;
 }
 
+/** V2: how many open shadow roots deep the element sits, and its outermost host ("#host", "my-card.big"), or null in the light DOM. */
+function shadowOf(el) {
+  let depth = 0;
+  let host = null;
+  for (let root = el.getRootNode(); root instanceof ShadowRoot; root = root.host.getRootNode()) {
+    depth++;
+    host = root.host;
+  }
+  if (!depth) return null;
+  const cls = [...host.classList][0];
+  return { depth, host: host.id ? `#${host.id}` : `${host.tagName.toLowerCase()}${cls ? `.${cls}` : ''}` };
+}
+
+/** Iframes a reader of the top document cannot see into: visible ones, with what names them. */
+function framesOf() {
+  return [...document.querySelectorAll('iframe,frame')].filter(isVisible).map((f) => {
+    let sameOrigin = false;
+    try { sameOrigin = Boolean(f.contentDocument); } catch { /* cross-origin */ }
+    return { name: f.title || f.getAttribute('aria-label') || f.name || null, sameOrigin };
+  });
+}
+
 /** P1c: does the page carry any test attribute (data-cy, data-test, data-testid, data-qa)? */
 const hasTestAttributes = () => Boolean(document.querySelector('[data-cy],[data-test],[data-testid],[data-test-id],[data-qa]'));
 
-window.__corMcp = { snapshot, scoped, inspect, element, headings, grade, scoreSteps, stableScopeFor, itemCandidates, itemIndexOf, beginAct, afterAct, countXpaths, xpathFindsOnly };
+window.__corMcp = { snapshot, scoped, inspect, element, headings, grade, scoreSteps, stableScopeFor, itemCandidates, itemIndexOf, beginAct, afterAct, countXpaths, frames: framesOf, xpathFindsOnly };
