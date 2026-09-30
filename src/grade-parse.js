@@ -276,7 +276,14 @@ export function parseGradable(input, { param = null, framework = null } = {}) {
   // Cypress
   const cy = /^cy\s*\.\s*(get|contains)\s*(?=\()/.exec(src);
   if (cy) {
-    const { out, rest } = reader(src.slice(cy[0].length)).args();
+    let { out, rest } = reader(src.slice(cy[0].length)).args();
+    // cy.get(a).find(b)… is the descendant selector `a b`: grade that.
+    while (cy[1] === 'get' && typeof out[0] === 'string' && !out[0].startsWith('@') && (rest.match(/^\.\s*find\s*(?=\()/))) {
+      const step = reader(rest.replace(/^\.\s*find\s*/, '')).args();
+      if (typeof step.out[0] !== 'string' || step.out.length !== 1) break;
+      out = [`${out[0]} ${step.out[0]}`];
+      rest = step.rest;
+    }
     if (rest) throw new NotGradable(`chained calls (${rest.slice(0, 30)}) are not graded — grade the base selector`);
     if (cy[1] === 'get') {
       if (typeof out[0] !== 'string') throw new NotGradable('cy.get needs a selector string');

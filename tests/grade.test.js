@@ -299,3 +299,19 @@ test('a Healthy grade is short: no input echo, no signal list — fragile and br
   const fragile = await grade("page.locator('li').nth(1)");
   assert.match(fragile.text, /^Graded: /m, 'a non-Healthy verdict keeps the full block');
 });
+
+// ── Cypress chains (Cypress run 5b3bc6b9, 2026-09-30): 2 of 3 grades refused ─
+test('cy.get(a).find(b) is graded as the descendant selector; other chains still are not', async () => {
+  await open('chains.html');
+  const one = await grade("cy.get('div.faq-item').find('div.faq-item__answer')");
+  assert.equal(one.isError, false, one.text);
+  assert.match(one.text, /Ambiguous — matches 2 elements/);
+  const two = await grade("cy.get('div.faq').find('div.faq-item').find('p')");
+  assert.match(two.text, /Ambiguous — matches 2 elements/);
+  const base = await grade("cy.get('div.faq-item').find('div.faq-item__answer')");
+  assert.match(base.text, /Graded: cy\.get\('div\.faq-item'\)\.find\('div\.faq-item__answer'\)|div\.faq-item div\.faq-item__answer/);
+  for (const bad of ["cy.get('div.faq-item').eq(0)", "cy.get('div.faq-item').find('p').click()", "cy.get('div.faq-item').find(p)", "cy.get('@x').find('p')"]) {
+    const r = await grade(bad);
+    assert.match(r.text, /^Not gradable/, bad);
+  }
+});
