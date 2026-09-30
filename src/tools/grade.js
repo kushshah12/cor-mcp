@@ -22,16 +22,19 @@ export function gradeTools(session, idCache = new Map()) {
           `Accepts ${SUPPORTED_FORMS}.`,
         inputSchema: {
           selector: z.string().min(1).describe('The selector exactly as written in the test, e.g. page.getByRole(\'button\', { name: \'Save\' }) or cy.get(\'.btn\').'),
-          framework: z.enum(FRAMEWORKS).optional().describe('Framework to render alternatives for. Defaults to the form of the selector (getBy* → playwright, cy.* → cypress), else playwright.'),
+          framework: z.enum(FRAMEWORKS).optional().describe('Framework to render alternatives for. Default: the framework of the project as cor_open reported it, else the form of the selector (getBy* → playwright, cy.* → cypress), else playwright.'),
           param: z.string().optional().describe('For a parameterised helper: the variable in the selector (e.g. title in getByText(title, { exact: true })). COR runs the locator for every value and says which items no value reaches.'),
           values: z.array(z.string()).optional().describe('Values to run the parameterised locator with. Omit to let COR find each item\'s values on the page (needs the chain to start with page.locator(\'css\')).'),
         },
       },
-      handler: async ({ selector, framework, param, values }) => {
+      handler: async ({ selector, framework: asked, param, values }) => {
+        // The argument wins; else the form of the selector (cy.* is Cypress whatever the project is); else the project's framework.
+        const project = session.resolveFramework(asked) ?? undefined;
+        const framework = asked ?? undefined;
         if (!session.isOpen) throw new Error('No page is open — call cor_open with the page the selector targets first.');
         const page = await session.getPage();
-        if (param) return text(await gradeAcross(page, selector, framework, param, values, idCache));
-        return text(await gradeOne(page, selector, framework, idCache));
+        if (param) return text(await gradeAcross(page, selector, framework, param, values, idCache, project));
+        return text(await gradeOne(page, selector, framework, idCache, project));
       },
     },
   ];
@@ -49,17 +52,17 @@ const innermostMatch = (locator) =>
     .catch(() => null);
 
 /** Grade one literal selector (the original cor_grade). */
-async function gradeOne(page, selector, framework, idCache) {
+async function gradeOne(page, selector, framework, idCache, project) {
   let parsed;
   try {
-    parsed = parseGradable(selector, { framework });
+    parsed = parseGradable(selector, { framework: framework ?? project });
   } catch (error) {
     if (!(error instanceof NotGradable)) throw error;
     throw new Error(
       `Not gradable as written: ${error.message}. Pass ${SUPPORTED_FORMS} — or call cor_snapshot and cor_inspect the element by ref.`,
     );
   }
-  const fw = framework ?? parsed.framework ?? 'playwright';
+  const fw = framework ?? parsed.framework ?? project ?? 'playwright';
 
   let matchCount;
   let uncountable = null;
@@ -119,7 +122,7 @@ async function gradeOne(page, selector, framework, idCache) {
  * page per item of its first CSS step — then grade durability on a value that
  * works. The agent writes the helper; COR proves it.
  */
-async function gradeAcross(page, selector, framework, param, given, idCache) {
+async function gradeAcross(page, selector, framework, param, given, idCache, project) {
   let parsed;
   try {
     parsed = parseGradable(selector, { param });
@@ -169,6 +172,6 @@ async function gradeAcross(page, selector, framework, param, given, idCache) {
     lines.push(`Works for ${ok} of ${perItem.length} items.`);
   }
   if (!working) return [...lines, '', 'No value works, so there is no durability grade.'].join('\n');
-  const graded = await gradeOne(page, substituteParam(selector, param, working), framework, idCache);
+  const graded = await gradeOne(page, substituteParam(selector, param, working), framework, idCache, project);
   return [...lines, '', `Durability, graded on ${param} = "${working}":`, graded].join('\n');
 }

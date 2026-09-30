@@ -44,6 +44,7 @@ after(() => session.close());
 async function connect(t) {
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test', version: '0' });
+  session.resolveFramework('playwright'); // the shared session keeps a framework argument (P1a); each test starts from the default
   const server = createServer({ session });
   server.server.onclose = null; // the shared session outlives each test's connection
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
@@ -95,7 +96,7 @@ test('a well-marked element ranks its test id first, Excellent, where the framew
   assert.equal(bestCode(out.text), `cy.get('[data-cy="email-input"]')`);
   assert.match(out.text, /Point-in-time — true on this page now: 99 Excellent · 1 match/);
   // Under Playwright, U12's framework profile ranks role first by design; the test id stays Excellent below it.
-  const pw = await call('cor_inspect', { selector: '#email' });
+  const pw = await call('cor_inspect', { selector: '#email', framework: 'playwright' });
   assert.equal(bestCode(pw.text), `page.getByRole('textbox', { name: 'Email' })`);
   assert.match(pw.text, /page\.getByTestId\('email-input'\)\n\s+99 Excellent · 1 match/);
 });

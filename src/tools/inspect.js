@@ -180,11 +180,12 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
         inputSchema: {
           ref: z.string().optional().describe('Element ref from the latest cor_snapshot, e.g. "e4".'),
           selector: z.string().optional().describe('CSS or Playwright selector (:text-is, >>, text=) matching exactly one element — alternative to ref.'),
-          framework: z.enum(FRAMEWORKS).default('playwright').describe('Test framework to render and rank for.'),
+          framework: z.enum(FRAMEWORKS).optional().describe('Test framework to render and rank for. Default: the project\'s framework as cor_open reported it, else playwright.'),
           all: z.boolean().optional().describe('List every alternative. By default: the runner-up and the best of each other locator kind, up to 3.'),
         },
       },
-      handler: async ({ ref, selector, framework, all = false }) => {
+      handler: async ({ ref, selector, framework: asked, all = false }) => {
+        const framework = session.resolveFramework(asked) ?? 'playwright';
         if (Boolean(ref) === Boolean(selector)) throw new Error('Pass exactly one of ref (from cor_snapshot) or selector.');
         const page = await openPage();
         if (ref) checkRef(session, ref);

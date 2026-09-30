@@ -184,7 +184,7 @@ export function sessionTools(session) {
         await page.waitForLoadState('load', { timeout: 5000 }).catch(() => {});
         await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
         const status = response ? ` (HTTP ${response.status()})` : '';
-        return text(`${await pageState(page)}${status}. Browser: ${session.browserLabel}.`);
+        return text(`${await pageState(page)}${status}. Browser: ${session.browserLabel}.\n${session.frameworkLine}`);
       },
     },
     {

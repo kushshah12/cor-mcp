@@ -42,6 +42,7 @@ after(async () => {
 async function fresh(t) {
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
   client = new Client({ name: 'test', version: '0' });
+  session.resolveFramework('playwright'); // the shared session keeps a framework argument (P1a)
   const server = createServer({ session });
   server.server.onclose = null;
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);

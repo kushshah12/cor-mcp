@@ -1,3 +1,5 @@
+import { detectFramework, frameworkLine } from './detect.js';
+
 // One browser, one page per server process — created on first use, reused
 // across calls, closed on cor_close, on idle, or when the server shuts down.
 
@@ -12,9 +14,9 @@ const NO_BROWSER =
   'Install Google Chrome, or run `npx playwright install chromium`, then retry.';
 
 /**
- * @param {{ headless?: boolean, idleMs?: number, launchChain?: object[] }} [options]
+ * @param {{ headless?: boolean, idleMs?: number, launchChain?: object[], cwd?: string }} [options]
  */
-export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, launchChain = LAUNCH_CHAIN } = {}) {
+export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, launchChain = LAUNCH_CHAIN, cwd = process.cwd() } = {}) {
   let browser = null;
   let context = null;
   let page = null;
@@ -42,6 +44,11 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
     throw new Error(NO_BROWSER);
   }
 
+  // P1a: the project's test framework — read from package.json once per session; an
+  // agent's `framework` argument wins and sticks.
+  let detection = null;
+  let chosen = null;
+
   let highestRef = 0;
   const note = (live) => { for (const r of live) highestRef = Math.max(highestRef, Number(r.slice(1))); };
 
@@ -52,6 +59,7 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
   function reset() {
     browser = context = page = null;
     refs = null;
+    detection = chosen = null;
     clearTimeout(idleTimer);
   }
 
@@ -113,6 +121,13 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
   return {
     getPage,
     close,
+    /** The framework to render for: the argument, else the session's, else the detected one, else null (callers render Playwright). */
+    resolveFramework(argument) {
+      if (argument) chosen = argument;
+      return chosen ?? this.detection.framework;
+    },
+    get detection() { return (detection ??= detectFramework(cwd)); },
+    get frameworkLine() { return frameworkLine(this.detection, chosen); },
     invalidateRefs,
     /** The refs the page now resolves — the whole set, after a full or scoped snapshot. */
     issueRefs(live, { expiredBefore = null } = {}) {
