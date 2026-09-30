@@ -74,7 +74,7 @@ test('a re-render that shows the same text reports nothing, and a click that cha
 test('a navigation names the new page by its headings', async () => {
   const snap = await fresh();
   const out = await raw('cor_click', { ref: refFor(snap, /link "Choose"/) });
-  assert.match(out, /The page navigated — headings: "Checkout", "Order summary"\. Earlier refs expired — call cor_snapshot\./, out);
+  assert.match(out, /The page navigated\. Headings on the new page[^\n]*\n\s+h\d "Checkout" \[ref=e\d+\]\n\s+h\d "Order summary" \[ref=e\d+\]/, out);
 });
 
 test('the instructions tell the agent to read what an act changed instead of writing scripts', async () => {

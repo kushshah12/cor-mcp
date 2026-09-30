@@ -138,7 +138,7 @@ test('navigation still expires every ref', async () => {
   const ref = await fresh();
   const draft = ref(/button "Save draft"/);
   const result = await call('cor_click', { target: '#away' });
-  assert.match(result.text, /The page navigated(?: — headings: [^\n]*)?\. Earlier refs expired — call cor_snapshot\./);
+  assert.match(result.text, /The page navigated\. (?:Headings on the new page|Earlier refs expired — call cor_snapshot\.)/);
   assert.match((await call('cor_inspect', { ref: draft })).text, /stale: the page navigated/);
 });
 

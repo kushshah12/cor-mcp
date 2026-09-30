@@ -42,6 +42,9 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
     throw new Error(NO_BROWSER);
   }
 
+  let highestRef = 0;
+  const note = (live) => { for (const r of live) highestRef = Math.max(highestRef, Number(r.slice(1))); };
+
   function invalidateRefs(reason) {
     if (refs && !refs.staleBecause) refs.staleBecause = reason;
   }
@@ -112,9 +115,15 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
     close,
     invalidateRefs,
     /** The refs the page now resolves — the whole set, after a full or scoped snapshot. */
-    issueRefs(live) { refs = { issued: new Set(live), staleBecause: null, dropped: {} }; },
+    issueRefs(live, { expiredBefore = null } = {}) {
+      note(live);
+      refs = { issued: new Set(live), staleBecause: null, dropped: {}, expiredBefore };
+    },
+    /** The highest ref number issued on any page so far: a new document numbers from here, so an old ref never names a new element. */
+    get highestRef() { return highestRef; },
     /** After an act (U16): the page's re-checked live set, plus why any ref was dropped. */
     rebindRefs(live, dropped) {
+      note(live);
       refs = { issued: new Set(live), staleBecause: null, dropped: { ...(refs?.dropped ?? {}), ...dropped } };
     },
     get navigations() { return navigations; },

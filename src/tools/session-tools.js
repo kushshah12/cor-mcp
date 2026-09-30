@@ -19,14 +19,29 @@ async function pageState(page) {
 }
 
 // ponytail: waits up to 500 ms for an act to start a navigation, then for the
-// DOM of the new page. A slower client-side transition lands after we return;
-// the agent sees the old state and acts again. Raise if agents report that.
-async function settle(page) {
+// DOM of the new page. An act that will navigate (a link, a form submit) waits up to
+// 4 s for it to start: a slow server answers after 500 ms and the reply would describe
+// the old page (U22). A slower client-side transition lands after we return.
+async function settle(page, expectNavigation = false) {
   await page
-    .waitForEvent('framenavigated', { timeout: 500 })
+    .waitForEvent('framenavigated', { timeout: expectNavigation ? 4000 : 500 })
     .then(() => page.waitForLoadState('domcontentloaded'))
     .catch(() => {});
 }
+
+/** Will clicking this element navigate? A link to another document, or a submit button in a form. */
+const expectsNavigation = (handle) =>
+  handle
+    .evaluate((el) => {
+      const a = el.closest('a[href]');
+      if (a) {
+        const href = a.getAttribute('href') || '';
+        return !href.startsWith('#') && !/^javascript:/i.test(href) && a.target !== '_blank';
+      }
+      const submit = el.tagName === 'INPUT' ? el.type === 'submit' : el.tagName === 'BUTTON' && el.type === 'submit';
+      return Boolean(submit && !el.disabled && el.closest('form'));
+    })
+    .catch(() => false);
 
 /** The one element a ref or selector names. */
 async function resolveElement(session, page, { ref, target: selector }) {
@@ -55,17 +70,17 @@ async function resolveElement(session, page, { ref, target: selector }) {
  * controls, act, settle, then re-check every ref and diff the controls.
  * A navigation ends the page the refs described — every ref expires.
  */
-async function act(session, page, perform) {
+async function act(session, page, perform, { expectNavigation = false } = {}) {
   const navigationsBefore = session.navigations;
   await callPage(page, 'beginAct').catch(() => {});
   await perform();
-  await settle(page);
+  await settle(page, expectNavigation);
   if (session.navigations !== navigationsBefore) {
     // Playwright reports a pushState/hash change as a navigation, but the DOM
     // (and our injected runtime) survives it: BrowserStack's Monthly toggle
     // rewrites the URL in place. Only a new document expires the refs.
     const sameDocument = await page.evaluate(() => Boolean(window.__corMcp)).catch(() => false);
-    if (!sameDocument) return { navigated: true, headings: await headingsOf(page) };
+    if (!sameDocument) return { navigated: true, headings: await headingsWithRefs(session, page) };
   }
   try {
     const after = await callPage(page, 'afterAct');
@@ -78,10 +93,17 @@ async function act(session, page, perform) {
   }
 }
 
-/** The new page's first visible h1–h2 headings, so a navigation says where it went (U20). */
-const headingsOf = (page) => page.evaluate(() => [...document.querySelectorAll('h1,h2')]
-  .filter((h) => h.getBoundingClientRect().height > 0)
-  .map((h) => h.textContent.replace(/\s+/g, ' ').trim()).filter(Boolean).slice(0, 3)).catch(() => []);
+/** The new page's first visible h1–h3 headings, each with a live ref (U20, U22). */
+async function headingsWithRefs(session, page) {
+  try {
+    const start = session.highestRef + 1;
+    const { items, live } = await callPage(page, 'headings', { start });
+    if (live.length) session.issueRefs(live, { expiredBefore: start });
+    return items;
+  } catch {
+    return [];
+  }
+}
 
 /** Run `fn(element, arg)` in the page on `handle`; throws the page-side error message if it returns one. */
 async function onHandle(handle, fn, arg) {
@@ -124,6 +146,16 @@ export function sessionTools(session) {
     return session.getPage();
   };
 
+  // U22: said once per session, the first time an act changes something.
+  let hinted = false;
+  const actReply = (result) => {
+    const body = renderActResult(result);
+    const changed = result.navigated || result.changes?.length || result.texts?.length || result.shownGroups?.length;
+    if (!changed || hinted) return body;
+    hinted = true;
+    return `${body}\nAssert what this changed — the new or changed text, the URL, that gone items are no longer displayed — not only that an element exists.`;
+  };
+
   return [
     {
       name: 'cor_open',
@@ -161,8 +193,8 @@ export function sessionTools(session) {
       handler: async (args) => {
         const page = await openPage();
         const handle = await resolveElement(session, page, args);
-        const result = await act(session, page, () => onHandle(handle, click));
-        return text(`Clicked ${args.ref ?? args.target}. ${await pageState(page)}\n${renderActResult(result)}`);
+        const result = await act(session, page, () => onHandle(handle, click), { expectNavigation: await expectsNavigation(handle) });
+        return text(`Clicked ${args.ref ?? args.target}. ${await pageState(page)}\n${actReply(result)}`);
       },
     },
     {
@@ -176,7 +208,7 @@ export function sessionTools(session) {
         const page = await openPage();
         const handle = await resolveElement(session, page, args);
         const result = await act(session, page, () => onHandle(handle, fill, args.value));
-        return text(`Filled ${args.ref ?? args.target}.\n${renderActResult(result)}`);
+        return text(`Filled ${args.ref ?? args.target}.\n${actReply(result)}`);
       },
     },
     {
@@ -198,7 +230,7 @@ export function sessionTools(session) {
           // A real key event, so Enter submits a form and Escape closes a dialog.
           await page.keyboard.press(key);
         });
-        return text(`Pressed ${key}. ${await pageState(page)}\n${renderActResult(result)}`);
+        return text(`Pressed ${key}. ${await pageState(page)}\n${actReply(result)}`);
       },
     },
     {

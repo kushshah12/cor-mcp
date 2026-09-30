@@ -37,11 +37,22 @@ export function gradeTools(session, idCache = new Map()) {
   ];
 }
 
+/** The innermost element a containment locator matches (a visible one first): its tag, text and how many. */
+const innermostMatch = (locator) =>
+  locator
+    .evaluateAll((els) => {
+      const shown = (e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.height > 0; };
+      const inner = els.filter((e) => !els.some((o) => o !== e && e.contains(o)));
+      const pick = inner.find(shown) ?? inner[0];
+      return pick ? { tag: pick.tagName.toLowerCase(), text: pick.textContent.replace(/\s+/g, ' ').trim(), visible: inner.filter(shown).length } : null;
+    })
+    .catch(() => null);
+
 /** Grade one literal selector (the original cor_grade). */
 async function gradeOne(page, selector, framework, idCache) {
   let parsed;
   try {
-    parsed = parseGradable(selector);
+    parsed = parseGradable(selector, { framework });
   } catch (error) {
     if (!(error instanceof NotGradable)) throw error;
     throw new Error(
@@ -86,6 +97,11 @@ async function gradeOne(page, selector, framework, idCache) {
       if (scope) chain.notes.push(`prefer the scope ${scope} over filter({ visible: true }) — it names which copy, not whichever one is showing: page.locator('${scope} ${base}')`);
     }
   }
+  // U22: text matched by containment finds every element that merely holds the words. Say which
+  // element it lands on, and the exact form for it.
+  const loose = parsed.loose && !uncountable
+    ? { ...parsed.loose, count: matchCount, best: matchCount > 0 ? await innermostMatch(parsed.build(page)) : null }
+    : null;
   const { graded, candidates } = await callPage(page, 'grade', { element, value: scoreValue, framework: fw, matchCount });
   if (chain) Object.assign(graded, { value: selector, code: selector, chain });
   if (matchCount === 1) {
@@ -95,7 +111,7 @@ async function gradeOne(page, selector, framework, idCache) {
     if (regenerated) graded.volatileId = { id: regenerated.id, seen: regenerated.seen };
     if (candidates) await verifyNumberedIds(page, candidates.locators, idCache);
   }
-  return renderGrade({ input: selector, graded, candidates, note: parsed.note, uncountable });
+  return renderGrade({ input: selector, graded, candidates, note: parsed.note, uncountable, loose });
 }
 
 /**

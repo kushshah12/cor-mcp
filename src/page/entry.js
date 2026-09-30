@@ -240,6 +240,22 @@ function scoreSteps({ values, framework, element: el, matchCount }) {
   });
 }
 
+/**
+ * After a navigation (U22): the new page's first visible h1–h3 headings, each with a ref, so
+ * the agent can cor_inspect the text it will assert on instead of typing a selector for it.
+ * Starts a fresh ref set, like a snapshot.
+ */
+function headings({ start = 1 } = {}) {
+  refs = new Map();
+  meta.clear();
+  nextRef = Math.max(nextRef, start); // a new document restarts at e1: never reuse a number the agent still holds
+  const items = [...document.querySelectorAll('h1,h2,h3')]
+    .filter((h) => h.getBoundingClientRect().height > 0 && squash(h.textContent))
+    .slice(0, 5)
+    .map((h) => ({ level: h.tagName.toLowerCase(), text: squash(h.textContent), ref: issueRef(h) }));
+  return { items, live: [...refs.keys()] };
+}
+
 /** The element a ref or selector names, for act tools; null when it does not resolve. */
 const element = (target) => resolveTarget(target).el ?? null;
 
@@ -251,4 +267,4 @@ function countXpath({ template, values }) {
   });
 }
 
-window.__corMcp = { snapshot, scoped, inspect, element, grade, scoreSteps, stableScopeFor, itemCandidates, itemIndexOf, beginAct, afterAct, countXpath };
+window.__corMcp = { snapshot, scoped, inspect, element, headings, grade, scoreSteps, stableScopeFor, itemCandidates, itemIndexOf, beginAct, afterAct, countXpath };

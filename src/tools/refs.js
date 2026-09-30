@@ -13,6 +13,9 @@ export function checkRef(session, ref) {
   if (refs.staleBecause) {
     throw new Error(`Ref ${ref} is stale: ${refs.staleBecause} since the last cor_snapshot. Call cor_snapshot again and use the new refs.`);
   }
+  if (refs.expiredBefore && REF.test(ref) && num(ref) < refs.expiredBefore) {
+    throw new Error(`Ref ${ref} is stale: the page navigated since the last cor_snapshot. Call cor_snapshot again and use the new refs.`);
+  }
   if (refs.issued.has(ref)) return;
   if (refs.dropped?.[ref]) {
     throw new Error(`Ref ${ref} is stale: its element ${refs.dropped[ref]} after an act. Call cor_snapshot again (or use a ref the act response listed).`);

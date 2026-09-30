@@ -15,9 +15,46 @@ const CHAIN_METHODS = new Set(['filter', 'first', 'last', 'nth', 'or', 'and']);
 const LOCATOR_START = /^(?:[A-Za-z_$][\w$]*\s*\.\s*)*(getBy[A-Za-z]+|locator)\s*(?=\()/;
 
 export const SUPPORTED_FORMS =
-  "a CSS selector, an XPath, page.getByRole/getByText/getByLabel/getByPlaceholder/getByTestId/getByAltText/getByTitle(…) or page.locator('…') — chained with .locator/.getBy*/.filter({ has, hasNot, hasText, hasNotText, visible })/.or()/.and()/.first()/.last()/.nth(n) — cy.get('…') or cy.contains(…)";
+  "a CSS selector, an XPath, page.getByRole/getByText/getByLabel/getByPlaceholder/getByTestId/getByAltText/getByTitle(…) or page.locator('…') — chained with .locator/.getBy*/.filter({ has, hasNot, hasText, hasNotText, visible })/.or()/.and()/.first()/.last()/.nth(n) — cy.get('…') or cy.contains(…) — $('…') / $$('…') with a WebdriverIO selector (CSS, XPath, tag=text, *=text)";
 
 class NotGradable extends Error {}
+
+// WebdriverIO text selectors (webdriver.io/docs/selectors): `tag=text` / `tag*=text` match an
+// element's text exactly / partially, `=text` / `*=text` the rendered text of any element. The
+// partial forms are loose: they find every element that merely contains the words (U22).
+const WDIO_TEXT = /^([A-Za-z][A-Za-z0-9]*)?(\*)?=(.+)$/s;
+const NOT_TEXT_TAGS = /^(id|android|ios)$/i;
+
+const xpathLit = (s) => (!s.includes('"') ? `"${s}"` : !s.includes("'") ? `'${s}'` : `concat(${s.split('"').map((p) => `"${p}"`).join(`, '"', `)})`);
+
+/** `$('…')` / `$$('…')`: a WebdriverIO text selector, else CSS or XPath as WebdriverIO takes it. */
+function wdioSelector(sel) {
+  const m = WDIO_TEXT.exec(sel);
+  if (m && !NOT_TEXT_TAGS.test(m[1] ?? '')) {
+    const [, tag, star, raw] = m;
+    const text = raw.trim();
+    const partial = Boolean(star);
+    const lit = xpathLit(text);
+    const contains = partial ? `contains(normalize-space(.), ${lit})` : `normalize-space(.) = ${lit}`;
+    // What WebdriverIO builds for tag=text / tag*=text; for =text / *=text, the innermost rendered elements.
+    const xpath = tag
+      ? (partial
+        ? `//${tag}[contains(., ${lit}) and not(.//${tag})]`
+        : `//${tag}[normalize-space(text()) = ${lit}] | //${tag}[not(.//${tag}[normalize-space(text()) = ${lit}]) and normalize-space() = ${lit}]`)
+      : `//*[${contains} and not(.//*[${contains}])]`;
+    return {
+      framework: 'webdriverio',
+      scoreValue: xpath,
+      note: 'WebdriverIO text selectors are counted here as the XPath they stand for, not run in WebdriverIO',
+      build: tag ? (page) => page.locator(`xpath=${xpath}`) : (page) => page.locator(`xpath=${xpath}`).filter({ visible: true }),
+      loose: partial ? { kind: 'partial-text', framework: 'webdriverio', selector: sel, text } : null,
+    };
+  }
+  if (/^aria\//.test(sel)) throw new NotGradable('aria/ selectors are not graded yet — cor_inspect the element for its locator');
+  return { framework: 'webdriverio', scoreValue: sel.replace(/^xpath=/, ''), build: (page) => page.locator(sel) };
+}
+
+const exactRegex = (re) => re.source.startsWith('^') && re.source.endsWith('$');
 
 // ── a tiny literal reader: strings, regexes, numbers, booleans, flat objects ──
 function reader(src, param = null) {
@@ -232,7 +269,7 @@ function describeChain({ calls }, prefix = '') {
  * @returns {{ framework: string, scoreValue: string, build: (page) => import('playwright-core').Locator, note?: string, chain?: { scored: object[], notes: string[] } }}
  * @throws {NotGradable}
  */
-export function parseGradable(input, { param = null } = {}) {
+export function parseGradable(input, { param = null, framework = null } = {}) {
   const src = String(input ?? '').trim().replace(/;$/, '').replace(/^await\s+/, '').trim();
   if (!src) throw new NotGradable('it is empty');
 
@@ -252,10 +289,12 @@ export function parseGradable(input, { param = null } = {}) {
     const note = 'cy.contains acts on the first match; the count shows how many elements contain the text.';
     if (b === undefined) {
       if (typeof a !== 'string' && !(a instanceof RegExp)) throw new NotGradable('cy.contains needs text');
-      return { framework: 'cypress', scoreValue: src, note, build: (page) => page.getByText(a) };
+      const loose = a instanceof RegExp ? !exactRegex(a) : true;
+      return { framework: 'cypress', scoreValue: src, note, build: (page) => page.getByText(a), loose: loose ? { kind: 'substring', framework: 'cypress', selector: src, text: String(a instanceof RegExp ? a.source : a) } : null };
     }
     if (typeof a !== 'string') throw new NotGradable('cy.contains(selector, text) needs a selector string');
-    return { framework: 'cypress', scoreValue: src, note, build: (page) => page.locator(a).filter({ hasText: b }) };
+    const looseText = b instanceof RegExp ? !exactRegex(b) : true;
+    return { framework: 'cypress', scoreValue: src, note, build: (page) => page.locator(a).filter({ hasText: b }), loose: looseText ? { kind: 'substring', framework: 'cypress', selector: src, text: String(b instanceof RegExp ? b.source : b) } : null };
   }
 
   // Playwright: `page.getByRole(…)`, `this.page.locator(…)`, bare `getByText(…)`, and chains of them
@@ -289,9 +328,19 @@ export function parseGradable(input, { param = null } = {}) {
     return { framework: 'playwright', scoreValue: chain.scored[0].scoreValue, build, chain };
   }
 
+  const wdio = /^\$\$?\s*(?=\()/.exec(src);
+  if (wdio) {
+    const { out, rest } = reader(src.slice(wdio[0].length)).args();
+    if (rest) throw new NotGradable(`chained WebdriverIO calls (${rest.slice(0, 30)}) are not graded — grade each selector on its own`);
+    if (typeof out[0] !== 'string') throw new NotGradable('$() needs a selector string');
+    return wdioSelector(out[0]);
+  }
+
   if (/^[A-Za-z_$][\w$.]*\s*\(/.test(src)) {
     throw new NotGradable(`${src.split('(')[0]}(…) is not a form cor_grade reads`);
   }
+
+  if (framework === 'webdriverio') return wdioSelector(src);
 
   // A raw selector: CSS, XPath, or a Playwright selector-engine string (text=, role=, xpath=).
   return { framework: null, scoreValue: src.replace(/^xpath=/, ''), build: (page) => page.locator(src) };

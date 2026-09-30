@@ -281,8 +281,8 @@ function viaLabelNote(labelText, framework) {
   return framework === 'playwright'
     ? ['', `Hidden input, operated through its visible label "${labelText}":`,
       `  change it: page.getByText(${q}, { exact: true }).click()   — .check() on the input fails: it is not visible`,
-      `  check it:  await expect(page.getByLabel(${q}, { exact: true })).toBeChecked()`]
-    : ['', `Hidden input, operated through its visible label "${labelText}": click the label to change it; read the state from the input.`];
+      `  check it:  await expect(page.getByLabel(${q}, { exact: true })).toBeChecked()   — not that the input exists: it is hidden, so that passes with nothing on screen`]
+    : ['', `Hidden input, operated through its visible label "${labelText}": click the label to change it; assert the input's selected state or the label's text — the input is hidden, so asserting that it exists passes with nothing on screen.`];
 }
 
 /** A template usable in this framework, or null. */
@@ -558,7 +558,24 @@ function gradedBlock(graded, input) {
  * question is "is the locator why the test failed?" — and for a healthy
  * locator the answer is no, and the right move is to stop.
  */
-export function renderGrade({ input, graded, candidates, note, uncountable }) {
+/** U22: a locator that matches by the text an element contains, not by what it is. */
+function looseLines({ kind, framework, count, best }, input) {
+  const escapeRe = (t) => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const exact = best && best.text.length > 0 && best.text.length <= 80
+    ? (framework === 'webdriverio' ? `${best.tag}=${best.text}` : `cy.contains('${best.tag}', /^${escapeRe(best.text)}$/)`)
+    : null;
+  const how = kind === 'partial-text' ? 'partial text' : 'a substring';
+  const first = framework === 'webdriverio' ? '$() takes the first one' : 'cy.contains yields the first one';
+  const seen = count > 0 ? `${count} element${count === 1 ? '' : 's'} here${best?.visible != null ? `, ${best.visible} visible` : ''}` : 'none here';
+  return [
+    `Loose — ${input.trim()} matches by ${how}: any element whose text merely contains those words (${seen}); ${first}, so a hidden copy or an unrelated element can satisfy it and the test can pass or fail for the wrong element.`,
+    exact
+      ? `Use the exact text on the element itself: ${exact}   (or cor_inspect the element for an attribute-based locator).`
+      : 'Use the element\'s exact text, or cor_inspect the element for an attribute-based locator.',
+  ];
+}
+
+export function renderGrade({ input, graded, candidates, note, uncountable, loose = null }) {
   const out = [];
   const count = graded.matchCount;
   // Every candidate that resolves and scores higher, in the framework's ranked
@@ -582,6 +599,8 @@ export function renderGrade({ input, graded, candidates, note, uncountable }) {
       REIDENTIFY,
       DURABILITY_ONLY,
     );
+  } else if (loose) {
+    out.push(...looseLines(loose, input));
   } else if (volatile) {
     const { id, seen } = graded.volatileId;
     out.push(
@@ -601,7 +620,8 @@ export function renderGrade({ input, graded, candidates, note, uncountable }) {
   // A Healthy verdict needs little more: the agent's next move is to reuse
   // the locator. Page-object work grades often (reuse before adding), and the
   // full block cost ~1.2k characters per call in the owner's run.
-  const healthy = count === 1 && !uncountable && !volatile && !SUB_FLOOR.has(graded.tier);
+  if (loose && count !== 1) out.push(...looseLines(loose, input));
+  const healthy = !loose && count === 1 && !uncountable && !volatile && !SUB_FLOOR.has(graded.tier);
   if (healthy) {
     // No input echo and no per-signal list; the verdict, the numbers, any
     // chain, the upgrade hint and the durable line (R27) stay.
@@ -626,7 +646,7 @@ export function renderGrade({ input, graded, candidates, note, uncountable }) {
       out.push('', 'No durable locator exists for this element. Recommendation: change the application.');
       if (fix) out.push(`Add a test attribute (this requires an application change):`, `  ${fix.snippet}`);
     }
-  } else if (count === 1 && !uncountable) {
+  } else if (count === 1 && !uncountable && !loose) {
     out.push('', higher.length ? 'Not a repair case: the locator works. A higher-scoring form exists — cor_inspect this element only if the user wants a durability upgrade.' : 'No generated candidate scores higher.');
   }
 
@@ -673,8 +693,10 @@ const leafBrief = (l) => `${l.role}${l.name ? ` "${l.name}"` : ''}${l.value ? ` 
 /** What an act changed, and what happened to the refs. */
 export function renderActResult(result) {
   if (result.navigated) {
-    const headings = result.headings?.length ? ` — headings: ${result.headings.map((h) => `"${h}"`).join(', ')}` : '';
-    return `The page navigated${headings}. Earlier refs expired — call cor_snapshot.`;
+    const shown = result.headings ?? [];
+    if (!shown.length) return 'The page navigated. Earlier refs expired — call cor_snapshot.';
+    const lines = shown.map((h) => `  ${h.level} "${h.text}" [ref=${h.ref}]`);
+    return ['The page navigated. Headings on the new page (cor_inspect one for the exact locator of text you assert on; cor_snapshot for its controls):', ...lines].join('\n');
   }
   const out = [];
   if (!result.changes?.length && !result.texts?.length && !result.shownGroups?.length) {

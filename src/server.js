@@ -23,9 +23,13 @@ export const INSTRUCTIONS = [
     'When the test covers every item ("every FAQ question", "all plans"), loop over the Every item locator instead of typing the values, so an item added later is tested too; use the listed values only for items the test names.',
   'To read a table value, cor_snapshot within the row\'s name — it lists the row\'s cells by column with refs — then cor_inspect the cell for a row × column template.',
   'Before running the tests, pass each locator you wrote or extended yourself — anything not copied as-is from cor_inspect — to cor_grade, with param when it takes one. ' +
-    'Adding a step to a template (card.locator(\'.price\')) makes a new locator: the step can match several elements inside an item.',
+    'Adding a step to a template (card.locator(\'.price\')) makes a new locator: the step can match several elements inside an item. ' +
+    'Every locator comes from cor_inspect or is graded — including elements you only assert on (a heading, a total, a message): a navigation reply lists the new page\'s headings with refs. ' +
+    'Never match by partial text (*=, a substring cy.contains, getByText without exact): use the exact text on the element itself, or an attribute.',
   'To see what an action changes — a new price, an answer that opens, the page a link leads to — act with it and read the reply of cor_click, cor_fill or cor_press: ' +
-    'it lists changed and new text with refs (cor_inspect them) and the new page\'s headings. Do not write scripts to read the page.',
+    'it lists changed and new text with refs (cor_inspect them) and the new page\'s headings with refs. Do not write scripts to read the page. ' +
+    'Assert what an action changed — the new or changed text, the URL, that gone items are no longer displayed — not only that an element exists, ' +
+    'and wait for that state with a retrying assertion, not a fixed sleep.',
   'Put independent calls in one turn — the elements you need to inspect, the locators you need to grade — rather than one call per turn: each turn re-reads the whole conversation.',
   'If the codebase already follows a locator convention (e.g. data-testid page objects), you may choose a listed alternative that fits it; say so.',
   'Page objects: before writing a locator, check whether the project has page objects (a pages/ or page-objects/ folder, classes wrapping a page). ' +
