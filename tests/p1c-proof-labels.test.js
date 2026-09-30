@@ -64,7 +64,8 @@ test('P1c V1: a row × column cell carries the same labels', async (t) => {
   await call('cor_open', { url: `${base}/compare.html` });
   const cell = 'div[data-product-id="live"] table:nth-of-type(3) tr:nth-child(2) td:nth-child(4)';
   assert.match(await call('cor_inspect', { selector: cell, framework: 'playwright' }), /^ {2}Proof: counted by Playwright, every value\.$/m);
-  assert.match(await call('cor_inspect', { selector: cell, framework: 'webdriverio' }), /^ {2}Proof: checked with the browser's XPath engine/m);
+  // P3a.3: WebdriverIO renders the cell helper (tests/p3a-wdio-renderer.test.js); Cypress keeps the XPath line until P3b.
+  assert.match(await call('cor_inspect', { selector: cell, framework: 'cypress' }), /^ {2}Proof: checked with the browser's XPath engine/m);
 });
 
 test('P1c V1: the XPath form must find the same element as Playwright\'s form for every value — one element is not enough', async (t) => {

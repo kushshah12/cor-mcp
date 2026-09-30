@@ -100,18 +100,28 @@ function leafCss(target, item, items) {
 }
 
 /**
- * WebdriverIO's `aria/<name>` finds by name, any role, hidden included. What it finds inside each item: controls named so,
- * and any element whose own text is the name. `twins`: more than one control of the target's role and name in an item
+ * The elements WebdriverIO's `aria/<name>` finds under `root` (measured on 9.32, scripts/conformance): controls answering to
+ * the name — hidden ones too — and elements with a role of their own (a heading) or an aria-label / title / placeholder equal
+ * to it. Plain text (<p>, <span>) is found only when no control answers, so it is not counted here.
+ */
+function ariaHits(root, name) {
+  return [...root.querySelectorAll('*')].filter((el) => {
+    if (isControl(el)) return squash(roleAndName(el).name) === name;
+    const named = ['aria-label', 'title', 'placeholder'].some((a) => el.getAttribute(a) === name);
+    return named || ((el.matches(HEADING) || el.hasAttribute('role')) && squash(roleAndName(el).name) === name);
+  });
+}
+
+/**
+ * What `aria/<name>` finds inside each item. `twins`: more than one control of the target's role and name in an item
  * (BrowserStack's Team card holds a hidden Choose per toggle state) — the shown one is the answer, so the helper filters.
- * `ok` is false when something else answers to the name.
+ * `ok` is false when anything else answers to the name.
  */
 function ariaOf(target, items, role, name) {
   if (!name || name.includes('"')) return { ok: false, twins: false };
   let twins = false;
   for (const item of items) {
-    const hits = [...item.querySelectorAll('*')].filter((el) => (isControl(el)
-      ? squash(roleAndName(el).name) === name
-      : text(el) === name && ![...el.children].some((c) => text(c) === name)));
+    const hits = ariaHits(item, name);
     if (!hits.length || hits.some((el) => !isControl(el) || roleAndName(el).role !== role)) return { ok: false, twins: false };
     if (hits.length > 1) twins = true;
   }
@@ -288,6 +298,12 @@ function groupTemplate(target) {
       xpath: null,
     },
   };
+  // P3a: what the WebdriverIO renderer reads. `aria/<name>` must find exactly this option page-wide (measured semantics: ariaHits).
+  const model = {
+    kind: 'group', param, role, hidden: Boolean(hidden), label: null,
+    aria: exact && members.every((m, i) => { const hits = ariaHits(document.body, names[i]); return hits.length === 1 && hits[0] === m; }),
+  };
+  out.model = model;
   if (hidden) {
     // U21: scoped to the nearest named container the labels share, so the
     // same words elsewhere (marketing copy) do not break the click. Playwright
@@ -303,6 +319,10 @@ function groupTemplate(target) {
       if (cls) scope = `${a.tagName.toLowerCase()}.${cssEscape(cls)}`;
     }
     out.act = scope ? `page.locator(${q(scope)}).getByText(${param}${opt})` : `page.getByText(${param}${opt})`;
+    // P3a: WebdriverIO clicks `label=<name>` (exact text) inside the scope when that names exactly this option's label.
+    const root = scope && document.querySelectorAll(scope).length === 1 ? document.querySelector(scope) : document.body;
+    const clickable = exact && labels.every((l, i) => { const hit = [...root.querySelectorAll('label')].filter((x) => text(x) === values[i]); return hit.length === 1 && hit[0] === l; });
+    model.label = clickable ? { scope: root === document.body ? null : scope } : null;
   }
   return out;
 }
@@ -575,6 +595,8 @@ function cellTemplate(target) {
     '}',
   ].join('\n');
   return {
+    // P3a: the same parts the Playwright helper is built from — WebdriverIO takes XPath natively.
+    model: { kind: 'cell', vars: [rp, cp], tables: parts.tables, headerExpr: headerCode, k: k + 1, rowPart, colPart, inner },
     kind: 'cell', count: body.length, vars: [rp, cp], rows, columns, separateHeader: !own,
     row: rows[body.indexOf(row)], column: headers[cell.cellIndex], code,
     // The placeholders ARE the XPath literals: the client quotes and escapes them.

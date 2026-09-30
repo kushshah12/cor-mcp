@@ -7,5 +7,8 @@ export const CASES = [
   { id: 'twin-toggle', fixture: 'p3a-either.html', target: '.grid .plan:nth-child(1) button:not([hidden])', idioms: ['item.either', 'leaf.aria.shown'] },
   { id: 'twin', fixture: 'p3a-twin.html', target: '.card:nth-child(2) .primary', idioms: ['item.label', 'leaf.aria.shown'], not: ['leaf.aria', 'leaf.css'] },
   { id: 'clash', fixture: 'p3a-heading-clash.html', target: '.card:nth-child(2) button', idioms: ['item.attribute', 'leaf.css'], not: ['leaf.aria', 'leaf.aria.shown'] },
+  { id: 'group-hidden', fixture: 'p3a-groups.html', target: 'input[value="individuals"]', idioms: ['group.aria', 'group.label-click'], select: true },
+  { id: 'group-tabs', fixture: 'p3a-groups.html', target: 'button[role=tab]:nth-of-type(2)', idioms: ['group.aria'] },
+  { id: 'cell', fixture: 'p3a-compare.html', target: 'div[data-product-id="live"] table:nth-of-type(3) tr:nth-child(2) td:nth-child(4)', idioms: ['cell.xpath'] },
   { id: 'transformed', fixture: 'p3a-transformed.html', target: '.row:nth-child(1) button', none: /text-transform/ },
 ];

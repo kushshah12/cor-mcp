@@ -15,7 +15,7 @@ const proofLine = (framework) => (framework === 'playwright'
 // P3a (spec §8): a helper rendered from a checked template. L2 only when its idioms passed conformance on this
 // framework major; otherwise L3 — it says so rather than claim more.
 const helperProof = (framework, h) => (h.level === 'L2'
-  ? `  Proof: rendered from a checked template (every value's item checked in the page); ${RUNNER_NAMES[framework]} ${h.ranOn} idioms conformance-tested.`
+  ? `  Proof: rendered from a checked template (every value checked in the page); ${RUNNER_NAMES[framework]} ${h.ranOn} idioms conformance-tested.`
   : `  Proof: emulated — not run in ${RUNNER_NAMES[framework]}. The template was checked in the page for every value; its ${RUNNER_NAMES[framework]} idioms were not conformance-tested on this version.`);
 
 /** Tiers below this are declined as the answer: the fix is in the application. */
@@ -177,7 +177,7 @@ function pickAlternatives(best, alternatives) {
  * application", five weak single-item locators and a 25-line lookalike list
  * to reach it.
  */
-function cellLead(p, framework) {
+function cellLead(p, framework, helper = null) {
   const also = (list, v) => {
     const others = list.filter((x) => x !== v);
     const more = others.length > VALUES_SHOWN ? `, … ${others.length - VALUES_SHOWN} more` : '';
@@ -186,11 +186,12 @@ function cellLead(p, framework) {
   const [rp, cp] = p.vars;
   return [
     `Recommended — parameterised by row and column: ${p.rows.length} rows × ${p.columns.length} columns; every row and column checked (${p.counted}/${p.counted}).`,
-    proofLine(framework),
+    helper ? helperProof(framework, helper) : proofLine(framework),
     `  ${rp} = "${p.row}"   ${also(p.rows, p.row)}`,
     `  ${cp} = "${p.column}"   ${also(p.columns, p.column)}`,
-    ...(framework === 'playwright' ? `const cell = ${p.code};`.split('\n').map((l) => `  ${l}`) : [`  XPath: ${p.template.xpath.selectorTemplate}`]),
-    `  Registry template (xpath-literal): ${p.template.xpath.selectorTemplate}   (__${rp}__ / __${cp}__ are quoted XPath literals)`,
+    ...(framework === 'playwright' ? `const cell = ${p.code};`.split('\n').map((l) => `  ${l}`)
+      : helper ? helper.code.split('\n').map((l) => `  ${l}`) : [`  XPath: ${p.template.xpath.selectorTemplate}`]),
+    ...(helper ? [] : [`  Registry template (xpath-literal): ${p.template.xpath.selectorTemplate}   (__${rp}__ / __${cp}__ are quoted XPath literals)`]),
     `  When the test reads more than one cell, write one function taking ${rp} and ${cp}.`,
     '',
   ];
@@ -206,7 +207,7 @@ function everyOther(params, framework) {
 }
 
 function paramLead(params, framework, lookalikes, helper = null) {
-  if (params.kind === 'cell') return cellLead(params, framework);
+  if (params.kind === 'cell') return cellLead(params, framework, helper);
   const others = params.values.filter((v) => v !== params.value);
   const more = others.length > VALUES_SHOWN ? `, … ${others.length - VALUES_SHOWN} more` : '';
   const form = framework === 'playwright'
@@ -222,6 +223,7 @@ function paramLead(params, framework, lookalikes, helper = null) {
     ]
     : helper ? helper.code.split('\n').map((l) => `  ${l}`)
       : [`  XPath: ${params.template.xpath.selectorTemplate}   (__${params.param}__ is the quoted XPath literal)`];
+  if (helper?.idioms.includes('group.label-click')) form.push("  The inputs are hidden: the last line clicks their label, as a user does — assert the option's selected state, not that it exists.");
   const noun = params.kind === 'group' ? 'option' : 'item';
   const variantLines = (params.variants ?? []).flatMap((v) => v.values.map((x) => (params.variantAct && framework === 'playwright'
     ? `  Variants: "${x}" sits behind the "${v.of}" item's toggle. Show a variant: ${params.variantAct}.click() — one action taking ${params.param}. Then the template finds its item.`
@@ -241,7 +243,7 @@ function paramLead(params, framework, lookalikes, helper = null) {
     ...form,
     ...(params.every && framework === 'playwright'
       ? [`  Every item (${params.count} now): ${params.every} — loop over it (for (const item of await ….all())) when the test covers every item, so one added later is tested too.`]
-      : helper ? [`  Every item (${params.count} now): ${everyItem(framework, params.model)} — loop over it when the test covers every item, so one added later is tested too.`]
+      : helper && params.model.item ? [`  Every item (${params.count} now): ${everyItem(framework, params.model)} — loop over it when the test covers every item, so one added later is tested too.`]
         : everyOther(params, framework)),
     `  When the test touches more than one ${noun}, write one function taking ${params.param} instead of a locator per ${noun}.`,
   ];

@@ -1,0 +1,6 @@
+<!doctype html>
+<title>P3a hidden radios whose label text is repeated by another label</title>
+<style>input[type=radio] { position: absolute; opacity: 0; width: 0; height: 0 } label { cursor: pointer; padding: 4px 8px; border: 1px solid #888 }</style>
+<!-- the labels share no named container, and the same words label another field: `label=Alpha` would find two -->
+<div><div><input type="radio" id="a" name="mode" value="a" checked><label for="a">Alpha</label><input type="radio" id="b" name="mode" value="b"><label for="b">Beta</label></div></div>
+<p><label>Alpha</label></p>

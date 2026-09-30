@@ -52,9 +52,31 @@ for (const c of CASES) {
   report.push(`     ${c.id}:\n${out.code.split('\n').map((l) => `        ${l}`).join('\n')}`);
 
   await browser.url(`${base}/${c.fixture}`);
-  const run = (body, value) => new Async('$', '$$', params.model.param, `${out.define}\n${body}`)(browser.$.bind(browser), browser.$$.bind(browser), value);
-  const leafUse = out.uses.find((u) => !/\.click\(\)$/.test(u));
+  const names = params.model.vars ?? [params.model.param];
+  const run = (body, ...vals) => new Async('$', '$$', ...names, `${out.define}\n${body}`)(browser.$.bind(browser), browser.$$.bind(browser), ...vals);
+  const isGroup = out.kind === 'group';
+  const isCell = out.kind === 'cell';
+  const leafUse = isGroup || isCell ? out.call : out.uses.find((u) => !/\.click\(\)$/.test(u));
   const clickUse = out.uses.find((u) => /\.click\(\)$/.test(u));
+  if (isCell) {
+    // every row of the target's column and every column of the target's row, as the check counts them
+    const combos = [...params.columns.map((col) => [params.row, col]), ...params.rows.map((row) => [row, params.column])];
+    const [rv, cv] = params.vars;
+    for (const [row, col] of combos) {
+      const loc = new Function('page', `return (${params.code})`)(pw)(row, col);
+      const n = await loc.count();
+      const want = n === 1 ? await loc.evaluate((el) => [...document.getElementsByTagName('*')].indexOf(el)) : null;
+      let got = null; let threw = null;
+      try {
+        const el = await run(`return ${leafUse}`, row, col);
+        if (await el.isExisting()) got = await browser.execute((e) => [...document.getElementsByTagName('*')].indexOf(e), el);
+      } catch (e) { threw = e.message.split('\n')[0]; }
+      mark('cell.xpath', want === got, `${c.id} ${rv}="${row}" ${cv}="${col}": Playwright ${want}, WebdriverIO ${got ?? threw ?? 'nothing'}`);
+      if (want !== got) report.push(`FAIL ${c.id} "${row}" × "${col}": Playwright ${want}, WebdriverIO ${got ?? threw ?? 'nothing'}`);
+    }
+    report.push(`     ${combos.length} row/column combinations compared`);
+    continue;
+  }
   const values = [...params.values, ...(params.variants ?? []).flatMap((v) => v.values)];
   for (const v of values) {
     const loc = new Function('page', params.model.param, `return ${params.code}`)(pw, v);
@@ -75,6 +97,19 @@ for (const c of CASES) {
     mark(out.idioms[0], partial === null, `${c.id} "${part}" (partial) found an element`);
     if (partial) report.push(`FAIL ${c.id}: partial "${part}" found an element`);
   }
+  if (isGroup && clickUse && c.select) {
+    // A user changes a hidden input by clicking its label; the option then reads as selected.
+    for (const v of params.values) {
+      await browser.url(`${base}/${c.fixture}`);
+      let ok = false; let note = '';
+      try {
+        await run(`await ${clickUse}; return 1`, v);
+        ok = await (await run(`return ${leafUse}`, v)).isSelected();
+        note = ok ? '' : 'not selected after its label was clicked';
+      } catch (e) { note = e.message.split('\n')[0]; }
+      mark('group.label-click', ok, `${c.id} "${v}": ${note}`);
+    }
+  }
   if (clickUse && c.toggled) {
     // Only values a toggle label names are shown by a click; a heading-named card has no label to click.
     for (const v of (params.variants ?? []).flatMap((x) => [x.of, ...x.values])) {
@@ -90,6 +125,7 @@ for (const c of CASES) {
       mark('variant.click', ok, `${c.id} "${v}": ${note}`);
     }
   }
+  if (isGroup) continue;
   const every = await new Async('$', '$$', `return ${everyItem('webdriverio', params.model)}`)(browser.$.bind(browser), browser.$$.bind(browser));
   const wantEvery = await new Function('page', `return ${params.every}`)(pw).count();
   mark('every', every.length === wantEvery, `${c.id}: WebdriverIO ${every.length}, Playwright ${wantEvery}`);
