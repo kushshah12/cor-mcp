@@ -113,6 +113,7 @@ function inspect({ ref, selector, element, framework, max }) {
     viaLabel: (() => { const l = visibleLabelOf(target.el); return l ? squash(l.textContent) : null; })(),
     lookalikes: lookalikes(target.el),
     collapsed: collapsedAway(target.el, new Map()),
+    testAttrs: hasTestAttributes(),
     params: parameterise(target.el),
     stateBound: stateBoundFor(target.el, framework),
     // For silent capture (src/fingerprints.js) — never rendered.
@@ -260,12 +261,19 @@ function headings({ start = 1 } = {}) {
 /** The element a ref or selector names, for act tools; null when it does not resolve. */
 const element = (target) => resolveTarget(target).el ?? null;
 
-/** Count an XPath template with each value filled in (U18's check for non-Playwright frameworks). */
-function countXpath({ template, values }) {
-  return values.map((v) => {
-    const xp = template.replaceAll(/__\w+__/g, () => xpathLiteral(v));
-    return document.evaluate(`count(${xp})`, document, null, XPathResult.NUMBER_TYPE, null).numberValue;
-  });
+/** P1c: count each XPath with the browser's own XPath engine (document.evaluate) — what WebdriverIO and Cypress hand it. */
+function countXpaths({ xpaths }) {
+  return xpaths.map((xp) => document.evaluate(`count(${xp})`, document, null, XPathResult.NUMBER_TYPE, null).numberValue);
 }
 
-window.__corMcp = { snapshot, scoped, inspect, element, headings, grade, scoreSteps, stableScopeFor, itemCandidates, itemIndexOf, beginAct, afterAct, countXpath };
+/** P1c: does the XPath template, filled with `value`, find exactly `element` and nothing else? */
+function xpathFindsOnly({ element, template, value }) {
+  const xp = template.replaceAll(/__\w+__/g, () => xpathLiteral(value));
+  const hits = document.evaluate(xp, document, null, XPathResult.ORDERED_NODE_SNAPSHOT_TYPE, null);
+  return hits.snapshotLength === 1 && hits.snapshotItem(0) === element;
+}
+
+/** P1c: does the page carry any test attribute (data-cy, data-test, data-testid, data-qa)? */
+const hasTestAttributes = () => Boolean(document.querySelector('[data-cy],[data-test],[data-testid],[data-test-id],[data-qa]'));
+
+window.__corMcp = { snapshot, scoped, inspect, element, headings, grade, scoreSteps, stableScopeFor, itemCandidates, itemIndexOf, beginAct, afterAct, countXpaths, xpathFindsOnly };

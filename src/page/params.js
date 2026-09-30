@@ -735,6 +735,8 @@ function render(slot, itemSel, inner, values, self, items) {
     code,
     // Every item, to loop over when the test covers them all (plain-prompt run: the FAQ questions were typed in).
     every: `page.locator(${q(itemSel.css)})${vis}`,
+    // P1c: the same item selector as a plain CSS string, for the WebdriverIO and Cypress lines.
+    everyCss: itemSel.css,
     // Registry form (@corlabs/client selectorTemplate): the placeholder sits
     // inside a CSS string in `pw` and IS the literal in `xpath`.
     // XPath cannot say "visible": when hidden copies matter there is no XPath form.

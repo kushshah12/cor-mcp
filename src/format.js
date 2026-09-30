@@ -1,7 +1,15 @@
 // Renders page-side results as text for the agent. Leads with the verdict so
 // a reader that truncates still gets the answer.
 
-import { factsLines } from './facts.js';
+import { ambiguityConsequence, factsLines } from './facts.js';
+
+const RUNNER_NAMES = { webdriverio: 'WebdriverIO', cypress: 'Cypress', playwright: 'Playwright' };
+
+// P1c (V1): what "every value checked" rests on — Playwright counts its own code; a string handed
+// to WebdriverIO or Cypress as it is was checked with the browser's XPath engine.
+const proofLine = (framework) => (framework === 'playwright'
+  ? '  Proof: counted by Playwright, every value.'
+  : "  Proof: checked with the browser's XPath engine for every value; the XPath is used as it is.");
 
 /** Tiers below this are declined as the answer: the fix is in the application. */
 const SUB_FLOOR = new Set(['risky', 'unstable']);
@@ -169,6 +177,7 @@ function cellLead(p, framework) {
   const [rp, cp] = p.vars;
   return [
     `Recommended — parameterised by row and column: ${p.rows.length} rows × ${p.columns.length} columns; every row and column checked (${p.counted}/${p.counted}).`,
+    proofLine(framework),
     `  ${rp} = "${p.row}"   ${also(p.rows, p.row)}`,
     `  ${cp} = "${p.column}"   ${also(p.columns, p.column)}`,
     ...(framework === 'playwright' ? `const cell = ${p.code};`.split('\n').map((l) => `  ${l}`) : [`  XPath: ${p.template.xpath.selectorTemplate}`]),
@@ -176,6 +185,15 @@ function cellLead(p, framework) {
     `  When the test reads more than one cell, write one function taking ${rp} and ${cp}.`,
     '',
   ];
+}
+
+/** P1c (R5): the every-item line in WebdriverIO or Cypress — the item selector is plain CSS, so it is used as it is. */
+function everyOther(params, framework) {
+  if (!params.everyCss || (framework !== 'webdriverio' && framework !== 'cypress')) return [];
+  const css = params.everyCss.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+  // ponytail: a template that needs `visible` has no XPath form, so it never reaches this line.
+  const call = framework === 'webdriverio' ? `$$('${css}')` : `cy.get('${css}')`;
+  return [`  Every item (${params.count} now): ${call} — loop over it when the test covers every item, so one added later is tested too.`];
 }
 
 function paramLead(params, framework, lookalikes) {
@@ -197,17 +215,21 @@ function paramLead(params, framework, lookalikes) {
   const noun = params.kind === 'group' ? 'option' : 'item';
   const variantLines = (params.variants ?? []).flatMap((v) => v.values.map((x) => (params.variantAct && framework === 'playwright'
     ? `  Variants: "${x}" sits behind the "${v.of}" item's toggle. Show a variant: ${params.variantAct}.click() — one action taking ${params.param}. Then the template finds its item.`
-    : `  Variants: "${x}" is shown by the "${v.of}" item after clicking its toggle — page.getByText('${x.replace(/'/g, "\\'")}', { exact: true }).click() first; the template then finds that item.`)));
+    : framework === 'playwright'
+      ? `  Variants: "${x}" is shown by the "${v.of}" item after clicking its toggle — page.getByText('${x.replace(/'/g, "\\'")}', { exact: true }).click() first; the template then finds that item.`
+      // R5: never Playwright syntax for another framework; the click form comes with the idiom tables (phase 3).
+      : `  Variants: "${x}" is shown by the "${v.of}" item after clicking its toggle's label — click it first; the template then finds that item. (No ${RUNNER_NAMES[framework] ?? framework} form for the click yet.)`)));
   const out = [
     params.kind === 'group'
       ? `Recommended — parameterised: ${params.count} options in this ${params.what}; every value checked, each finds exactly its own option (${params.count}/${params.count}).`
       : `Recommended — parameterised: ${params.count} items share this shape; every value checked, each finds exactly its own item (${params.counted ?? params.count}/${params.counted ?? params.count}${params.variants?.length ? ', variants included' : ''}).`,
+    proofLine(framework),
     `  ${params.param} = "${params.value}"   (also: ${others.slice(0, VALUES_SHOWN).map((v) => `"${v}"`).join(', ')}${more})`,
     ...variantLines,
     ...form,
     ...(params.every && framework === 'playwright'
       ? [`  Every item (${params.count} now): ${params.every} — loop over it (for (const item of await ….all())) when the test covers every item, so one added later is tested too.`]
-      : []),
+      : everyOther(params, framework)),
     `  When the test touches more than one ${noun}, write one function taking ${params.param} instead of a locator per ${noun}.`,
   ];
   // Every lookalike is one of the items, so picking "the wrong one" is just a different value.
@@ -291,7 +313,7 @@ function viaLabelNote(labelText, framework) {
 const usableTemplate = (params, framework) =>
   (params?.template && (framework === 'playwright' || params.template.xpath) ? params : null);
 
-export function renderInspect(result, { refsLive = false, framework = result.framework, all = false } = {}) {
+export function renderInspect(result, { refsLive = false, framework = result.framework, all = false, dataCyNote = false } = {}) {
   const lead = usableTemplate(result.params, framework);
   // The template covers the lookalikes only when they are all its items.
   const covered = lead && result.lookalikes && result.lookalikes.items.length === lead.count;
@@ -328,6 +350,8 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
   }
 
   out.push(...factsLines(result));
+  // P1c (D3, spec 7.3): a note only — Cypress's own guidance; the engine ranks, the MCP does not.
+  if (dataCyNote) out.push('Note: Cypress guidance prefers data-cy attributes and this page has none — ask for data-cy on the elements you test.');
   out.push(...stateOnlyNote(result.stateOnly, framework));
   // The group template already says how to change and check it (scoped); the page-wide note would contradict it.
   if (!(result.params?.template && (result.params.act || result.params.actReason))) out.push(...viaLabelNote(result.viaLabel, framework));
@@ -578,7 +602,7 @@ function looseLines({ kind, framework, count, best }, input) {
   ];
 }
 
-export function renderGrade({ input, graded, candidates, note, uncountable, loose = null }) {
+export function renderGrade({ input, graded, candidates, note, uncountable, loose = null, proof = null }) {
   const out = [];
   const count = graded.matchCount;
   // Every candidate that resolves and scores higher, in the framework's ranked
@@ -597,8 +621,10 @@ export function renderGrade({ input, graded, candidates, note, uncountable, loos
   } else if (count === 0) {
     out.push('Broken — matches no element on this page. A test using it fails here because of the locator.', REIDENTIFY, DURABILITY_ONLY);
   } else if (count > 1) {
+    // P1c: what happens is the framework's (the engine's failure mode), not always Playwright's.
+    const consequence = ambiguityConsequence(graded.resolution?.failureMode);
     out.push(
-      `Ambiguous — matches ${count} elements, so it is not usable as written. Playwright throws a strict-mode error; other frameworks act on the first match, which may not be the intended element.`,
+      `Ambiguous — matches ${count} elements, so it is not usable as written. ${consequence ? `In this framework ${consequence}.` : 'Playwright throws a strict-mode error; other frameworks act on the first match, which may not be the intended element.'}`,
       REIDENTIFY,
       DURABILITY_ONLY,
     );
@@ -632,6 +658,7 @@ export function renderGrade({ input, graded, candidates, note, uncountable, loos
     if (graded.chain) out.push(...chainLines(graded.chain));
     if (note) out.push(`  (${note})`);
     out.push(higher.length ? 'Not a repair case: the locator works. A higher-scoring form exists — cor_inspect this element only if the user wants a durability upgrade.' : 'No generated candidate scores higher.');
+    if (proof) out.push(proof);
     out.push('Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:', durableLine({ framework: candidates?.framework, locators: [graded] }));
     return out.join('\n');
   }
@@ -653,6 +680,7 @@ export function renderGrade({ input, graded, candidates, note, uncountable, loos
     out.push('', higher.length ? 'Not a repair case: the locator works. A higher-scoring form exists — cor_inspect this element only if the user wants a durability upgrade.' : 'No generated candidate scores higher.');
   }
 
+  if (proof) out.push(proof);
   out.push(
     '',
     'Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:',

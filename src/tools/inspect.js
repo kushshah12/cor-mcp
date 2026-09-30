@@ -60,6 +60,9 @@ export async function verifyTemplate(page, params) {
       return;
     }
     params.counted = combos.length;
+    // P1c: WebdriverIO and Cypress hand the XPath to the browser as it is, so it is also counted with the browser's own XPath engine.
+    const browser = await callPage(page, 'countXpaths', { xpaths: combos.map(([r, c]) => params.template.xpath.selectorTemplate.replace(`__${rv}__`, () => xpathLiteralOf(r)).replace(`__${cv}__`, () => xpathLiteralOf(c))) });
+    if (browser.some((n) => n !== 1)) params.template.xpath = null;
     return;
   }
   // A variant (Team Pro) must find its item too.
@@ -105,8 +108,14 @@ export async function verifyTemplate(page, params) {
     if (!acts || acts.some((c) => c !== 1)) delete params.variantAct;
   }
   if (params.template.xpath) {
-    const xcounts = await callPage(page, 'countXpath', { template: params.template.xpath.selectorTemplate, values });
-    if (xcounts.some((c) => c !== 1)) params.template.xpath = null;
+    // P1c (L1-standard): the browser's XPath engine must find, for every value, exactly the element Playwright's template found — not just one element.
+    const template = params.template.xpath.selectorTemplate;
+    const same = await Promise.all(values.map(async (v) => {
+      const element = await page.locator(pw.replace(PLACEHOLDER, () => cssStringValue(v))).elementHandle().catch(() => null);
+      if (!element) return false;
+      return callPage(page, 'xpathFindsOnly', { element, template, value: v }).finally(() => element.dispose());
+    }));
+    if (same.some((ok) => !ok)) params.template.xpath = null;
   }
 }
 
@@ -116,6 +125,8 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
     if (!session.isOpen) throw new Error('No page is open — call cor_open with a URL first.');
     return session.getPage();
   };
+
+  let dataCyNoted = false;
 
   return [
     {
@@ -216,7 +227,10 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
           result.rankingNote = `Demoted ${top.value} (score ${top.score}) — its id changes on every page load (${top.volatileId.id} was ${top.volatileId.seen} on a fresh load). Ranked ${best.value} first.`;
         }
         const refsLive = Boolean(session.refs && !session.refs.staleBecause);
-        const reply = renderInspect(result, { refsLive, framework, all });
+        // once per session: the note is about the page, not this element
+        const dataCyNote = !dataCyNoted && framework === 'cypress' && result.testAttrs === false;
+        if (dataCyNote) dataCyNoted = true;
+        const reply = renderInspect(result, { refsLive, framework, all, dataCyNote });
         const response = text(reply);
         if (fingerprints && result.locators.length) {
           fingerprints.record({ url: page.url(), ...result.capture, locators: result.locators.map((l) => l.value) });

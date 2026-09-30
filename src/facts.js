@@ -13,6 +13,9 @@ const AMBIGUITY = {
   'command-dependent': 'an action fails, an assertion runs on all of them',
 };
 
+/** What the framework does when a locator matches several elements, from the engine's failure mode; null when unknown. */
+export const ambiguityConsequence = (failureMode) => AMBIGUITY[failureMode] ?? null;
+
 const clip = (s) => (s.length <= MAX_LEN ? s : `${s.slice(0, MAX_LEN - 1)}…`);
 const many = (n, one, other) => (n === 1 ? one : other);
 

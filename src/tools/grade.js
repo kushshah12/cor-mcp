@@ -40,6 +40,12 @@ export function gradeTools(session, idCache = new Map()) {
   ];
 }
 
+// P1c (V3): what the count on a graded selector rests on. Playwright forms and raw selectors are
+// counted by Playwright itself; a Cypress or WebdriverIO form is read by COR and counted with
+// Playwright, not run in that framework.
+const RUNNERS = { cypress: 'Cypress', webdriverio: 'WebdriverIO' };
+const proofFor = (form) => (RUNNERS[form] ? `Proof: emulated — not run in ${RUNNERS[form]}; counted with Playwright.` : 'Proof: counted by Playwright.');
+
 /** The innermost element a containment locator matches (a visible one first): its tag, text and how many. */
 const innermostMatch = (locator) =>
   locator
@@ -114,7 +120,7 @@ async function gradeOne(page, selector, framework, idCache, project) {
     if (regenerated) graded.volatileId = { id: regenerated.id, seen: regenerated.seen };
     if (candidates) await verifyNumberedIds(page, candidates.locators, idCache);
   }
-  return renderGrade({ input: selector, graded, candidates, note: parsed.note, uncountable, loose });
+  return renderGrade({ input: selector, graded, candidates, note: parsed.note, uncountable, loose, proof: uncountable ? null : proofFor(parsed.framework) });
 }
 
 /**
