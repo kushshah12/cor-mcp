@@ -24,6 +24,7 @@ export const INSTRUCTIONS = [
   'To read a table value, cor_snapshot within the row\'s name — it lists the row\'s cells by column with refs — then cor_inspect the cell for a row × column template.',
   'Before running the tests, pass each locator you wrote or extended yourself — anything not copied as-is from cor_inspect — to cor_grade, with param when it takes one. ' +
     'Adding a step to a template (card.locator(\'.price\')) makes a new locator: the step can match several elements inside an item. ' +
+    'Keep the page open — no cor_close — until you have graded them: grading needs it. ' +
     'Every locator comes from cor_inspect or is graded — including elements you only assert on (a heading, a total, a message): a navigation reply lists the new page\'s headings with refs. ' +
     'Never match by partial text (*=, a substring cy.contains, getByText without exact): use the exact text on the element itself, or an attribute.',
   'To see what an action changes — a new price, an answer that opens, the page a link leads to — act with it and read the reply of cor_click, cor_fill or cor_press: ' +

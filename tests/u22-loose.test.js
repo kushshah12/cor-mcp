@@ -186,6 +186,7 @@ test('the instructions ask for every locator from COR, no partial text, and outc
   assert.match(INSTRUCTIONS, /including elements you only assert on/);
   assert.match(INSTRUCTIONS, /Never match by partial text \(\*=, a substring cy\.contains/);
   assert.match(INSTRUCTIONS, /Assert what an action changed/);
+  assert.match(INSTRUCTIONS, /Keep the page open — no cor_close — until you have graded them/);
   assert.match(INSTRUCTIONS, /retrying assertion, not a fixed sleep/);
 });
 
@@ -200,6 +201,7 @@ test('the assert-what-changed hint comes once, on the first act that changes som
   const first = await call('cor_click', { ref: ref('Toggle') });
   assert.match(first.text, /Toggled on/);
   assert.equal(first.text.match(/Assert what this changed/g)?.length, 1, first.text);
+  assert.match(first.text, /hidden or removed: "not displayed" holds for both/);
   const again = await call('cor_snapshot');
   const choose = again.text.match(/button "Choose" \[ref=(e\d+)\]/)[1];
   const second = await call('cor_click', { ref: choose });

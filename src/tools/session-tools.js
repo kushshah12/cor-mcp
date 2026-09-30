@@ -154,7 +154,7 @@ export function sessionTools(session) {
     const changed = result.navigated || result.changes?.length || result.texts?.length || result.shownGroups?.length;
     if (!changed || hinted) return body;
     hinted = true;
-    return `${body}\nAssert what this changed — the new or changed text, the URL, that gone items are no longer displayed — not only that an element exists.`;
+    return `${body}\nAssert what this changed — the new or changed text, the URL, that gone items are no longer displayed (hidden or removed: "not displayed" holds for both) — not only that an element exists.`;
   };
 
   return [
