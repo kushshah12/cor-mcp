@@ -71,7 +71,7 @@ test('P1c V2: an element in a shadow root gets a fact naming the host, in every 
   await call('cor_snapshot');
   for (const fw of FRAMEWORKS) {
     const { text } = await call('cor_inspect', { ref: 'e1', framework: fw });
-    assert.match(text, /^ {2}• inside a shadow root \(host #host\) — Playwright and WebdriverIO see in; Cypress needs its shadow setting on; no template is built here$/m, fw);
+    assert.match(text, /^ {2}• inside a shadow root \(host #host\) — Playwright and WebdriverIO see in; Cypress needs its shadow setting on$/m, fw);
   }
   await open('/light');
   assert.doesNotMatch((await call('cor_inspect', { selector: '#plain' })).text, /shadow root/, 'a light-DOM element has no shadow fact');
@@ -104,6 +104,8 @@ test('P1c V2: the shadow fact needs a shadow root — unit', () => {
   const order = factsFor({ params: { hidden: { count: 1, scope: null } }, shadow: { depth: 1, host: '#h' }, collapsed: true }).map((f) => f.type);
   assert.deepEqual(order, ['hidden-copies', 'shadow-dom', 'collapsed-content'], 'shadow follows hidden copies');
   assert.ok(factsFor({ shadow: { depth: 1, host: `#${'x'.repeat(300)}` } })[0].text.length <= 140);
+  // the realistic worst case is not clipped: two nested roots and a named host (selectorshub's #userName)
+  assert.ok(!factsFor({ shadow: { depth: 2, host: '#userName' } })[0].text.endsWith('…'));
 });
 
 test('P3: when the best candidate is usable it leads as before (light DOM)', async () => {

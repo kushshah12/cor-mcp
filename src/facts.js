@@ -30,7 +30,7 @@ export function factsFor(result) {
     facts.push({ type: 'hidden-copies', text: `hidden copies: ${count} ${many(count, 'copy', 'copies')} of these items in the page, not shown — ${scope ? `scope by ${scope}` : 'match the displayed ones only'}` });
   }
   if (shadow) {
-    facts.push({ type: 'shadow-dom', text: `inside ${many(shadow.depth, 'a shadow root', `${shadow.depth} nested shadow roots`)} (host ${shadow.host}) — Playwright and WebdriverIO see in; Cypress needs its shadow setting on; no template is built here` });
+    facts.push({ type: 'shadow-dom', text: `inside ${many(shadow.depth, 'a shadow root', `${shadow.depth} nested shadow roots`)} (host ${shadow.host}) — Playwright and WebdriverIO see in; Cypress needs its shadow setting on` });
   }
   if (collapsed) {
     facts.push({ type: 'collapsed-content', text: 'this text is clipped by a collapsed wrapper until opened — "displayed" is true while collapsed; assert its text or height' });
