@@ -77,7 +77,8 @@ test('inspect: a regenerated id is ranked last, warned, and named as the reason'
 test('inspect under Playwright: the durable line gives the id reason, not the convention', async (t) => {
   await fresh(t);
   const out = await call('cor_inspect', { selector: 'input' });
-  assert.match(out.text.split('\n')[1], /getByRole\('textbox', \{ name: 'Email' \}\)/);
+  // E3: a name from the <label> ranks as an attribute (a step-3 locator), and getByLabel edges getByRole on score; it was getByRole by idiom
+  assert.match(out.text.split('\n')[1], /getByLabel\('Email'\)/);
   assert.match(durable(out.text), /because its id changes on every page load$/);
 });
 

@@ -95,10 +95,12 @@ test('a well-marked element ranks its test id first, Excellent, where the framew
   const out = await call('cor_inspect', { selector: '#email', framework: 'cypress' });
   assert.equal(bestCode(out.text), `cy.get('[data-cy="email-input"]')`);
   assert.match(out.text, /Point-in-time — true on this page now: 99 Excellent · 1 match/);
-  // Under Playwright, U12's framework profile ranks role first by design; the test id stays Excellent below it.
+  // E3: Playwright follows the SDET stability order too — the test attribute leads (it was getByRole, by U12's idiom order).
+  // The attribute is data-cy, which getByTestId does not read without configuration, so the code is an attribute selector.
   const pw = await call('cor_inspect', { selector: '#email', framework: 'playwright' });
-  assert.equal(bestCode(pw.text), `page.getByRole('textbox', { name: 'Email' })`);
-  assert.match(pw.text, /page\.getByTestId\('email-input'\)\n\s+99 Excellent · 1 match/);
+  assert.equal(bestCode(pw.text), `page.locator('[data-cy="email-input"]')`);
+  assert.match(pw.text, /Point-in-time — true on this page now: 99 Excellent · 1 match/);
+  assert.match(pw.text, /page\.getByLabel\('Email'\)/, 'the label form is still offered below');
 });
 
 test('AE1: an ambiguous element gets a uniquely-resolving top pick and says what was demoted', async (t) => {
@@ -325,14 +327,11 @@ test('AE9: point-in-time and durable are separated, and the placeable line carri
   const call = await connect(t);
   await call('cor_open', { url: `${base}/shapes.html` });
   const out = await call('cor_inspect', { selector: '#email' });
-  assert.match(out.text, /Point-in-time — true on this page now: 79 Good · 1 match/);
+  // E3: the test attribute leads under Playwright now (it was getByRole 79 Good, chosen over getByTestId by idiom)
+  assert.match(out.text, /Point-in-time — true on this page now: 99 Excellent · 1 match/);
   assert.match(out.text, /Durable — stays true while the locator string is unchanged/);
   const line = out.text.split('\n').find((l) => l.startsWith('// COR:'));
-  assert.equal(
-    line,
-    "// COR: anchored on ARIA role and accessible name; risk: coupled to a label / accessible name; " +
-      "chosen over page.getByTestId('email-input') because playwright guidance prefers role over testId",
-  );
+  assert.equal(line, '// COR: anchored on a dedicated test attribute; no known risk');
   const withoutCode = line.replace(/page\.[^ ]+\([^)]*\)/g, '');
   assert.doesNotMatch(withoutCode, /\d/, 'no score, no match count');
 });
