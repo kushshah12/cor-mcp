@@ -20,11 +20,12 @@ async function pageState(page) {
 
 // ponytail: waits up to 500 ms for an act to start a navigation, then for the
 // DOM of the new page. An act that will navigate (a link, a form submit) waits up to
-// 4 s for it to start: a slow server answers after 500 ms and the reply would describe
-// the old page (U22). A slower client-side transition lands after we return.
+// 8 s for it to start: a slow server answers after 500 ms (or 5 s, on a slow day) and
+// the reply would describe the old page (U22). The cost is 8 s on a submit that never
+// navigates (a client-side form). A slower client-side transition lands after we return.
 async function settle(page, expectNavigation = false) {
   await page
-    .waitForEvent('framenavigated', { timeout: expectNavigation ? 4000 : 500 })
+    .waitForEvent('framenavigated', { timeout: expectNavigation ? 8000 : 500 })
     .then(() => page.waitForLoadState('domcontentloaded'))
     .catch(() => {});
 }
@@ -174,10 +175,13 @@ export function sessionTools(session) {
       },
       handler: async ({ url, storageState }) => {
         const page = await session.getPage({ storageState });
-        const response = await page.goto(url, { waitUntil: 'load' });
-        // Client-rendered apps (React, Next) paint after `load`; snapshotting
-        // then lists nothing. Wait for the network to go quiet, capped.
-        // ponytail: 3 s cap; a page that polls forever just costs the cap.
+        // The DOM, not the load event: one hanging third-party asset holds `load` past
+        // goto's 30 s and fails a page that is ready (run 69303bba, BrowserStack on a slow day).
+        const response = await page.goto(url, { waitUntil: 'domcontentloaded' });
+        // Client-rendered apps (React, Next) paint after the DOM; snapshotting
+        // then lists nothing. Wait for the load event and then for the network to go quiet, capped.
+        // ponytail: 5 s and 3 s caps; a page that never finishes just costs the caps.
+        await page.waitForLoadState('load', { timeout: 5000 }).catch(() => {});
         await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
         const status = response ? ` (HTTP ${response.status()})` : '';
         return text(`${await pageState(page)}${status}. Browser: ${session.browserLabel}.`);

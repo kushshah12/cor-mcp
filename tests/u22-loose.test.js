@@ -8,6 +8,9 @@ import { createServer, INSTRUCTIONS } from '../src/server.js';
 import { createSession } from '../src/session.js';
 
 const PAGES = {
+  // The DOM is ready at once; the load event never comes (a third-party asset that hangs).
+  '/hangs': '<title>Slow assets</title><h1>Ready</h1><img src="/never.png" alt="">',
+  '/slowform': '<title>Slow</title><form action="/checkout5" method="post"><input type="submit" value="Choose"></form>',
   '/switch': '<title>Switch</title><label><input type="checkbox" id="annual" style="position:absolute;opacity:0;width:0;height:0"> Bill annually</label>',
   '/': `<title>Plans</title><main>
     <div style="display:none"><h3>Live - Team Pro</h3></div>
@@ -21,6 +24,13 @@ const PAGES = {
 
 let base;
 const site = createHttpServer((req, res) => {
+  if (req.url === '/never.png') return; // hangs on purpose
+  if (req.url === '/checkout5') {
+    return setTimeout(() => {
+      res.writeHead(200, { 'content-type': 'text/html' });
+      res.end('<title>Checkout</title><h1>Order summary</h1><h3>Live - Team Pro</h3>');
+    }, 5000); // a slow day: the navigation starts well after the old 4 s wait
+  }
   if (req.url === '/checkout') {
     // A slow navigation: the response arrives well after a fixed half-second wait.
     return setTimeout(() => {
@@ -37,7 +47,7 @@ before(async () => {
   await new Promise((resolve) => site.listen(0, '127.0.0.1', resolve));
   base = `http://127.0.0.1:${site.address().port}`;
 });
-after(() => site.close());
+after(() => { site.closeAllConnections?.(); site.close(); });
 
 const session = createSession({ headless: true });
 after(() => session.close());
@@ -218,4 +228,24 @@ test('a link that stays on the page (#anchor, javascript:) is not waited on as a
     assert.ok(Date.now() - started < 2500, `${name}: waited ${Date.now() - started} ms`);
     await call('cor_snapshot');
   }
+});
+
+// ── a slow day (run 69303bba: cor_open timed out on the load event; the checkout took over 4 s to start) ──
+test('cor_open does not wait for a load event that never comes', async (t) => {
+  const call = await connect(t);
+  const started = Date.now();
+  const r = await call('cor_open', { url: `${base}/hangs` });
+  assert.equal(r.isError, false, r.text);
+  assert.match(r.text, /"Slow assets"/);
+  assert.ok(Date.now() - started < 20000, `${Date.now() - started} ms`);
+});
+
+test('a submit whose navigation starts after 5 s still gets the new page and its headings', async (t) => {
+  const call = await connect(t);
+  await call('cor_open', { url: `${base}/slowform` });
+  const snap = await call('cor_snapshot');
+  const choose = snap.text.match(/button "Choose" \[ref=(e\d+)\]/)[1];
+  const r = await call('cor_click', { ref: choose });
+  assert.match(r.text, /Now at .*\/checkout5 — "Checkout"/, r.text);
+  assert.match(r.text, /h3 "Live - Team Pro" \[ref=e\d+\]/);
 });
