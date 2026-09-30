@@ -5,7 +5,7 @@ import { LocatorEngine, computeFingerprint, extractElementInfo, scoreLocator } f
 import { deepQueryAll, isControl, hintsFor, isShown, roleAndName, squash, visibleLabelOf } from './dom.js';
 import { buildOutline } from './outline.js';
 import { scopedSnapshot } from './scope.js';
-import { beginAct, endAct, identityOf, revalidate, structuralPath } from './acts.js';
+import { beginAct, collapsedAway, endAct, identityOf, revalidate, structuralPath } from './acts.js';
 import { itemTexts, parameterise, stableScope, xpathLiteral } from './params.js';
 import { stateBound } from './state.js';
 import { removedMatch, saferScope } from './removed.js';
@@ -112,6 +112,7 @@ function inspect({ ref, selector, element, framework, max }) {
     stateOnly: markStateOnly(candidates.locators, target.el),
     viaLabel: (() => { const l = visibleLabelOf(target.el); return l ? squash(l.textContent) : null; })(),
     lookalikes: lookalikes(target.el),
+    collapsed: collapsedAway(target.el, new Map()),
     params: parameterise(target.el),
     stateBound: stateBoundFor(target.el, framework),
     // For silent capture (src/fingerprints.js) — never rendered.

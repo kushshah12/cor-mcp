@@ -1,6 +1,8 @@
 // Renders page-side results as text for the agent. Leads with the verdict so
 // a reader that truncates still gets the answer.
 
+import { factsLines } from './facts.js';
+
 /** Tiers below this are declined as the answer: the fix is in the application. */
 const SUB_FLOOR = new Set(['risky', 'unstable']);
 
@@ -325,6 +327,7 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
     }
   }
 
+  out.push(...factsLines(result));
   out.push(...stateOnlyNote(result.stateOnly, framework));
   // The group template already says how to change and check it (scoped); the page-wide note would contradict it.
   if (!(result.params?.template && (result.params.act || result.params.actReason))) out.push(...viaLabelNote(result.viaLabel, framework));

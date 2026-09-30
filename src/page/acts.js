@@ -108,7 +108,7 @@ const TEXT_MAX = 80;
  * overflow hidden? BrowserStack's FAQ answer opens by growing such a wrapper:
  * its text always has a box of its own, so it read as visible before the click.
  */
-function collapsedAway(el, cache) {
+export function collapsedAway(el, cache) {
   const seen = [];
   let hit = false;
   for (let a = el.parentElement; a && a !== document.body; a = a.parentElement) {

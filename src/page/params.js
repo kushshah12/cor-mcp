@@ -535,7 +535,7 @@ function cellTemplate(target) {
     '}',
   ].join('\n');
   return {
-    kind: 'cell', count: body.length, vars: [rp, cp], rows, columns,
+    kind: 'cell', count: body.length, vars: [rp, cp], rows, columns, separateHeader: !own,
     row: rows[body.indexOf(row)], column: headers[cell.cellIndex], code,
     // The placeholders ARE the XPath literals: the client quotes and escapes them.
     template: { playwright: { selectorTemplate: `xpath=${xp}`, syntax: 'xpath-literal' }, xpath: { selectorTemplate: xp, syntax: 'xpath-literal' } },
@@ -641,6 +641,7 @@ function templateFor(target, targetItem, items, itemSel0, inner, { allowSelf = f
   // the page) make the plain item selector ambiguous; the template then names
   // visible items only — what both agents wrote by hand.
   const hiddenCopies = all.some((el) => !isVisible(el)) && items.every(isVisible);
+  const hiddenCount = all.filter((el) => !isVisible(el)).length; // P1b: the count behind the hidden-copies fact
   // U19.2: a stable ancestor attribute that holds every item and no hidden
   // copy names WHICH copy (the Live product's cards); `visible: true` only
   // means whichever is showing. It is the fallback.
@@ -680,6 +681,7 @@ function templateFor(target, targetItem, items, itemSel0, inner, { allowSelf = f
       continue;
     }
     const out = render(slot, itemSel, inner, values, items.indexOf(targetItem), items);
+    out.hidden = hiddenCopies ? { count: hiddenCount, scope: scope?.css ?? null } : null;
     out.variants = variantsOf(items, slot, values, all);
     // U21: one action taking the name shows any variant (the agent wrote
     // selectTeamPro() with the name typed in, from a literal click).
