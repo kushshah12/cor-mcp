@@ -5,6 +5,7 @@
   "description": "P3a/P3b: runs the MCP's rendered WebdriverIO and Cypress helpers in the real frameworks. Installed here only \u2014 never a dependency of @corlabs/mcp (spec N1).",
   "dependencies": {
     "webdriverio": "^9.32.0",
-    "cypress": "^16.1.0"
+    "cypress": "^16.1.0",
+    "@testing-library/cypress": "^10.0.0"
   }
 }

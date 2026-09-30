@@ -287,6 +287,18 @@ function groupOf(target) {
   return { members, role, param: toParam(holder.getAttribute('aria-label')) ?? role, what: role === 'tab' ? 'tablist' : 'radio group' };
 }
 
+/** The nearest named container the labels share (a base class, not a BEM modifier), as a CSS selector; null when none names them. */
+function labelScope(labels) {
+  for (let a = labels[0].parentElement; a && a !== document.body; a = a.parentElement) {
+    if (!labels.every((l) => a.contains(l))) continue;
+    // A base class, not a BEM modifier: `card-toggle--medium` is a size; a restyle changes it.
+    const names = namingClasses(a);
+    const cls = names.find((c) => !c.includes('--')) ?? names[0];
+    if (cls) return `${a.tagName.toLowerCase()}.${cssEscape(cls)}`;
+  }
+  return null;
+}
+
 /**
  * U18b.1. A template whose parameter is the option's name, checked for every
  * option; null when the target is not in a group of two or more.
@@ -334,6 +346,21 @@ function groupTemplate(target) {
     kind: 'group', param, role, hidden: Boolean(hidden), label: null,
     aria: exact && members.every((m, i) => { const hits = ariaHits(document.body, names[i]); return hits.length === 1 && hits[0] === m; }),
   };
+  // P3b: what the Cypress renderer reads — the option's label (wrapping or `for`), or its own text when it has a role attribute.
+  model.cy = (() => {
+    if (!exact) return null;
+    if (members.every((m) => m.tagName === 'INPUT')) {
+      const labels = members.map((m) => (m.labels?.length === 1 ? m.labels[0] : null));
+      if (labels.some((l) => !l)) return null;
+      const scope = labelScope(labels);
+      const root = scope && document.querySelectorAll(scope).length === 1 ? document.querySelector(scope) : document.body;
+      const ok = labels.every((l, i) => { const hit = [...root.querySelectorAll('label')].filter((x) => text(x) === names[i]); return hit.length === 1 && hit[0] === l; });
+      return ok ? { kind: 'label', scope: root === document.body ? null : scope } : null;
+    }
+    const sel = `[role="${role}"]`;
+    const ok = members.every((m, i) => { const hit = [...document.querySelectorAll(sel)].filter((x) => text(x) === names[i]); return hit.length === 1 && hit[0] === m; });
+    return ok ? { kind: 'role', selector: sel } : null;
+  })();
   out.model = model;
   if (hidden) {
     // U21: scoped to the nearest named container the labels share, so the
@@ -341,14 +368,7 @@ function groupTemplate(target) {
     // counts it in verifyTemplate; a scope that does not single the label out
     // falls back to the page-wide form.
     const labels = members.map(visibleLabelOf);
-    let scope = null;
-    for (let a = labels[0].parentElement; a && a !== document.body && !scope; a = a.parentElement) {
-      if (!labels.every((l) => a.contains(l))) continue;
-      // A base class, not a BEM modifier: `card-toggle--medium` is a size; a restyle changes it.
-      const names = namingClasses(a);
-      const cls = names.find((c) => !c.includes('--')) ?? names[0];
-      if (cls) scope = `${a.tagName.toLowerCase()}.${cssEscape(cls)}`;
-    }
+    const scope = labelScope(labels);
     out.act = scope ? `page.locator(${q(scope)}).getByText(${param}${opt})` : `page.getByText(${param}${opt})`;
     // P3a: WebdriverIO clicks `label=<name>` (exact text) inside the scope when that names exactly this option's label.
     const root = scope && document.querySelectorAll(scope).length === 1 ? document.querySelector(scope) : document.body;
@@ -607,9 +627,11 @@ function cellTemplate(target) {
   const fill = (parts) => xpathOf(parts, xpathLiteral(rows[body.indexOf(row)]), xpathLiteral(headers[cell.cellIndex]));
   // A hidden copy of the table (another product's tab) needs a stable scope.
   let parts = partsFor('');
+  let scopeCss = '';
   if (parts && !soleHit(fill(parts), target)) {
     const scope = stableScope(own ? [table] : [table, header0.closest('table')], 'table');
     parts = scope ? partsFor(scope.xpath) : null;
+    if (scope) scopeCss = `${scope.css} `;
   }
   if (!parts) return no('the row and column names do not single out the cell');
   const xp = xpathOf(parts, `__${rp}__`, `__${cp}__`);
@@ -625,9 +647,44 @@ function cellTemplate(target) {
     `  return page.locator(\`xpath=\${row}/*[\${columnNo}]${inner}\`);`,
     '}',
   ].join('\n');
+  // P3b: Cypress has no XPath, so the same lookup in CSS — the header cell's position, then the row by its key cell. Only for plain
+  // cell names (text is the name); each combination is emulated here and must reach the very cell the XPath form proved.
+  const cyModel = (() => {
+    if (rowPart || colPart || !parts) return null;
+    const tcss = (t) => {
+      if (t.id && !/\d{3,}/.test(t.id)) return `table#${cssEscape(t.id)}`;
+      const c = namingClasses(t)[0];
+      return c ? `table.${cssEscape(c)}` : document.querySelectorAll('table').length === 1 ? 'table' : null;
+    };
+    const T = tcss(table);
+    const HT = own ? T : tcss(header0.closest('table'));
+    if (!T || !HT) return null;
+    const headerSel = `${scopeCss}${HT} tr:has(th) th`;
+    const keySel = `${scopeCss}${T} tr > :nth-child(${k + 1})`;
+    let innerCss = '';
+    if (target !== cell) innerCss = `${target.tagName.toLowerCase()}${namingClasses(target)[0] ? `.${cssEscape(namingClasses(target)[0])}` : ''}`;
+    let ok = true;
+    try {
+      const expectedFor = (rv, cv) => {
+        const hits = xpathCount(xpathOf(parts, xpathLiteral(rv), xpathLiteral(cv)));
+        return hits?.snapshotLength === 1 ? hits.snapshotItem(0) : null;
+      };
+      const emulate = (rv, cv) => {
+        const th = [...document.querySelectorAll(headerSel)].find((x) => text(x) === cv);
+        const key = [...document.querySelectorAll(keySel)].find((x) => text(x) === rv);
+        const c = th && key ? key.closest('tr')?.children[[...th.parentElement.children].indexOf(th)] : null;
+        return innerCss && c ? c.querySelector(innerCss) : c;
+      };
+      const combos = [...columns.map((cv) => [rows[body.indexOf(row)], cv]), ...rows.map((rv) => [rv, headers[cell.cellIndex]])];
+      ok = combos.every(([rv, cv]) => { const want = expectedFor(rv, cv); return want && emulate(rv, cv) === want; });
+    } catch {
+      ok = false;
+    }
+    return ok ? { headerSel, keySel, innerCss } : null;
+  })();
   return {
     // P3a: the same parts the Playwright helper is built from — WebdriverIO takes XPath natively.
-    model: { kind: 'cell', vars: [rp, cp], tables: parts.tables, headerExpr: headerCode, k: k + 1, rowPart, colPart, inner },
+    model: { kind: 'cell', vars: [rp, cp], tables: parts.tables, headerExpr: headerCode, k: k + 1, rowPart, colPart, inner, cy: cyModel },
     kind: 'cell', count: body.length, vars: [rp, cp], rows, columns, separateHeader: !own,
     row: rows[body.indexOf(row)], column: headers[cell.cellIndex], code,
     // The placeholders ARE the XPath literals: the client quotes and escapes them.

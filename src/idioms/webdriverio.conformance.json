@@ -48,7 +48,7 @@
         },
         "group.aria": {
           "ok": true,
-          "checks": 10,
+          "checks": 16,
           "failures": []
         },
         "group.label-click": {
@@ -58,7 +58,7 @@
         },
         "cell.xpath": {
           "ok": true,
-          "checks": 5,
+          "checks": 20,
           "failures": []
         }
       }

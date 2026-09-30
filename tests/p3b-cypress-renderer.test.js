@@ -93,7 +93,8 @@ test('P3b R2/R3/R4/R1', () => {
   assert.match(cy(params(model({ slot: { kind: 'attribute', attr: 'data-x' } }), { values: ['a"b'] })).none, /quote or backtick/);
   assert.match(cy(params(model()), { typescript: true }).define, /^const card = \(title: string\) =>/);
   assert.match(cy(params(model({ item: { css: `div.${'x'.repeat(100)}`, visible: false } }))).none, /readability bar/);
-  assert.match(cy({ model: { kind: 'group' }, values: [] }).none, /no parameterised Cypress form for a group/);
+  assert.match(cy({ model: { kind: 'group', cy: null }, values: [] }).none, /no label or text names exactly one element/);
+  assert.match(cy({ model: { kind: 'other' }, values: [] }).none, /no parameterised Cypress form for a other yet/);
 });
 
 test('P3b §10: L2 only when every idiom used passed on this Cypress major; otherwise L3', () => {
@@ -163,4 +164,132 @@ test('P3b R4: a long selector list or click goes on lines of its own; the helper
   assert.deepEqual(lines.slice(2, 6), ['    .contains(', "      'h3.simplification-card__title, span.card-toggle__label',", '      new RegExp(`^\\\\s*${Cypress._.escapeRegExp(title)}\\\\s*$`),', '    )']);
   for (const l of out.code.split('\n')) assert.ok(l.length <= 120, l);
   assert.match(out.uses.at(-1), /\n {2}\.contains\('span\.card-toggle__label', new RegExp.*\n {2}\.click\(\)$/);
+});
+
+// ── P3b.2: control groups ──
+const grp = (over = {}) => ({ kind: 'group', param: 'size', role: 'radio', hidden: false, label: null, aria: true, cy: { kind: 'label', scope: null }, ...over });
+const gp = (m, values = ['Small', 'Large']) => ({ model: m, values });
+
+test('P3b idiom group.label: the option is the input its label names — wrapping or for, hidden or not', () => {
+  const out = cy(gp(grp()));
+  assert.equal(out.define, ['const sizeOption = (size) =>', "  cy.contains('label', new RegExp(`^\\\\s*${Cypress._.escapeRegExp(size)}\\\\s*$`))", '    .then(($label) => cy.wrap($label[0].control));'].join('\n'));
+  assert.deepEqual(out.idioms, ['group.label']);
+  assert.equal(out.call, 'sizeOption(size)');
+});
+
+test('P3b idiom group.role: a tab or role="radio" option is found by its own text', () => {
+  const out = cy(gp(grp({ role: 'tab', cy: { kind: 'role', selector: '[role="tab"]' } })));
+  assert.equal(out.define, ['const sizeOption = (size) =>', "  cy.contains('[role=\"tab\"]', new RegExp(`^\\\\s*${Cypress._.escapeRegExp(size)}\\\\s*$`));"].join('\n'));
+  assert.deepEqual(out.idioms, ['group.role']);
+});
+
+test('P3b idiom group.label-click: a hidden input is changed by clicking its label, scoped when the labels share a container', () => {
+  const out = cy(gp(grp({ hidden: true, cy: { kind: 'label', scope: 'div.toggle' }, label: { scope: 'div.toggle' } })));
+  assert.equal(out.uses[0], "cy.contains('div.toggle label', new RegExp(`^\\\\s*${Cypress._.escapeRegExp(size)}\\\\s*$`)).click()");
+  assert.deepEqual(out.idioms, ['group.label', 'group.label-click']);
+  assert.match(cy(gp(grp({ hidden: true, label: null }))).none, /label text does not name exactly one label/);
+});
+
+test('P3b idiom group.tl: Testing Library\'s findByRole for visible options, findByLabelText for hidden inputs', () => {
+  assert.equal(cy(gp(grp()), { testingLibrary: true }).define, "const sizeOption = (size) => cy.findByRole('radio', { name: size });");
+  const hidden = cy(gp(grp({ hidden: true, label: { scope: null } })), { testingLibrary: true });
+  assert.equal(hidden.define, 'const sizeOption = (size) => cy.findByLabelText(size);');
+  assert.deepEqual(hidden.idioms, ['group.tl', 'group.label-click']);
+});
+
+test('P3b group R1/R2/R3', () => {
+  assert.match(cy(gp(grp({ cy: null }))).none, /no label or text names exactly one element/);
+  assert.match(cy(gp(grp(), ['a"b', 'c'])).none, /quote or backtick/);
+  assert.match(cy(gp(grp()), { typescript: true }).define, /^const sizeOption = \(size: string\) =>/);
+});
+
+test('P3b group: cor_inspect for Cypress renders the hidden-toggle helper and the label click', async (t) => {
+  const call = await connect(t, { deps: { cypress: '^16.1.0' } });
+  await call('cor_open', { url: `${base}/p3a-groups.html` });
+  const out = await call('cor_inspect', { selector: 'input[value="individuals"]' });
+  assert.match(out, /^ {2}const planTypeSelectorOption = \(planTypeSelector\) =>$/m);
+  assert.match(out, /^ {6}\.then\(\(\$label\) => cy\.wrap\(\$label\[0\]\.control\)\);$/m);
+  assert.match(out, /^ {2}cy\.contains\('div\.toggle label', new RegExp\(/m);
+  assert.match(out, /The inputs are hidden: the last line clicks their label/);
+  assert.match(out, /Proof: rendered from a checked template/);
+  assert.doesNotMatch(out.split('\n\n')[0], /XPath:|written for Playwright only/);
+});
+
+test('P3b group: a name a promo suffix changes gets no Cypress form (the label text is not the name)', async (t) => {
+  const call = await connect(t, { deps: { cypress: '^16.1.0' } });
+  await call('cor_open', { url: `${base}/p3a-groups.html` });
+  const out = await call('cor_inspect', { selector: 'input[name="billing_cycle"][value="monthly"]' });
+  assert.doesNotMatch(out, /Option = \(/);
+});
+
+// ── P3b.3: row × column cells ──
+const cellModel = (over = {}) => ({ kind: 'cell', vars: ['name', 'column'], cy: { headerSel: 'table.users tr:has(th) th', keySel: 'table.users tr > :nth-child(1)', innerCss: '' }, ...over });
+
+test('P3b idiom cell.css: the header cell\'s position, then the row by its key cell — no XPath', () => {
+  const out = cy({ model: cellModel(), rows: ['Ada'], columns: ['Role'] });
+  assert.equal(out.define, [
+    'const cell = (name, column) => {',
+    "  const header = 'table.users tr:has(th) th';",
+    "  const key = 'table.users tr > :nth-child(1)';",
+    '  const is = (text) => new RegExp(`^\\\\s*${Cypress._.escapeRegExp(text)}\\\\s*$`);',
+    "  return cy.contains(header, is(column)).invoke('index')",
+    "    .then((i) => cy.contains(key, is(name)).closest('tr').children().eq(i));",
+    '};',
+  ].join('\n'));
+  assert.deepEqual(out.idioms, ['cell.css']);
+  assert.doesNotMatch(out.code, /xpath|evaluate/i);
+  assert.match(cy({ model: cellModel({ cy: { ...cellModel().cy, innerCss: 'img.tick' } }), rows: ['a'], columns: ['b'] }).define, /\.eq\(i\)\.find\('img\.tick'\)\);\n\};$/);
+});
+
+test('P3b cell R1/R2/R3: names that are only part of their cell, or carry a quote, get no form', () => {
+  assert.match(cy({ model: cellModel({ cy: null }), rows: ['a'], columns: ['b'] }).none, /only part of its cell/);
+  assert.match(cy({ model: cellModel(), rows: ['it\'s'], columns: ['b'] }).none, /quote or backtick/);
+  assert.match(cy({ model: cellModel(), rows: ['a'], columns: ['b'] }, { typescript: true }).define, /^const cell = \(name: string, column: string\) => \{\n.*\n.*\n {2}const is = \(text: string\)/);
+});
+
+test('P3b cell: cor_inspect for Cypress renders the cell helper, and the page emulation held for every combination', async (t) => {
+  const call = await connect(t, { deps: { cypress: '^16.1.0' } });
+  await call('cor_open', { url: `${base}/p3b-tables.html` });
+  const out = await call('cor_inspect', { selector: 'table.picks tr:nth-child(2) td:nth-child(3)' });
+  assert.match(out, /^ {2}const cell = \(username, column\) => \{$/m);
+  assert.match(out, /^ {4}const key = 'table\.picks tr > :nth-child\(2\)';$/m);
+  assert.match(out, /Proof: rendered from a checked template/);
+  assert.doesNotMatch(out.split('\n\n')[0], /XPath:|Registry template/);
+});
+
+test('P3b cell: a cell named by a heading inside it (BrowserStack comparison) keeps the XPath line — no CSS form', async (t) => {
+  const call = await connect(t, { deps: { cypress: '^16.1.0' } });
+  await call('cor_open', { url: `${base}/p3a-compare.html` });
+  const out = await call('cor_inspect', { selector: 'div[data-product-id="live"] table:nth-of-type(3) tr:nth-child(2) td:nth-child(4)' });
+  assert.match(out, /Proof: checked with the browser's XPath engine/);
+  assert.doesNotMatch(out.split('\n\n')[0], /cy\.contains/);
+});
+
+test('P3b group: a label text another label repeats (no shared container to scope by) gets no Cypress form', async (t) => {
+  const call = await connect(t, { deps: { cypress: '^16.1.0' } });
+  await call('cor_open', { url: `${base}/p3a-groups-stray.html` });
+  const out = await call('cor_inspect', { selector: 'input[value="b"]' });
+  assert.doesNotMatch(out, /const modeOption/);
+});
+
+test('P3b group: cy.contains takes the first match, shown or not — a hidden tab with the same text rules the role form out', async (t) => {
+  const call = await connect(t, { deps: { cypress: '^16.1.0' } });
+  await call('cor_open', { url: `${base}/p3b-groups-role-clash.html` });
+  const out = await call('cor_inspect', { selector: 'div[aria-label="Product"] button:nth-of-type(2)' });
+  assert.doesNotMatch(out, /const productOption/);
+});
+
+test('P3b cell: a hidden copy of the table is scoped out by the same stable attribute the XPath form uses', async (t) => {
+  const call = await connect(t, { deps: { cypress: '^16.1.0' } });
+  await call('cor_open', { url: `${base}/p3b-tables-copies.html` });
+  const out = await call('cor_inspect', { selector: 'div[data-product="live"] tbody tr:nth-child(2) td:nth-child(2)' });
+  assert.ok(out.includes("const header = 'div[data-product=\"live\"] table.users tr:has(th) th';"), 'header lookup scoped');
+  assert.ok(out.includes("const key = 'div[data-product=\"live\"] table.users tr > :nth-child(1)';"), 'row lookup scoped');
+});
+
+test('P3b group: visible radios whose label text another label repeats get no label form (cy.contains takes the first label)', async (t) => {
+  const call = await connect(t, { deps: { cypress: '^16.1.0' } });
+  await call('cor_open', { url: `${base}/p3b-groups-visible-stray.html` });
+  const out = await call('cor_inspect', { selector: 'input[value="m"]' });
+  assert.doesNotMatch(out, /const sizeOption/);
 });

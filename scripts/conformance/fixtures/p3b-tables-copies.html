@@ -1,0 +1,5 @@
+<!doctype html>
+<title>P3b the same table for another product, hidden</title>
+<!-- the hidden copy comes first: a table selector without its product scope finds the wrong header and row -->
+<div data-product="auto" style="display:none"><table class="users"><thead><tr><th>Name</th><th>Role</th></tr></thead><tbody><tr><td>Ada</td><td>Owner</td></tr><tr><td>Grace</td><td>Guest</td></tr></tbody></table></div>
+<div data-product="live"><table class="users"><thead><tr><th>Name</th><th>Role</th></tr></thead><tbody><tr><td>Ada</td><td>Admin</td></tr><tr><td>Grace</td><td>Viewer</td></tr></tbody></table></div>

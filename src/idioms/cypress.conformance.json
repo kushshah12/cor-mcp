@@ -8,7 +8,7 @@
       "idioms": {
         "item.attribute": {
           "ok": true,
-          "checks": 12,
+          "checks": 24,
           "failures": []
         },
         "leaf.css": {
@@ -18,17 +18,17 @@
         },
         "every": {
           "ok": true,
-          "checks": 7,
+          "checks": 13,
           "failures": []
         },
         "item.label": {
           "ok": true,
-          "checks": 16,
+          "checks": 26,
           "failures": []
         },
         "item.either": {
           "ok": true,
-          "checks": 12,
+          "checks": 24,
           "failures": []
         },
         "leaf.css.shown": {
@@ -38,7 +38,37 @@
         },
         "variant.click": {
           "ok": true,
-          "checks": 2,
+          "checks": 4,
+          "failures": []
+        },
+        "group.label": {
+          "ok": true,
+          "checks": 10,
+          "failures": []
+        },
+        "group.label-click": {
+          "ok": true,
+          "checks": 4,
+          "failures": []
+        },
+        "group.role": {
+          "ok": true,
+          "checks": 6,
+          "failures": []
+        },
+        "cell.css": {
+          "ok": true,
+          "checks": 15,
+          "failures": []
+        },
+        "leaf.role": {
+          "ok": true,
+          "checks": 17,
+          "failures": []
+        },
+        "group.tl": {
+          "ok": true,
+          "checks": 16,
           "failures": []
         }
       }
