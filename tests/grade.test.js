@@ -160,7 +160,7 @@ test('an uncountable selector and an unparseable one are told apart', async () =
 test('grade and inspect describe the same locator identically', async () => {
   await open('shapes.html');
   const inspected = await call('cor_inspect', { selector: '#email' });
-  // E3: the locator inspect leads with under Playwright (the test attribute; getByTestId would need configuration for data-cy)
+  // E3 hybrid: the locator inspect leads with under Playwright for an element with a test attribute (the test attribute; getByTestId would need configuration for data-cy)
   const graded = await grade(`page.locator('[data-cy="email-input"]')`);
   const pit = (t) => t.match(/Point-in-time — true on this page now: .*/)[0];
   const line = (t) => t.split('\n').find((l) => l.startsWith('// COR:')).split('; chosen over')[0];

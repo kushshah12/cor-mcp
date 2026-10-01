@@ -100,8 +100,9 @@ function locatorBlock(l, rank) {
 
 function profileLine(profile) {
   if (!profile) return null;
+  // E3 hybrid: Playwright's order switches for an element with a test id; the engine says so and why.
   return profile.applied
-    ? `Framework convention applied: ${profile.framework} (${profile.source}).`
+    ? `Framework convention applied: ${profile.framework} (${profile.source}).${profile.note ? `\n${profile.note}` : ''}`
     : `No framework convention applied — ${profile.reason}.`;
 }
 

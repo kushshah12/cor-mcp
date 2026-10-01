@@ -95,7 +95,7 @@ test('a well-marked element ranks its test id first, Excellent, where the framew
   const out = await call('cor_inspect', { selector: '#email', framework: 'cypress' });
   assert.equal(bestCode(out.text), `cy.get('[data-cy="email-input"]')`);
   assert.match(out.text, /Point-in-time — true on this page now: 99 Excellent · 1 match/);
-  // E3: Playwright follows the SDET stability order too — the test attribute leads (it was getByRole, by U12's idiom order).
+  // E3 hybrid: this element has a test attribute, so Playwright follows the stability order and it leads (it was getByRole, by U12's idiom order).
   // The attribute is data-cy, which getByTestId does not read without configuration, so the code is an attribute selector.
   const pw = await call('cor_inspect', { selector: '#email', framework: 'playwright' });
   assert.equal(bestCode(pw.text), `page.locator('[data-cy="email-input"]')`);
@@ -327,7 +327,7 @@ test('AE9: point-in-time and durable are separated, and the placeable line carri
   const call = await connect(t);
   await call('cor_open', { url: `${base}/shapes.html` });
   const out = await call('cor_inspect', { selector: '#email' });
-  // E3: the test attribute leads under Playwright now (it was getByRole 79 Good, chosen over getByTestId by idiom)
+  // E3 hybrid: the element has a test attribute, so it leads under Playwright (it was getByRole 79 Good, chosen over getByTestId by idiom)
   assert.match(out.text, /Point-in-time — true on this page now: 99 Excellent · 1 match/);
   assert.match(out.text, /Durable — stays true while the locator string is unchanged/);
   const line = out.text.split('\n').find((l) => l.startsWith('// COR:'));
