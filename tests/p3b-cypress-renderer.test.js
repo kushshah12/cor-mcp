@@ -66,7 +66,12 @@ test('P3b idiom item.either + visible filter + variant.click: one selector list,
   const out = cy(params(m, { variantAct: 'x' }));
   assert.match(out.define, /^ {2}cy\.get\('div\.plan'\)\.filter\(':visible'\)$/m);
   assert.match(out.define, /\.contains\('h3\.t, label', new RegExp/);
-  assert.equal(out.uses.at(-1), "plan(title).contains('label', new RegExp(`^\\\\s*${Cypress._.escapeRegExp(title)}\\\\s*$`)).click()");
+  assert.equal(out.uses.at(-1), [
+    'plan(title)',
+    "  .contains('label', new RegExp(`^\\\\s*${Cypress._.escapeRegExp(title)}\\\\s*$`))",
+    '  .click()',
+    "  .closest('label').then(($label) => cy.wrap($label[0].control)).should('be.checked')",
+  ].join('\n'));
   assert.deepEqual(out.idioms, ['item.either', 'leaf.css', 'variant.click']);
 });
 
@@ -163,7 +168,7 @@ test('P3b R4: a long selector list or click goes on lines of its own; the helper
   assert.ok(lines.length <= 8, `${lines.length} lines`);
   assert.deepEqual(lines.slice(2, 6), ['    .contains(', "      'h3.simplification-card__title, span.card-toggle__label',", '      new RegExp(`^\\\\s*${Cypress._.escapeRegExp(title)}\\\\s*$`),', '    )']);
   for (const l of out.code.split('\n')) assert.ok(l.length <= 120, l);
-  assert.match(out.uses.at(-1), /\n {2}\.contains\('span\.card-toggle__label', new RegExp.*\n {2}\.click\(\)$/);
+  assert.match(out.uses.at(-1), /\n {2}\.contains\('span\.card-toggle__label', new RegExp.*\n {2}\.click\(\)\n {2}\.closest\('label'\).*should\('be\.checked'\)$/);
 });
 
 // ── P3b.2: control groups ──
