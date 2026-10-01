@@ -77,7 +77,7 @@ test('P1b variant-behind-toggle: a variant is shown by another item\'s toggle', 
 test('P1b label-operated-input: hidden inputs are operated by their labels', async () => {
   for (const fw of FRAMEWORKS) {
     const { block } = await facts('/toggles.html', '#annual', fw);
-    assert.deepEqual(block, ['hidden inputs, operated by their labels — click the label, assert the input\'s state, not that it exists'], fw);
+    assert.deepEqual(block, ['hidden inputs, operated by their labels — click the label, assert the state; forcing a click on the input skips what a user does'], fw);
   }
 });
 

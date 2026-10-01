@@ -117,8 +117,11 @@ export function render(params, { typescript = false, testingLibrary = false } = 
   const l = leaf(model, `${found.name}(${model.param})`, { testingLibrary });
   if (l) { uses.push(l.code); idioms.push(l.idiom); }
   if (model.toggle && params.variantAct) {
-    const oneLine = `${found.name}(${model.param}).contains(${js(model.toggle)}, ${exactName(model.param)}).click()`;
-    uses.push(oneLine.length <= 120 ? oneLine : `${found.name}(${model.param})\n  .contains(${js(model.toggle)}, ${exactName(model.param)})\n  .click()`);
+    // Click the label, then wait until its toggle is checked: acting before the item swapped its controls clicked the previous
+    // variant's button (benchmark run 6d4dad1b: checkout for "Live - Team" instead of Team Pro).
+    // (a variant toggle is always a radio or checkbox behind its label: variantsOf only finds those)
+    uses.push([`${found.name}(${model.param})`, `  .contains(${js(model.toggle)}, ${exactName(model.param)})`, '  .click()',
+      "  .closest('label').then(($label) => cy.wrap($label[0].control)).should('be.checked')"].join('\n'));
     idioms.push('variant.click');
   }
   if (!withinBar(found.lines, uses.flatMap((u) => u.split('\n')))) return { none: 'the helper does not fit the readability bar (8 lines, 120 characters)' };

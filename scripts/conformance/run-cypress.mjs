@@ -55,8 +55,8 @@ for (const tl of [false, true]) for (const c of CASES) {
     }
     continue;
   }
-  const leafUse = isGroup ? out.call : out.uses.find((u) => !/\.click\(\)$/.test(u));
-  const clickUse = out.uses.find((u) => /\.click\(\)$/.test(u));
+  const leafUse = isGroup ? out.call : out.uses.find((u) => !/\.click\(\)/.test(u));
+  const clickUse = out.uses.find((u) => /\.click\(\)/.test(u));
   const values = [...params.values, ...(params.variants ?? []).flatMap((v) => v.values)];
   for (const v of values) {
     const loc = new Function('page', params.model.param, `return ${params.code}`)(pw, v);

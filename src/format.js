@@ -224,14 +224,14 @@ function paramLead(params, framework, lookalikes, helper = null) {
     ]
     : helper ? helper.code.split('\n').map((l) => `  ${l}`)
       : [`  XPath: ${params.template.xpath.selectorTemplate}   (__${params.param}__ is the quoted XPath literal)`];
-  if (helper?.idioms.includes('group.label-click')) form.push("  The inputs are hidden: the last line clicks their label, as a user does — assert the option's selected state, not that it exists.");
+  if (helper?.idioms.includes('group.label-click')) form.push("  The inputs are hidden: the last line clicks their label, as a user does — assert the option's selected state, not that it exists. Do not force-click the input.");
   const noun = params.kind === 'group' ? 'option' : 'item';
   const variantLines = (params.variants ?? []).flatMap((v) => v.values.map((x) => (params.variantAct && framework === 'playwright'
     ? `  Variants: "${x}" sits behind the "${v.of}" item's toggle. Show a variant: ${params.variantAct}.click() — one action taking ${params.param}. Then the template finds its item.`
     : framework === 'playwright'
       ? `  Variants: "${x}" is shown by the "${v.of}" item after clicking its toggle — page.getByText('${x.replace(/'/g, "\\'")}', { exact: true }).click() first; the template then finds that item.`
       : helper?.idioms.includes('variant.click')
-        ? `  Variants: "${x}" sits behind the "${v.of}" item's toggle — the helper's last line clicks it, then the helper finds that item.`
+        ? `  Variants: "${x}" sits behind the "${v.of}" item's toggle — the helper's last line clicks it${framework === 'cypress' ? ' and waits until the toggle is checked — act on the item only after that' : ''}, then the helper finds that item.`
         // R5: never Playwright syntax for another framework.
         : `  Variants: "${x}" is shown by the "${v.of}" item after clicking its toggle's label — click it first; the template then finds that item. (No ${RUNNER_NAMES[framework] ?? framework} form for the click yet.)`)));
   const out = [

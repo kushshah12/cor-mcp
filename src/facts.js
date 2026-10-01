@@ -42,8 +42,12 @@ export function factsFor(result) {
     facts.push({ type: 'variant-behind-toggle', text: `${shown}${v.values.length > 2 ? ` and ${v.values.length - 2} more` : ''} ${many(v.values.length, 'is', 'are')} shown by the "${v.of}" item's toggle — click the toggle first` });
     break;
   }
+  // P3b follow-up (benchmark run 6d4dad1b wrote `input.live-team-pro`, the class of ONE toggle state's button)
+  if (params?.model?.leaf?.twins || params?.model?.leaf?.cy?.shown) {
+    facts.push({ type: 'twin-controls', text: 'each item holds twin buttons, one per toggle state — a class naming one breaks when the toggle moves; use the helper\'s leaf' });
+  }
   if (params?.act || params?.actReason || viaLabel) {
-    facts.push({ type: 'label-operated-input', text: 'hidden inputs, operated by their labels — click the label, assert the input\'s state, not that it exists' });
+    facts.push({ type: 'label-operated-input', text: 'hidden inputs, operated by their labels — click the label, assert the state; forcing a click on the input skips what a user does' });
   }
   if (params?.separateHeader) {
     facts.push({ type: 'separate-header-table', text: 'column headers are in a separate table above the rows' });
