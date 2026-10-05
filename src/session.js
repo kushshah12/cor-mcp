@@ -93,6 +93,10 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
       context = page = null;
     }
     if (!context) {
+      // U3: getByTestId reads the project's testIdAttribute, as it does in the user's own test run.
+      const testId = detection?.testIdAttribute ?? detectFramework(cwd).testIdAttribute;
+      // ponytail: Playwright's selectors are process-wide, so every new context sets the attribute (back to the default too).
+      (await import('playwright-core')).selectors.setTestIdAttribute(testId?.value ?? 'data-testid');
       context = await browser.newContext(storageState ? { storageState } : {});
       storageStatePath = storageState ?? null;
     }
@@ -125,6 +129,8 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
       return argument ?? this.detection.framework;
     },
     get detection() { return (detection ??= detectFramework(cwd)); },
+    /** U3: the project's Playwright testIdAttribute, or null for Playwright's default (data-testid). */
+    get testIdAttribute() { return this.detection.testIdAttribute?.value ?? null; },
     get frameworkLine() { return frameworkLine(this.detection); },
     invalidateRefs,
     /** The refs the page now resolves — the whole set, after a full or scoped snapshot. */

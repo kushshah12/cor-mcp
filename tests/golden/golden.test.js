@@ -33,8 +33,9 @@ before(() => new Promise((resolve) => site.listen(0, '127.0.0.1', () => { base =
 after(() => site.close());
 
 /** A fresh session per case: session state (the framework argument, refs) must not leak between cases. */
-async function connect() {
-  const session = createSession({ headless: true, cwd: CWD });
+async function connect(project) {
+  // `project` names a folder under projects/ (a package.json and test config) to detect conventions from.
+  const session = createSession({ headless: true, cwd: project ? new URL(`./projects/${project}/`, import.meta.url).pathname : CWD });
   const page = await session.getPage();
   // Frozen pages still reference images and fonts on their origin; only the local server answers.
   await page.context().route('**/*', (route) => (route.request().url().startsWith(base) ? route.continue() : route.abort()));
@@ -55,7 +56,7 @@ const normalise = (text) => text.split(base).join('{base}').replace(/Browser: [^
 
 for (const c of CASES) {
   test(`golden ${c.id}${c.defect ? ` (${c.defect})` : ''}`, { timeout: MAX_MS }, async (t) => {
-    const { call, close } = await connect();
+    const { call, close } = await connect(c.project);
     t.after(close);
     const parts = [`# ${c.id}${c.defect ? ` — pins ${c.defect}` : ''}`, normalise(await call('cor_open', { url: `${base}/${c.open}` }))];
     for (const [tool, args] of c.calls) {

@@ -33,6 +33,8 @@ export const CASES = [
     calls: [['cor_grade', { selector: "page.locator('[data-test=\"inventory-item\"]').filter({ has: page.getByText(title, { exact: true }) }).getByRole('button', { name: 'Add to cart' })", param: 'title' }]],
   },
   { id: 'sd-grade-testid', open: 'site/saucedemo-inventory', calls: [['cor_grade', { selector: "page.getByTestId('inventory-item')" }]], defect: 'D7' },
+  // U3: a Playwright project whose config sets testIdAttribute: 'data-test'.
+  { id: 'sd-grade-testid-configured', project: 'pw-data-test', open: 'site/saucedemo-inventory', calls: [['cor_grade', { selector: "page.getByTestId('shopping-cart-link')" }], ['cor_inspect', { selector: '[data-test="shopping-cart-link"]' }]] },
 
   // ── bstackdemo ──
   { id: 'bs-buy-pw', open: 'site/bstackdemo', calls: [['cor_inspect', { selector: '.shelf-item:nth-child(2) .shelf-item__buy-btn' }]] },

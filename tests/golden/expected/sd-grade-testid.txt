@@ -1,7 +1,7 @@
 # sd-grade-testid — pins D7
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
---- cor_grade {"selector":"page.getByTestId('inventory-item')"} (701 chars)
+--- cor_grade {"selector":"page.getByTestId('inventory-item')"} (889 chars)
 Broken — matches no element on this page. A test using it fails here because of the locator.
 Re-identify the element: cor_snapshot, then cor_inspect its ref.
 The score below rates how durable the string is; whether it resolves is the verdict above.
@@ -15,3 +15,4 @@ Proof: counted by Playwright.
 
 Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
 // COR: anchored on a dedicated test attribute; no known risk
+getByTestId reads data-testid; this page carries "inventory-item" on data-test. Set testIdAttribute: 'data-test' in playwright.config, or use page.locator('[data-test="inventory-item"]').

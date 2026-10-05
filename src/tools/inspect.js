@@ -201,7 +201,7 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
         if (Boolean(ref) === Boolean(selector)) throw new Error('Pass exactly one of ref (from cor_snapshot) or selector.');
         const page = await openPage();
         if (ref) checkRef(session, ref);
-        let result = await callPage(page, 'inspect', { ref, selector, framework, max: 6 });
+        let result = await callPage(page, 'inspect', { ref, selector, framework, max: 6, testIdAttribute: session.testIdAttribute });
         if (result.error === 'unknown-ref' || result.error === 'detached') throw goneError(ref);
         if (result.error === 'invalid-selector') {
           // U21: not CSS — a Playwright selector (:text-is, >>, text=)? Playwright resolves it.
@@ -210,7 +210,7 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
           if (count === null) throw new Error(`"${selector}" is not a valid selector (CSS or Playwright).`);
           if (count === 1) {
             const element = await matches.elementHandle();
-            result = await callPage(page, 'inspect', { element, framework, max: 6 }).finally(() => element.dispose());
+            result = await callPage(page, 'inspect', { element, framework, max: 6, testIdAttribute: session.testIdAttribute }).finally(() => element.dispose());
           } else result = { error: 'match-count', count };
         }
         if (result.error === 'match-count') {

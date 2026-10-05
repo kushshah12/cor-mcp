@@ -103,7 +103,11 @@ function resolveTarget({ ref, selector, element }) {
   return { el: matches[0] };
 }
 
-function inspect({ ref, selector, element, framework, max }) {
+// U3: the project's Playwright testIdAttribute (playwright.config), set by each call that builds candidates.
+let pwTestId = null;
+
+function inspect({ ref, selector, element, framework, max, testIdAttribute = null }) {
+  pwTestId = testIdAttribute;
   const target = resolveTarget({ ref, selector, element });
   if (target.error) return target;
   const candidates = candidatesFor(target.el, framework, max);
@@ -148,7 +152,7 @@ function stateBoundFor(el, framework) {
 }
 
 function candidatesFor(el, framework, max) {
-  const engine = new LocatorEngine({ framework });
+  const engine = new LocatorEngine({ framework, ...(pwTestId ? { playwrightTestIdAttribute: pwTestId } : {}) });
   const result = engine.generateLocatorsForAI(el, { maxLocators: max });
   // Drop fields the renderer does not use; everything left is plain JSON.
   return {
@@ -180,7 +184,8 @@ function candidatesFor(el, framework, max) {
  * Playwright and hands over the element when exactly one matched; the
  * candidates generated for that element are what "better" is measured against.
  */
-function grade({ element: el, value, framework, matchCount }) {
+function grade({ element: el, value, framework, matchCount, testIdAttribute = null }) {
+  pwTestId = testIdAttribute;
   const health = scoreLocator(
     { value, matchCount },
     { element: el, elementInfo: el ? extractElementInfo(el) : null, framework, matchCount },

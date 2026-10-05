@@ -68,8 +68,25 @@ function fromWorkspaces(root, pkg) {
   return found;
 }
 
+const PW_CONFIGS = ['playwright.config.ts', 'playwright.config.js', 'playwright.config.mjs', 'playwright.config.cjs'];
+
 /**
- * @returns {{ framework: string|null, candidates: object[], ambiguous: boolean }}
+ * U3 (D7): the `testIdAttribute` a project's playwright.config sets — read as text, never executed.
+ * @returns {{ value: string|null, file: string, readable: boolean } | null} null when no config mentions it.
+ */
+export function readTestIdAttribute(dir) {
+  for (const name of PW_CONFIGS) {
+    let src;
+    try { src = readFileSync(join(dir, name), 'utf8'); } catch { continue; }
+    if (!/\btestIdAttribute\b/.test(src)) return null;
+    const m = /\btestIdAttribute\s*:\s*(['"`])([\w:.-]+)\1/.exec(src);
+    return { value: m ? m[2] : null, file: name, readable: Boolean(m) };
+  }
+  return null;
+}
+
+/**
+ * @returns {{ framework: string|null, candidates: object[], ambiguous: boolean, testIdAttribute: ReturnType<typeof readTestIdAttribute> }}
  * framework is null when nothing was found or several frameworks were.
  */
 export function detectFramework(cwd = process.cwd()) {
@@ -80,13 +97,16 @@ export function detectFramework(cwd = process.cwd()) {
       const found = [...signalsOf(dir, pkg), ...(pkg.workspaces ? fromWorkspaces(dir, pkg) : [])];
       // one candidate per framework: the first package that declares it
       const candidates = found.filter((c, n) => found.findIndex((o) => o.framework === c.framework) === n);
-      if (candidates.length) return { framework: candidates.length === 1 ? candidates[0].framework : null, candidates, ambiguous: candidates.length > 1, cwd };
+      if (candidates.length) {
+        const pw = candidates.find((c) => c.framework === 'playwright');
+        return { framework: candidates.length === 1 ? candidates[0].framework : null, candidates, ambiguous: candidates.length > 1, cwd, testIdAttribute: pw ? readTestIdAttribute(pw.dir) : null };
+      }
     }
     const up = dirname(dir);
     if (up === dir) break;
     dir = up;
   }
-  return { framework: null, candidates: [], ambiguous: false, cwd };
+  return { framework: null, candidates: [], ambiguous: false, cwd, testIdAttribute: null };
 }
 
 const describe = (c, cwd) => {
@@ -107,5 +127,9 @@ export function frameworkLine(detection) {
   const [c] = candidates;
   const d = describe(c, cwd);
   const extras = [c.typescript && 'TypeScript', c.testingLibrary && 'Testing Library'].filter(Boolean);
-  return `Framework: ${d.name}${extras.length ? ` (${extras.join(', ')})` : ''} — from ${d.where} (${c.via}). Override with framework: "…".`;
+  const tid = detection.testIdAttribute;
+  const testId = !tid ? '' : tid.readable
+    ? ` getByTestId reads ${tid.value} (${tid.file}).`
+    : ` testIdAttribute in ${tid.file} is not a plain string — not read; getByTestId is assumed to read data-testid.`;
+  return `Framework: ${d.name}${extras.length ? ` (${extras.join(', ')})` : ''} — from ${d.where} (${c.via}). Override with framework: "…".${testId}`;
 }

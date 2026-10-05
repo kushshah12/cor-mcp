@@ -33,8 +33,9 @@ export function gradeTools(session, idCache = new Map()) {
         const framework = asked ?? undefined;
         if (!session.isOpen) throw new Error('No page is open — call cor_open with the page the selector targets first.');
         const page = await session.getPage();
-        if (param) return text(await gradeAcross(page, selector, framework, param, values, idCache, project));
-        return text(await gradeOne(page, selector, framework, idCache, project));
+        const testId = session.testIdAttribute;
+        if (param) return text(await gradeAcross(page, selector, framework, param, values, idCache, project, testId));
+        return text(await gradeOne(page, selector, framework, idCache, project, testId));
       },
     },
   ];
@@ -58,7 +59,7 @@ const innermostMatch = (locator) =>
     .catch(() => null);
 
 /** Grade one literal selector (the original cor_grade). */
-async function gradeOne(page, selector, framework, idCache, project) {
+async function gradeOne(page, selector, framework, idCache, project, testId = null) {
   let parsed;
   try {
     parsed = parseGradable(selector, { framework: framework ?? project });
@@ -111,7 +112,7 @@ async function gradeOne(page, selector, framework, idCache, project) {
   const loose = parsed.loose && !uncountable
     ? { ...parsed.loose, count: matchCount, best: matchCount > 0 ? await innermostMatch(parsed.build(page)) : null }
     : null;
-  const { graded, candidates } = await callPage(page, 'grade', { element, value: scoreValue, framework: fw, matchCount });
+  const { graded, candidates } = await callPage(page, 'grade', { element, value: scoreValue, framework: fw, matchCount, testIdAttribute: testId });
   if (chain) Object.assign(graded, { value: selector, code: selector, chain });
   if (matchCount === 1) {
     const ids = numberedIds(parsed.scoreValue);
@@ -120,7 +121,19 @@ async function gradeOne(page, selector, framework, idCache, project) {
     if (regenerated) graded.volatileId = { id: regenerated.id, seen: regenerated.seen };
     if (candidates) await verifyNumberedIds(page, candidates.locators, idCache);
   }
-  return renderGrade({ input: selector, graded, candidates, note: parsed.note, uncountable, loose, proof: uncountable ? null : proofFor(parsed.framework) });
+  const out = renderGrade({ input: selector, graded, candidates, note: parsed.note, uncountable, loose, proof: uncountable ? null : proofFor(parsed.framework) });
+  const hint = matchCount === 0 ? await testIdHint(page, selector, testId) : null;
+  return hint ? `${out}\n${hint}` : out;
+}
+
+// U3 (D7): getByTestId finds nothing because the page carries the value on another attribute than the one Playwright reads.
+const OTHER_TEST_ATTRS = ['data-testid', 'data-test', 'data-test-id', 'data-qa', 'data-cy'];
+async function testIdHint(page, selector, testId) {
+  const value = /getByTestId\(\s*(['"])(.+?)\1/.exec(selector)?.[2];
+  if (!value) return null;
+  const reads = testId ?? 'data-testid';
+  const found = await page.evaluate(({ attrs, v }) => attrs.find((a) => document.querySelector(`[${a}="${CSS.escape(v)}"]`)) ?? null, { attrs: OTHER_TEST_ATTRS.filter((a) => a !== reads), v: value }).catch(() => null);
+  return found ? `getByTestId reads ${reads}; this page carries "${value}" on ${found}. Set testIdAttribute: '${found}' in playwright.config, or use page.locator('[${found}="${value}"]').` : null;
 }
 
 /**
@@ -128,7 +141,7 @@ async function gradeOne(page, selector, framework, idCache, project) {
  * page per item of its first CSS step — then grade durability on a value that
  * works. The agent writes the helper; COR proves it.
  */
-async function gradeAcross(page, selector, framework, param, given, idCache, project) {
+async function gradeAcross(page, selector, framework, param, given, idCache, project, testId = null) {
   let parsed;
   try {
     parsed = parseGradable(selector, { param });
@@ -178,6 +191,6 @@ async function gradeAcross(page, selector, framework, param, given, idCache, pro
     lines.push(`Works for ${ok} of ${perItem.length} items.`);
   }
   if (!working) return [...lines, '', 'No value works, so there is no durability grade.'].join('\n');
-  const graded = await gradeOne(page, substituteParam(selector, param, working), framework, idCache, project);
+  const graded = await gradeOne(page, substituteParam(selector, param, working), framework, idCache, project, testId);
   return [...lines, '', `Durability, graded on ${param} = "${working}":`, graded].join('\n');
 }

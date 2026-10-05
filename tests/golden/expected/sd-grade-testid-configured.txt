@@ -1,0 +1,26 @@
+# sd-grade-testid-configured
+Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
+Framework: Playwright v1 — from ./package.json (@playwright/test). Override with framework: "…". getByTestId reads data-test (playwright.config.ts).
+--- cor_grade {"selector":"page.getByTestId('shopping-cart-link')"} (488 chars)
+Healthy — resolves to exactly one element. If a test using it failed, the cause is in the product or the assertion, not this locator. Stop repairing the locator.
+  Point-in-time — true on this page now: 100 Excellent · 1 match
+No generated candidate scores higher.
+Proof: counted by Playwright.
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on a dedicated test attribute; no known risk
+--- cor_inspect {"selector":"[data-test=\"shopping-cart-link\"]"} (870 chars)
+Best locator (playwright):
+  page.getByTestId('shopping-cart-link')
+  Point-in-time — true on this page now: 99 Excellent · 1 match
+  + Anchored on a dedicated test attribute
+  + Short and shallow
+Framework convention applied: playwright (published guidance).
+playwright's guidance puts role, label and text first; this element has a test id, a team's marker for automation, and visible text changes with copy edits and translation, so the test id leads. Without a test id the order is playwright's own.
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on a dedicated test attribute; no known risk
+
+Alternatives:
+2. page.locator('a[data-test="shopping-cart-link"]')
+   99 Excellent · 1 match
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)
