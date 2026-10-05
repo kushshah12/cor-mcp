@@ -1,7 +1,7 @@
 # sd-inv-add-pw — pins D1
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
---- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]"} (2168 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]"} (1733 chars)
 Recommended — parameterised: 6 items share this shape; every value checked, each finds exactly its own item (6/6).
   Proof: counted by Playwright, every value.
   name = "Sauce Labs Backpack"   (also: "Sauce Labs Bike Light", "Sauce Labs Bolt T-Shirt", "Sauce Labs Fleece Jacket", "Sauce Labs Onesie", … 1 more)
@@ -19,7 +19,6 @@ For this one item alone (playwright):
 Facts:
   • 5 other visible button "Add to cart"s look the same
 Framework convention applied: playwright (published guidance).
-playwright's guidance puts role, label and text first; this element has a test id, a team's marker for automation, and visible text changes with copy edits and translation, so the test id leads. Without a test id the order is playwright's own.
 
 Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
 // COR: anchored on a dedicated test attribute; no known risk
@@ -27,7 +26,4 @@ Durable — stays true while the locator string is unchanged. Place it beside th
 Alternatives:
 2. page.locator('#add-to-cart-sauce-labs-backpack')
    93 Excellent · 1 match
-6. page.locator('[data-test="inventory-item-description"] #add-to-cart-sauce-labs-backpack')
-   89 Excellent · 1 match
-   ! Long selector (73 chars) — hard to read and usually over-specified
-(3 more alternatives not shown — cor_inspect with all: true lists every one.)
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)

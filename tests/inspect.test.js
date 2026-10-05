@@ -95,11 +95,10 @@ test('a well-marked element ranks its test id first, Excellent, where the framew
   const out = await call('cor_inspect', { selector: '#email', framework: 'cypress' });
   assert.equal(bestCode(out.text), `cy.get('[data-cy="email-input"]')`);
   assert.match(out.text, /Point-in-time — true on this page now: 99 Excellent · 1 match/);
-  // E3 hybrid: this element has a test attribute, so Playwright follows the stability order and it leads (it was getByRole, by U12's idiom order).
-  // The attribute is data-cy, which getByTestId does not read without configuration, so the code is an attribute selector.
+  // U5: Playwright follows its published order — role first — test attribute or not; the test attribute is the runner-up.
   const pw = await call('cor_inspect', { selector: '#email', framework: 'playwright' });
-  assert.equal(bestCode(pw.text), `page.locator('[data-cy="email-input"]')`);
-  assert.match(pw.text, /Point-in-time — true on this page now: 99 Excellent · 1 match/);
+  assert.equal(bestCode(pw.text), `page.getByRole('textbox', { name: 'Email' })`);
+  assert.match(pw.text, /^2\. page\.locator\('\[data-cy="email-input"\]'\)\n {3}99 Excellent · 1 match/m);
   assert.match(pw.text, /page\.getByLabel\('Email'\)/, 'the label form is still offered below');
 });
 
@@ -327,11 +326,11 @@ test('AE9: point-in-time and durable are separated, and the placeable line carri
   const call = await connect(t);
   await call('cor_open', { url: `${base}/shapes.html` });
   const out = await call('cor_inspect', { selector: '#email' });
-  // E3 hybrid: the element has a test attribute, so it leads under Playwright (it was getByRole 79 Good, chosen over getByTestId by idiom)
-  assert.match(out.text, /Point-in-time — true on this page now: 99 Excellent · 1 match/);
+  // U5: role leads under Playwright (79 Good), chosen over the test attribute by Playwright's published order
+  assert.match(out.text, /Point-in-time — true on this page now: 79 Good · 1 match/);
   assert.match(out.text, /Durable — stays true while the locator string is unchanged/);
   const line = out.text.split('\n').find((l) => l.startsWith('// COR:'));
-  assert.equal(line, '// COR: anchored on a dedicated test attribute; no known risk');
+  assert.match(line, /^\/\/ COR: anchored on ARIA role and accessible name; risk: coupled to a label \/ accessible name; chosen over /);
   const withoutCode = line.replace(/page\.[^ ]+\([^)]*\)/g, '');
   assert.doesNotMatch(withoutCode, /\d/, 'no score, no match count');
 });

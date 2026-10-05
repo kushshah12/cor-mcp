@@ -1,19 +1,23 @@
 # sd-inv-badge-target-pw
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
---- cor_inspect {"selector":"[data-test=\"shopping-cart-link\"]"} (880 chars)
+--- cor_inspect {"selector":"[data-test=\"shopping-cart-link\"]"} (1157 chars)
 Best locator (playwright):
-  page.locator('[data-test="shopping-cart-link"]')
-  Point-in-time — true on this page now: 99 Excellent · 1 match
-  + Anchored on a dedicated test attribute
-  + Short and shallow
+  page.getByRole('button', { name: 'Cart, empty' })
+  Point-in-time — true on this page now: 79 Good · 1 match
+  + Targets the element by ARIA role and accessible name
+  + Uses the test framework’s idiomatic locator API
+  - Coupled to a label / accessible name
+
+Why this order: Ranked role=button, name=Cart, empty (score 79) above [data-test="shopping-cart-link"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
 Framework convention applied: playwright (published guidance).
-playwright's guidance puts role, label and text first; this element has a test id, a team's marker for automation, and visible text changes with copy edits and translation, so the test id leads. Without a test id the order is playwright's own.
 
 Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
-// COR: anchored on a dedicated test attribute; no known risk
+// COR: anchored on ARIA role and accessible name; risk: coupled to a label / accessible name; chosen over page.locator('[data-test="shopping-cart-link"]') because playwright guidance prefers role over testId
 
 Alternatives:
-2. page.locator('a[data-test="shopping-cart-link"]')
+2. page.locator('[data-test="shopping-cart-link"]')
    99 Excellent · 1 match
-(4 more alternatives not shown — cor_inspect with all: true lists every one.)
+3. page.locator('a[data-test="shopping-cart-link"][role="button"]')
+   99 Excellent · 1 match
+(3 more alternatives not shown — cor_inspect with all: true lists every one.)

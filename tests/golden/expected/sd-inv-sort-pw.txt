@@ -1,22 +1,28 @@
 # sd-inv-sort-pw
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
---- cor_inspect {"selector":"[data-test=\"product-sort-container\"]"} (1084 chars)
+--- cor_inspect {"selector":"[data-test=\"product-sort-container\"]"} (1555 chars)
 Best locator (playwright):
-  page.locator('[data-test="product-sort-container"]')
-  Point-in-time — true on this page now: 99 Excellent · 1 match
-  + Anchored on a dedicated test attribute
-  + Short and shallow
+  page.getByRole('combobox', { name: 'Sort products' })
+  Point-in-time — true on this page now: 79 Good · 1 match
+  + Targets the element by ARIA role and accessible name
+  + Uses the test framework’s idiomatic locator API
+  - Coupled to a label / accessible name
+
+Why this order: Ranked role=combobox, name=Sort products (score 79) above [data-test="product-sort-container"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
 Framework convention applied: playwright (published guidance).
-playwright's guidance puts role, label and text first; this element has a test id, a team's marker for automation, and visible text changes with copy edits and translation, so the test id leads. Without a test id the order is playwright's own.
 
 Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
-// COR: anchored on a dedicated test attribute; no known risk
+// COR: anchored on ARIA role and accessible name; risk: coupled to a label / accessible name; chosen over page.locator('[data-test="product-sort-container"]') because playwright guidance prefers role over testId
 
 Alternatives:
-2. page.locator('select[data-test="product-sort-container"]')
+2. page.locator('[data-test="product-sort-container"]')
    99 Excellent · 1 match
-6. page.locator('[data-test="secondary-header"] select[data-test="product-sort-container"]')
-   95 Excellent · 1 match
-   ! Long selector (73 chars) — hard to read and usually over-specified
-(3 more alternatives not shown — cor_inspect with all: true lists every one.)
+3. page.locator('select[data-test="product-sort-container"][aria-label="Sort products"]')
+   85 Excellent · 1 match
+   ! Long selector (70 chars) — hard to read and usually over-specified
+   ! Coupled to a label / accessible name — breaks on rewording and localization (aria-label="Sort products")
+4. page.locator('select').filter({ hasText: 'Name (A to Z)' })
+   61 Fair · 1 match
+   ! Coupled to display copy — breaks on wording changes and localization (Name (A to Z))
+(2 more alternatives not shown — cor_inspect with all: true lists every one.)

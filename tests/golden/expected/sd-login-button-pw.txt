@@ -1,19 +1,23 @@
 # sd-login-button-pw
 Now at {base}/site/saucedemo-login — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
---- cor_inspect {"selector":"[data-test=\"login-button\"]"} (854 chars)
+--- cor_inspect {"selector":"[data-test=\"login-button\"]"} (1125 chars)
 Best locator (playwright):
-  page.locator('[data-test="login-button"]')
-  Point-in-time — true on this page now: 99 Excellent · 1 match
-  + Anchored on a dedicated test attribute
-  + Short and shallow
+  page.getByRole('button', { name: 'Login' })
+  Point-in-time — true on this page now: 79 Good · 1 match
+  + Targets the element by ARIA role and accessible name
+  + Uses the test framework’s idiomatic locator API
+  - Coupled to a label / accessible name
+
+Why this order: Ranked role=button, name=Login (score 79) above [data-test="login-button"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
 Framework convention applied: playwright (published guidance).
-playwright's guidance puts role, label and text first; this element has a test id, a team's marker for automation, and visible text changes with copy edits and translation, so the test id leads. Without a test id the order is playwright's own.
 
 Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
-// COR: anchored on a dedicated test attribute; no known risk
+// COR: anchored on ARIA role and accessible name; risk: coupled to a label / accessible name; chosen over page.locator('[data-test="login-button"]') because playwright guidance prefers role over testId
 
 Alternatives:
-2. page.locator('#login-button')
-   93 Excellent · 1 match
-(4 more alternatives not shown — cor_inspect with all: true lists every one.)
+2. page.locator('[data-test="login-button"]')
+   99 Excellent · 1 match
+3. page.locator('input[data-test="login-button"][type="submit"]')
+   99 Excellent · 1 match
+(3 more alternatives not shown — cor_inspect with all: true lists every one.)

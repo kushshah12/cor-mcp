@@ -1,7 +1,7 @@
 # sd-login-button-wdio
 Now at {base}/site/saucedemo-login — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
---- cor_inspect {"selector":"[data-test=\"login-button\"]","framework":"webdriverio"} (602 chars)
+--- cor_inspect {"selector":"[data-test=\"login-button\"]","framework":"webdriverio"} (635 chars)
 Best locator (webdriverio):
   await $('[data-test="login-button"]')
   Point-in-time — true on this page now: 99 Excellent · 1 match
@@ -13,6 +13,6 @@ Durable — stays true while the locator string is unchanged. Place it beside th
 // COR: anchored on a dedicated test attribute; no known risk
 
 Alternatives:
-2. await $('#login-button')
-   93 Excellent · 1 match
+2. await $('input[data-test="login-button"][type="submit"]')
+   99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
