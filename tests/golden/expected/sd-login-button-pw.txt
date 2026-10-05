@@ -2,7 +2,7 @@
 Now at {base}/site/saucedemo-login — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
 Locators: page objects in tests/pages/ (default — no specs found).
---- cor_inspect {"selector":"[data-test=\"login-button\"]"} (1357 chars)
+--- cor_inspect {"selector":"[data-test=\"login-button\"]"} (1265 chars)
 Best locator (playwright):
   page.getByRole('button', { name: 'Login' })
   Point-in-time — true on this page now: 79 Good · 1 match
@@ -23,6 +23,4 @@ Durable — stays true while the locator string is unchanged. Place it beside th
 Alternatives:
 2. page.locator('[data-test="login-button"]')
    99 Excellent · 1 match
-3. page.locator('input[data-test="login-button"][type="submit"]')
-   99 Excellent · 1 match
-(3 more alternatives not shown — cor_inspect with all: true lists every one.)
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)

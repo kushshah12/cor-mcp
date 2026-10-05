@@ -1,0 +1,93 @@
+# sd-authoring-path
+Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
+Framework: Playwright v1 — from ./package.json (@playwright/test). Override with framework: "…". getByTestId reads data-test (playwright.config.ts).
+Locators: page objects in tests/pages/ (default — no specs found).
+--- cor_snapshot {} (2014 chars)
+"Swag Labs" {base}/site/saucedemo-inventory — 30 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
+
+- header
+  - button "Open Menu" [ref=e1]
+  - navigation
+    - button "All Items" [ref=e2] ✓id
+    - button "Dynamic Catalog" [ref=e3] ✓id
+    - link "About" [ref=e4] ✓id
+    - button "Logout" [ref=e5] ✓id
+    - button "Reset App State" [ref=e6] ✓id
+  - button "Close Menu" [ref=e7]
+  - button "Cart, empty" [ref=e8] ✓id
+  - combobox "Sort products" = "Name (A to Z)" [ref=e9] ✓id
+- button "View details for Sauce Labs Backpack" [ref=e10] ✓id (1 of 2)
+- button "View details for Sauce Labs Backpack" [ref=e11] ✓id (2 of 2)
+- button "Add to cart" [ref=e12] ✓id (1 of 6)
+- button "View details for Sauce Labs Bike Light" [ref=e13] ✓id (1 of 2)
+- button "View details for Sauce Labs Bike Light" [ref=e14] ✓id (2 of 2)
+- button "Add to cart" [ref=e15] ✓id (2 of 6)
+- button "View details for Sauce Labs Bolt T-Shirt" [ref=e16] ✓id (1 of 2)
+- button "View details for Sauce Labs Bolt T-Shirt" [ref=e17] ✓id (2 of 2)
+- button "Add to cart" [ref=e18] ✓id (3 of 6)
+- button "View details for Sauce Labs Fleece Jacket" [ref=e19] ✓id (1 of 2)
+- button "View details for Sauce Labs Fleece Jacket" [ref=e20] ✓id (2 of 2)
+- button "Add to cart" [ref=e21] ✓id (4 of 6)
+- button "View details for Sauce Labs Onesie" [ref=e22] ✓id (1 of 2)
+- button "View details for Sauce Labs Onesie" [ref=e23] ✓id (2 of 2)
+- button "Add to cart" [ref=e24] ✓id (5 of 6)
+- button "View details for Test.allTheThings() T-Shirt (Red)" [ref=e25] ✓id (1 of 2)
+- button "View details for Test.allTheThings() T-Shirt (Red)" [ref=e26] ✓id (2 of 2)
+- button "Add to cart" [ref=e27] ✓id (6 of 6)
+- footer
+  - link "X" [ref=e28] ✓id
+  - link "Facebook" [ref=e29] ✓id
+  - link "LinkedIn" [ref=e30] ✓id
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]"} (2173 chars)
+Recommended — parameterised: 6 items share this shape; every value checked, each finds exactly its own item (6/6).
+  Proof: counted by Playwright, every value.
+  name = "Sauce Labs Backpack"   (also: "Sauce Labs Bike Light", "Sauce Labs Bolt T-Shirt", "Sauce Labs Fleece Jacket", "Sauce Labs Onesie", … 1 more)
+  page.locator('[data-test="inventory-item"]').filter({ has: page.locator('[data-test="inventory-item-name"]').getByText(name, { exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true })
+  Registry template (css-string): [data-test="inventory-item"]:has([data-test="inventory-item-name"]:text-is("__name__")) >> role=button[name="Add to cart"s]
+  Every item (6 now): page.locator('[data-test="inventory-item"]') — loop over it (for (const item of await ….all())) when the test covers every item, so one added later is tested too.
+  When the test touches more than one item, write one function taking name instead of a locator per item.
+  The 5 lookalike button "Add to cart" elements are the other items — pass their name instead.
+
+For this one item alone (playwright):
+  page.getByTestId('add-to-cart-sauce-labs-backpack')
+  Point-in-time — true on this page now: 99 Excellent · 1 match
+  + Anchored on a dedicated test attribute
+  + Short and shallow
+
+Entry — place in tests/pages/saucedemoInventory.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 6/6 items checked
+  addToCart = (name) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.locator('[data-test="inventory-item-name"]').getByText(name, { exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true });
+Facts:
+  • 5 other visible button "Add to cart"s look the same
+Framework convention applied: playwright (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on a dedicated test attribute; no known risk
+
+Alternatives:
+2. page.locator('#add-to-cart-sauce-labs-backpack')
+   93 Excellent · 1 match
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)
+--- cor_inspect {"selector":"[data-test=\"shopping-cart-link\"]"} (1295 chars)
+Best locator (playwright):
+  page.getByRole('button', { name: 'Cart, empty' })
+  Point-in-time — true on this page now: 79 Good · 1 match
+  + Targets the element by ARIA role and accessible name
+  + Uses the test framework’s idiomatic locator API
+  - Coupled to a label / accessible name
+
+Entry — place in tests/pages/saucedemoInventory.page.js, member shoppingCartLink (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 79 Good · 1 match
+  shoppingCartLink = () => this.page.getByRole('button', { name: 'Cart, empty' });
+
+Why this order: Ranked role=button, name=Cart, empty (score 79) above [data-test="shopping-cart-link"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
+Framework convention applied: playwright (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on ARIA role and accessible name; risk: coupled to a label / accessible name; chosen over page.getByTestId('shopping-cart-link') because playwright guidance prefers role over testId
+
+Alternatives:
+2. page.getByTestId('shopping-cart-link')
+   99 Excellent · 1 match
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)

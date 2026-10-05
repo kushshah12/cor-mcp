@@ -2,7 +2,7 @@
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
 Locators: page objects in tests/pages/ (default — no specs found).
---- cor_inspect {"selector":"[data-test=\"product-sort-container\"]"} (1819 chars)
+--- cor_inspect {"selector":"[data-test=\"product-sort-container\"]"} (1347 chars)
 Best locator (playwright):
   page.getByRole('combobox', { name: 'Sort products' })
   Point-in-time — true on this page now: 79 Good · 1 match
@@ -23,11 +23,4 @@ Durable — stays true while the locator string is unchanged. Place it beside th
 Alternatives:
 2. page.locator('[data-test="product-sort-container"]')
    99 Excellent · 1 match
-3. page.locator('select[data-test="product-sort-container"][aria-label="Sort products"]')
-   85 Excellent · 1 match
-   ! Long selector (70 chars) — hard to read and usually over-specified
-   ! Coupled to a label / accessible name — breaks on rewording and localization (aria-label="Sort products")
-4. page.locator('select').filter({ hasText: 'Name (A to Z)' })
-   61 Fair · 1 match
-   ! Coupled to display copy — breaks on wording changes and localization (Name (A to Z))
-(2 more alternatives not shown — cor_inspect with all: true lists every one.)
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)

@@ -2,7 +2,7 @@
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: WebdriverIO v9 — from ./package.json (@wdio/cli). Override with framework: "…".
 Locators: page objects in test/pageobjects/ (default — no specs found).
---- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]"} (2456 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]"} (2270 chars)
 Recommended — parameterised: 6 items share this shape; every value checked, each finds exactly its own item (6/6).
   Proof: rendered from a checked template (every value checked in the page); WebdriverIO 9.32.0 idioms conformance-tested.
   name = "Sauce Labs Backpack"   (also: "Sauce Labs Bike Light", "Sauce Labs Bolt T-Shirt", "Sauce Labs Fleece Jacket", "Sauce Labs Onesie", … 1 more)
@@ -38,7 +38,4 @@ Alternatives:
 2. await $('button[data-test="add-to-cart-sauce-labs-backpack"][name="add-to-cart-sauce-labs-backpack"]')
    89 Excellent · 1 match
    ! Long selector (91 chars) — hard to read and usually over-specified
-6. await $('[data-test="inventory-item-description"] #add-to-cart-sauce-labs-backpack')
-   89 Excellent · 1 match
-   ! Long selector (73 chars) — hard to read and usually over-specified
-(3 more alternatives not shown — cor_inspect with all: true lists every one.)
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)

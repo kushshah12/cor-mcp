@@ -150,8 +150,8 @@ export function sessionTools(session) {
 
   // U22: said once per session, the first time an act changes something.
   let hinted = false;
-  const actReply = (result) => {
-    const body = renderActResult(result);
+  const actReply = (result, options) => {
+    const body = renderActResult(result, options);
     const changed = result.navigated || result.changes?.length || result.texts?.length || result.shownGroups?.length;
     if (!changed || hinted) return body;
     hinted = true;
@@ -213,7 +213,7 @@ export function sessionTools(session) {
         const page = await openPage();
         const handle = await resolveElement(session, page, args);
         const result = await act(session, page, () => onHandle(handle, fill, args.value));
-        return text(`Filled ${args.ref ?? args.target}.\n${actReply(result)}`);
+        return text(`Filled ${args.ref ?? args.target}.\n${actReply(result, { quietIfUnchanged: true })}`);
       },
     },
     {

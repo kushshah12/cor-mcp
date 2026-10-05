@@ -99,7 +99,8 @@ test('a well-marked element ranks its test id first, Excellent, where the framew
   const pw = await call('cor_inspect', { selector: '#email', framework: 'playwright' });
   assert.equal(bestCode(pw.text), `page.getByRole('textbox', { name: 'Email' })`);
   assert.match(pw.text, /^2\. page\.locator\('\[data-cy="email-input"\]'\)\n {3}99 Excellent · 1 match/m);
-  assert.match(pw.text, /page\.getByLabel\('Email'\)/, 'the label form is still offered below');
+  // U11: with an entry only the runner-up shows; all: true lists the rest.
+  assert.match((await call('cor_inspect', { selector: '#email', framework: 'playwright', all: true })).text, /page\.getByLabel\('Email'\)/, 'the label form is still offered');
 });
 
 test('AE1: an ambiguous element gets a uniquely-resolving top pick and says what was demoted', async (t) => {

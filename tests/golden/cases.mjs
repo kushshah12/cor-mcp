@@ -40,6 +40,13 @@ export const CASES = [
   { id: 'sd-inv-add-wdio9', project: 'wdio9', open: 'site/saucedemo-inventory', calls: [['cor_inspect', { selector: ADD_BACKPACK }]] },
   { id: 'sd-inv-add-cy16', project: 'cy16', open: 'site/saucedemo-inventory', calls: [['cor_inspect', { selector: ADD_BACKPACK }]] },
 
+  // U11: one authoring path, end to end — its total characters are the figure to compare with Playwright MCP's
+  // inventory snapshot (5,500 characters live on 2026-10-05; the agent needs that snapshot before every locator).
+  {
+    id: 'sd-authoring-path', project: 'pw-data-test', open: 'site/saucedemo-inventory',
+    calls: [['cor_snapshot', {}], ['cor_inspect', { selector: ADD_BACKPACK }], ['cor_inspect', { selector: '[data-test="shopping-cart-link"]' }]],
+  },
+
   // ── bstackdemo ──
   { id: 'bs-buy-pw', open: 'site/bstackdemo', calls: [['cor_inspect', { selector: '[id="2"] .shelf-item__buy-btn' }]] },
   { id: 'bs-buy-cy', open: 'site/bstackdemo', calls: [['cor_inspect', { selector: '[id="2"] .shelf-item__buy-btn', framework: 'cypress' }]] },

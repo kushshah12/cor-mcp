@@ -16,6 +16,7 @@ import { CASES } from './cases.mjs';
 
 const ACCEPT = process.env.COR_GOLDEN_ACCEPT === '1';
 const EXPECTED = new URL('./expected/', import.meta.url);
+const MAX_GROWTH = 1.15;
 const MAX_MS = 20_000; // per case; the suite records output, not timings (U13 measures time)
 
 const site = createHttpServer((req, res) => {
@@ -68,7 +69,11 @@ for (const c of CASES) {
     const file = new URL(`${c.id}.txt`, EXPECTED);
     if (ACCEPT) {
       mkdirSync(EXPECTED, { recursive: true });
-      if (!existsSync(file) || readFileSync(file, 'utf8') !== actual) writeFileSync(file, actual);
+      // U11: the token budget — accepting a reply more than 15% longer needs COR_GOLDEN_ALLOW_GROWTH=1, so growth is a decision.
+      const before = existsSync(file) ? readFileSync(file, 'utf8').length : null;
+      assert.ok(before === null || actual.length <= before * MAX_GROWTH || process.env.COR_GOLDEN_ALLOW_GROWTH === '1',
+        `${c.id} grew ${before} → ${actual.length} characters (> ${Math.round((MAX_GROWTH - 1) * 100)}%) — trim it, or accept with COR_GOLDEN_ALLOW_GROWTH=1`);
+      if (before === null || readFileSync(file, 'utf8') !== actual) writeFileSync(file, actual);
       return;
     }
     assert.ok(existsSync(file), `no expected output for ${c.id} — run with COR_GOLDEN_ACCEPT=1 to record it`);

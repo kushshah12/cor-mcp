@@ -9,7 +9,7 @@ No generated candidate scores higher.
 Proof: counted by Playwright.
 Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
 // COR: anchored on a dedicated test attribute; no known risk
---- cor_inspect {"selector":"[data-test=\"shopping-cart-link\"]"} (1389 chars)
+--- cor_inspect {"selector":"[data-test=\"shopping-cart-link\"]"} (1295 chars)
 Best locator (playwright):
   page.getByRole('button', { name: 'Cart, empty' })
   Point-in-time — true on this page now: 79 Good · 1 match
@@ -30,6 +30,4 @@ Durable — stays true while the locator string is unchanged. Place it beside th
 Alternatives:
 2. page.getByTestId('shopping-cart-link')
    99 Excellent · 1 match
-3. page.locator('a[data-test="shopping-cart-link"][role="button"]')
-   99 Excellent · 1 match
-(3 more alternatives not shown — cor_inspect with all: true lists every one.)
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)

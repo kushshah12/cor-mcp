@@ -37,12 +37,9 @@ export const INSTRUCTIONS = [
     'Assert what an action changed — the new or changed text, the URL, that gone items are no longer displayed — not only that an element exists, ' +
     'and wait for that state with a retrying assertion, not a fixed sleep.',
   'Put independent calls in one turn — the elements you need to inspect, the locators you need to grade — rather than one call per turn: each turn re-reads the whole conversation.',
-  'If the codebase already follows a locator convention (e.g. data-testid page objects), you may choose a listed alternative that fits it; say so.',
-  'Page objects: before writing a locator, check whether the project has page objects (a pages/ or page-objects/ folder, classes wrapping a page). ' +
-    'If it does, put each locator on the page object for that URL — a Parameterised block becomes one method taking the parameter; ' +
-    'a Variants line becomes an action method that clicks the toggle first — and write the test against those methods, following the file\'s existing style.',
-  'Reuse before adding: if a page object already has a method for the element, pass its locator to cor_grade as written, with param set to the method\'s argument — one call proves it for every value on the page. ' +
-    'Healthy → reuse the method; broken or fragile → fix that method in place rather than adding a second one.',
+  // U11: the Entry names the file, member and style (U7/U8), so the page-object and convention paragraphs went.
+  'A Variants line becomes an action method that clicks the toggle first. Write the test against the entries\' members. ' +
+    'An existing method for the element: cor_check gives it COR\'s id or the entry to replace it — fix it in place rather than adding a second one.',
   'In your final summary, list each locator you used on one line: the locator, its COR score, and the runner-up with its score — ' +
     'so the user can ask for a different choice.',
 ].join('\n');

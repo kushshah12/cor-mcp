@@ -98,10 +98,9 @@ test('U9: the instructions say to place entries with their cor: comment and run 
 test('the instructions cover page-object projects: templates become methods, existing methods are graded and reused (POM)', async (t) => {
   const client = await connect(t, createServer());
   const text = client.getInstructions();
-  assert.match(text, /check whether the project has page objects/);
-  assert.match(text, /a Parameterised block becomes one method taking the parameter/);
-  assert.match(text, /a Variants line becomes an action method that clicks the toggle first/);
-  assert.match(text, /pass its locator to cor_grade as written, with param set to the method's argument/);
+  // U11: the Entry carries the file, member and style; the instructions keep only what it cannot say.
+  assert.match(text, /A Variants line becomes an action method that clicks the toggle first/);
+  assert.match(text, /An existing method for the element: cor_check gives it COR's id or the entry to replace it — fix it in place rather than adding a second one/);
+  assert.doesNotMatch(text, /check whether the project has page objects/);
   assert.doesNotMatch(text, /literal arguments/);
-  assert.match(text, /fix that method in place rather than adding a second one/);
 });

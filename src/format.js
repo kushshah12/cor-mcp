@@ -407,10 +407,13 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
     );
   }
 
-  if (!lead) out.push(...paramNote(result.params, framework));
+  // U11 (D5): for an item, "not parameterised" only matters when the element has lookalikes — a unique field (saucedemo's
+  // username) does not need it. Groups and cells keep it: it says why a framework gets no helper.
+  if (!lead && (['group', 'cell'].includes(result.params?.kind) || result.lookalikes || unusable || SUB_FLOOR.has(best.tier))) out.push(...paramNote(result.params, framework));
   out.push(...stateBoundNote(result.stateBound));
 
-  const shown = all ? alternatives : pickAlternatives(best, alternatives);
+  // U11: with an entry, the runner-up is the alternative the final summary names; all: true still lists every one.
+  const shown = all ? alternatives : entry ? pickAlternatives(best, alternatives).slice(0, 1) : pickAlternatives(best, alternatives);
   const omitted = alternatives.length - shown.length;
   if (shown.length) {
     out.push('', 'Alternatives:', ...shown.map((l) => locatorBlock(l, result.locators.indexOf(l) + 1)));
@@ -789,7 +792,7 @@ export function renderAmbiguousScope(scoped, within) {
 const leafBrief = (l) => `${l.role}${l.name ? ` "${l.name}"` : ''}${l.value ? ` = "${l.value}"` : ''}${l.ref ? ` [ref=${l.ref}]` : ''}`;
 
 /** What an act changed, and what happened to the refs. */
-export function renderActResult(result) {
+export function renderActResult(result, { quietIfUnchanged = false } = {}) {
   if (result.navigated) {
     const shown = result.headings ?? [];
     if (!shown.length) return 'The page navigated. Earlier refs expired — call cor_snapshot.';
@@ -798,7 +801,8 @@ export function renderActResult(result) {
   }
   const out = [];
   if (!result.changes?.length && !result.texts?.length && !result.shownGroups?.length) {
-    out.push('No visible change. If you expected one, the act may not have landed — check the target, or try cor_press.');
+    // U11 (D5): a fill that changes nothing visible is the normal case — said only for clicks and key presses.
+    if (!quietIfUnchanged) out.push('No visible change. If you expected one, the act may not have landed — check the target, or try cor_press.');
   } else if (result.changes?.length) {
     out.push('Changes:');
     for (const c of result.changes) {

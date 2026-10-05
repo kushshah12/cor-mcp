@@ -2,7 +2,7 @@
 Now at {base}/site/saucedemo-login — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
 Locators: page objects in tests/pages/ (default — no specs found).
---- cor_inspect {"selector":"[data-test=\"username\"]"} (1598 chars)
+--- cor_inspect {"selector":"[data-test=\"username\"]"} (1259 chars)
 Best locator (playwright):
   page.getByRole('textbox', { name: 'Username' })
   Point-in-time — true on this page now: 79 Good · 1 match
@@ -20,14 +20,7 @@ Framework convention applied: playwright (published guidance).
 Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
 // COR: anchored on ARIA role and accessible name; risk: coupled to a label / accessible name; chosen over page.locator('[data-test="username"]') because playwright guidance prefers role over testId
 
-Not parameterised — 2 items share this shape, but no attribute or label inside the item tells the items apart.
-
 Alternatives:
 2. page.locator('[data-test="username"]')
    99 Excellent · 1 match
-3. page.getByPlaceholder('Username')
-   71 Good · 1 match
-   ! Coupled to placeholder copy — breaks on rewording and localization (Username)
-4. page.locator('input[data-test="username"][type="text"]')
-   99 Excellent · 1 match
-(2 more alternatives not shown — cor_inspect with all: true lists every one.)
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)
