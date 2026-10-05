@@ -112,6 +112,12 @@ async function gradeOne(page, selector, framework, idCache, project, testId = nu
   const loose = parsed.loose && !uncountable
     ? { ...parsed.loose, count: matchCount, best: matchCount > 0 ? await innermostMatch(parsed.build(page)) : null }
     : null;
+  // U4 (D2): a positional step whose chain matched several elements picks whichever comes first, second… — a failure.
+  let positional = null;
+  for (const p of parsed.positional ?? []) {
+    const before = await p.prefix(page).count().catch(() => 0);
+    if (before > 1) { positional = { code: p.code, count: before }; break; }
+  }
   const { graded, candidates } = await callPage(page, 'grade', { element, value: scoreValue, framework: fw, matchCount, testIdAttribute: testId });
   if (chain) Object.assign(graded, { value: selector, code: selector, chain });
   if (matchCount === 1) {
@@ -121,7 +127,7 @@ async function gradeOne(page, selector, framework, idCache, project, testId = nu
     if (regenerated) graded.volatileId = { id: regenerated.id, seen: regenerated.seen };
     if (candidates) await verifyNumberedIds(page, candidates.locators, idCache);
   }
-  const out = renderGrade({ input: selector, graded, candidates, note: parsed.note, uncountable, loose, proof: uncountable ? null : proofFor(parsed.framework) });
+  const out = renderGrade({ input: selector, graded, candidates, note: parsed.note, uncountable, loose, positional, proof: uncountable ? null : proofFor(parsed.framework) });
   const hint = matchCount === 0 ? await testIdHint(page, selector, testId) : null;
   return hint ? `${out}\n${hint}` : out;
 }

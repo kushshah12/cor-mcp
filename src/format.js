@@ -649,7 +649,7 @@ function looseLines({ kind, framework, count, best }, input) {
   ];
 }
 
-export function renderGrade({ input, graded, candidates, note, uncountable, loose = null, proof = null }) {
+export function renderGrade({ input, graded, candidates, note, uncountable, loose = null, positional = null, proof = null }) {
   const out = [];
   const count = graded.matchCount;
   // Every candidate that resolves and scores higher, in the framework's ranked
@@ -663,6 +663,21 @@ export function renderGrade({ input, graded, candidates, note, uncountable, loos
   const better = (volatile ? usable : higher).find((l) => !SUB_FLOOR.has(l.tier)) ?? null;
   const replace = count === 1 && !uncountable && (volatile || SUB_FLOOR.has(graded.tier));
 
+  // U4 (D2): resolving to one element by position is not resolving to the element. Never Healthy.
+  if (positional && count === 1 && !uncountable) {
+    const step = positional.code.startsWith('[') ? positional.code : `.${positional.code}`;
+    out.push(`Positional — ${step} picks one of ${positional.count} matches by position: a reorder, an added item or a hidden copy silently changes which element the test touches. Not acceptable as written.`);
+    out.push('', ...gradedBlock(graded, input));
+    const alt = usable[0];
+    if (alt) out.push('', `Unique alternative for the same element (${candidates.framework}):`, locatorBlock(alt, 1).replace(/^1\. /, '  '));
+    else {
+      const fix = addTestId(candidates ?? { locators: [] });
+      out.push('', 'No unique locator exists for this element without a position. Recommendation: change the application.');
+      if (fix) out.push('Add a test attribute (this requires an application change):', `  ${fix.snippet}`);
+    }
+    if (proof) out.push(proof);
+    return out.join('\n');
+  }
   if (uncountable) {
     out.push(`Match count unknown — the selector was understood but could not be counted on this page (${uncountable}). The score below reflects durability only.`);
   } else if (count === 0) {

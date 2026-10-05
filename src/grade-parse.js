@@ -12,6 +12,9 @@ const PLAYWRIGHT_METHODS = new Set([
 
 // Steps a chain may continue with after its first locator call.
 const CHAIN_METHODS = new Set(['filter', 'first', 'last', 'nth', 'or', 'and']);
+const POSITIONAL = new Set(['first', 'last', 'nth']);
+/** Playwright's own positional pick on a locator: `first()`, `last()`, `nth(2)`, `eq(2)`, `[2]`, `nth=2`. */
+const pick = (loc, method, n) => (method === 'first' ? loc.first() : method === 'last' ? loc.last() : loc.nth(Number(n)));
 const LOCATOR_START = /^(?:[A-Za-z_$][\w$]*\s*\.\s*)*(getBy[A-Za-z]+|locator)\s*(?=\()/;
 
 export const SUPPORTED_FORMS =
@@ -284,12 +287,17 @@ export function parseGradable(input, { param = null, framework = null } = {}) {
       out = [`${out[0]} ${step.out[0]}`];
       rest = step.rest;
     }
-    if (rest) throw new NotGradable(`chained calls (${rest.slice(0, 30)}) are not graded — grade the base selector`);
+    // U4 (D2): a trailing .eq(n) / .first() / .last() picks by position — graded, not refused.
+    const cyPick = cy[1] === 'get' && /^\.\s*(eq|first|last)\s*\(\s*(\d*)\s*\)$/.exec(rest);
+    if (rest && !cyPick) throw new NotGradable(`chained calls (${rest.slice(0, 30)}) are not graded — grade the base selector`);
     if (cy[1] === 'get') {
       if (typeof out[0] !== 'string') throw new NotGradable('cy.get needs a selector string');
       // cy.get('@alias') refers to a runtime alias, not the page.
       if (out[0].startsWith('@')) throw new NotGradable('cy.get(\'@alias\') names a Cypress alias, not a selector');
-      return { framework: 'cypress', scoreValue: out[0], build: (page) => page.locator(out[0]) };
+      const base = (page) => page.locator(out[0]);
+      if (!cyPick) return { framework: 'cypress', scoreValue: out[0], build: base };
+      const [, m, n] = cyPick;
+      return { framework: 'cypress', scoreValue: out[0], build: (page) => pick(base(page), m === 'eq' ? 'nth' : m, n), positional: [{ code: `${m}(${n})`, prefix: base }] };
     }
     // cy.contains(text) / cy.contains(selector, text)
     const [a, b] = out;
@@ -332,15 +340,22 @@ export function parseGradable(input, { param = null, framework = null } = {}) {
       };
     }
     const chain = describeChain(parsed);
-    return { framework: 'playwright', scoreValue: chain.scored[0].scoreValue, build, chain };
+    // U4 (D2): each first/last/nth, with the chain before it — counted to see whether it picks among several.
+    const positional = parsed.calls.flatMap((c, k) => (POSITIONAL.has(c.method)
+      ? [{ code: c.code, prefix: (page) => buildChain(page, { calls: parsed.calls.slice(0, k) }) }] : []));
+    return { framework: 'playwright', scoreValue: chain.scored[0].scoreValue, build, chain, ...(positional.length ? { positional } : {}) };
   }
 
   const wdio = /^\$\$?\s*(?=\()/.exec(src);
   if (wdio) {
     const { out, rest } = reader(src.slice(wdio[0].length)).args();
-    if (rest) throw new NotGradable(`chained WebdriverIO calls (${rest.slice(0, 30)}) are not graded — grade each selector on its own`);
+    // U4 (D2): $$(s)[n] picks by position — graded, not refused.
+    const index = wdio[0].startsWith('$$') && /^\[\s*(\d+)\s*\]$/.exec(rest);
+    if (rest && !index) throw new NotGradable(`chained WebdriverIO calls (${rest.slice(0, 30)}) are not graded — grade each selector on its own`);
     if (typeof out[0] !== 'string') throw new NotGradable('$() needs a selector string');
-    return wdioSelector(out[0]);
+    const sel = wdioSelector(out[0]);
+    if (!index) return sel;
+    return { ...sel, build: (page) => sel.build(page).nth(Number(index[1])), positional: [{ code: `[${index[1]}]`, prefix: sel.build }] };
   }
 
   if (/^[A-Za-z_$][\w$.]*\s*\(/.test(src)) {
@@ -350,6 +365,9 @@ export function parseGradable(input, { param = null, framework = null } = {}) {
   if (framework === 'webdriverio') return wdioSelector(src);
 
   // A raw selector: CSS, XPath, or a Playwright selector-engine string (text=, role=, xpath=).
+  // U4 (D2): a trailing `>> nth=N` picks by position.
+  const nth = /^(.+?)\s*>>\s*nth=(-?\d+)\s*$/.exec(src);
+  if (nth) return { framework: null, scoreValue: nth[1].replace(/^xpath=/, ''), build: (page) => page.locator(src), positional: [{ code: `nth=${nth[2]}`, prefix: (page) => page.locator(nth[1]) }] };
   return { framework: null, scoreValue: src.replace(/^xpath=/, ''), build: (page) => page.locator(src) };
 }
 
@@ -373,7 +391,9 @@ export function substituteParam(src, param, value) {
       const after = src.slice(i + m[0].length).match(/^\s*(.)/)?.[1];
       const prevNonSpace = src.slice(0, i).trimEnd().slice(-1);
       const shorthand = m[0] === param && (prevNonSpace === '{' || prevNonSpace === ',') && (after === ',' || after === '}');
-      out += m[0] === param && before !== '.' ? (shorthand ? `${param}: ${lit}` : lit) : m[0];
+      // U4 (D6): `{ name: 'Add to cart' }` — an object key named like the parameter is not the parameter.
+      const key = (prevNonSpace === '{' || prevNonSpace === ',') && after === ':';
+      out += m[0] === param && before !== '.' && !key ? (shorthand ? `${param}: ${lit}` : lit) : m[0];
       i += m[0].length - 1;
       continue;
     }

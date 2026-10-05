@@ -1,13 +1,19 @@
 # sd-grade-first — pins D2
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
---- cor_grade {"selector":"page.getByRole('button', { name: 'Add to cart' }).first()"} (909 chars)
-Healthy — resolves to exactly one element. If a test using it failed, the cause is in the product or the assertion, not this locator. Stop repairing the locator.
+--- cor_grade {"selector":"page.getByRole('button', { name: 'Add to cart' }).first()"} (920 chars)
+Positional — .first() picks one of 6 matches by position: a reorder, an added item or a hidden copy silently changes which element the test touches. Not acceptable as written.
+
+Graded: page.getByRole('button', { name: 'Add to cart' }).first()
   Point-in-time — true on this page now: 79 Good · 1 match
+  + Targets the element by ARIA role and accessible name
+  + Uses the test framework’s idiomatic locator API
+  - Coupled to a label / accessible name
   Chain — scored by its weakest step, since it breaks when any step does:
     1. getByRole('button', { name: 'Add to cart' })   79 Good — coupled to a label / accessible name   ← weakest
     ! .first() — picks by position: whatever is first among the matches, which changes if their order does
-Not a repair case: the locator works. A higher-scoring form exists — cor_inspect this element only if the user wants a durability upgrade.
+
+Unique alternative for the same element (playwright):
+  page.locator('[data-test="add-to-cart-sauce-labs-backpack"]')
+   99 Excellent · 1 match
 Proof: counted by Playwright.
-Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
-// COR: anchored on ARIA role and accessible name; risk: coupled to a label / accessible name

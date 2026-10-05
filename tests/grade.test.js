@@ -302,7 +302,7 @@ test('a Healthy grade is short: no input echo, no signal list — fragile and br
 });
 
 // ── Cypress chains (Cypress run 5b3bc6b9, 2026-09-30): 2 of 3 grades refused ─
-test('cy.get(a).find(b) is graded as the descendant selector; other chains still are not', async () => {
+test('cy.get(a).find(b) is graded as the descendant selector; U4: .eq(n) is graded as positional; other chains still are not', async () => {
   await open('chains.html');
   const one = await grade("cy.get('div.faq-item').find('div.faq-item__answer')");
   assert.equal(one.isError, false, one.text);
@@ -311,7 +311,9 @@ test('cy.get(a).find(b) is graded as the descendant selector; other chains still
   assert.match(two.text, /Ambiguous — matches 2 elements/);
   const base = await grade("cy.get('div.faq-item').find('div.faq-item__answer')");
   assert.match(base.text, /Graded: cy\.get\('div\.faq-item'\)\.find\('div\.faq-item__answer'\)|div\.faq-item div\.faq-item__answer/);
-  for (const bad of ["cy.get('div.faq-item').eq(0)", "cy.get('div.faq-item').find('p').click()", "cy.get('div.faq-item').find(p)", "cy.get('@x').find('p')"]) {
+  // U4 (D2): a trailing .eq(n) is graded now — as a positional pick among the matches.
+  assert.match((await grade("cy.get('div.faq-item').eq(0)")).text, /^Positional — \.eq\(0\) picks one of \d+ matches/);
+  for (const bad of ["cy.get('div.faq-item').find('p').click()", "cy.get('div.faq-item').find(p)", "cy.get('@x').find('p')"]) {
     const r = await grade(bad);
     assert.match(r.text, /^Not gradable/, bad);
   }
