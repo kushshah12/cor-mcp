@@ -85,7 +85,7 @@ export function entryFor({ result, lead, helper, framework, conventions, typescr
   } else {
     const helperLines = helper?.code ? helper.code.split('\n') : null;
     const use = helperLines ? helperLines.at(-1).trim() : (best.code || best.value).replace(/^await\s+/, '');
-    if (helperLines) preamble = ['  // the helper, once per file (module scope):', ...helperLines.slice(0, -1).map((l) => `  ${l}`)];
+    if (helperLines) preamble = [`  // ${tag} · helper, once per file (module scope)`, ...helperLines.slice(0, -1).map((l) => `  ${l}`)];
     body = store === 'page-object-class' ? `  ${member} = (${pTyped}) => ${use};` : `  ${member}: (${pTyped}) => ${use},`;
   }
   return { lines: [head, ...preamble, comment, body, ''], member, file, store };

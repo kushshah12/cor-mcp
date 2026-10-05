@@ -26,7 +26,7 @@ test('lists exactly the registered tools — no placeholders', async (t) => {
   const client = await connect(t, createServer());
   const { tools } = await client.listTools();
   assert.deepEqual(tools.map((t) => t.name), defaultTools(createSession()).map((t) => t.name));
-  assert.deepEqual(tools.map((t) => t.name), ['cor_open', 'cor_click', 'cor_fill', 'cor_press', 'cor_close', 'cor_snapshot', 'cor_inspect', 'cor_grade']);
+  assert.deepEqual(tools.map((t) => t.name), ['cor_open', 'cor_click', 'cor_fill', 'cor_press', 'cor_close', 'cor_snapshot', 'cor_inspect', 'cor_grade', 'cor_check']);
 });
 
 test('a throwing tool returns an error result and the session survives', async (t) => {
@@ -86,10 +86,12 @@ test('the client receives instructions: parameterised functions and a locator su
   assert.match(text, /final summary, list each locator you used .* COR score, and the runner-up/);
 });
 
-test('the instructions ask the agent to grade locators it wrote or extended itself before running the tests', async (t) => {
+test('U9: the instructions say to place entries with their cor: comment and run cor_check before the tests; self-written locators are graded', async (t) => {
   const client = await connect(t, createServer());
   const text = client.getInstructions();
-  assert.match(text, /Before running the tests, pass each locator you wrote or extended yourself .* to cor_grade, with param when it takes one/);
+  assert.match(text, /Place it as given, comment included/);
+  assert.match(text, /Before running the tests, run cor_check: it fails on any locator without a COR id and returns the entry to paste/);
+  assert.match(text, /Pass a locator you wrote or extended yourself to cor_grade, with param when it takes one/);
   assert.match(text, /Adding a step to a template .* can match several elements inside an item/);
 });
 

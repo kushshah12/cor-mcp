@@ -1,0 +1,88 @@
+// U9: find every locator call in a file and the cor: id that belongs to it. Syntax finds the calls; identity comes only
+// from the id — never from comparing locator text (R46). A call's id is on its own line or in the comment lines right
+// above the statement it starts (an entry is placed as `// COR cor:7f3a2c · …` then the code).
+import { ID_PATTERN } from './records.js';
+
+// A locator call: Playwright (page./this.page./any receiver .locator/.getBy*), Cypress (cy.get/cy.contains), WebdriverIO ($/$$).
+const CALL = /(?:\b(?:this\.)?page\s*\.\s*(?:locator|getBy[A-Z]\w*)\s*\(|\.\s*(?:locator|getBy[A-Z]\w*)\s*\(|\bcy\s*\.\s*(?:get|contains)\s*\(|(?:^|[^\w$.])\$\$?\s*\()/;
+const COMMENT = /^\s*(\/\/|\/\*|\*|#)/;
+const CONTINUES = /^\s*[.)]/; // a line that continues the statement above (a chain step, a closing paren)
+// A line that leaves its statement open: ends in `(`, `=>` or `=`. Not `,` or `{` — those end one member and start the
+// next, and merging two members would let one's id cover the other.
+const OPENS = /(?:\(|=>|[^=!<>]=)\s*$/;
+const POSITIONAL = /\.(?:first|last)\(\s*\)|\.nth\(\s*-?\d+\s*\)|\.eq\(\s*\d+\s*\)|>>\s*nth=|\$\$\([^)]*\)\s*\[\s*\d+\s*\]/;
+// What starts a gradable expression on a line: a page / this.page / cy / $ receiver.
+const ROOTED = /(?:this\.)?page\s*\.\s*(?:locator|getBy[A-Z]\w*)\s*\(|\bcy\s*\.\s*(?:get|contains)\s*\(|\$\$?\s*\(/;
+const STEP = /^\s*\.\s*(locator|getBy[A-Z]\w*|filter|first|last|nth|or|and|find|eq)\s*\(/;
+
+/** The balanced `( … )` at `i` (src[i] === '('): its end index, skipping strings. */
+function closeParen(src, i) {
+  let depth = 0;
+  let quote = null;
+  for (let j = i; j < src.length; j++) {
+    const ch = src[j];
+    if (quote) { if (ch === '\\') j++; else if (ch === quote) quote = null; continue; }
+    if (ch === '"' || ch === "'" || ch === '`') quote = ch;
+    else if (ch === '(') depth++;
+    else if (ch === ')' && --depth === 0) return j;
+  }
+  return -1;
+}
+
+/** The page-rooted locator expression in `src` (calls plus locator steps, not actions), or null. */
+export function rootedExpression(src) {
+  const m = ROOTED.exec(src);
+  if (!m) return null;
+  let end = closeParen(src, m.index + m[0].length - 1);
+  if (end < 0) return null;
+  for (;;) {
+    const rest = src.slice(end + 1);
+    const step = STEP.exec(rest);
+    if (step) { end = closeParen(src, end + 1 + step[0].length - 1); if (end < 0) return null; continue; }
+    const index = /^\s*\[\s*\d+\s*\]/.exec(rest); // $$(s)[n]
+    if (index) { end += index[0].length; continue; }
+    break;
+  }
+  return src.slice(m.index, end + 1).replace(/\s*\n\s*/g, '');
+}
+
+/**
+ * Every locator call in `text`, one per statement: its line, the statement, its cor: id (or null) and whether it
+ * picks by position. JSON is handled by the caller (its ids are in the sidecar).
+ * @returns {{ line: number, statement: string, id: string|null, positional: boolean, expression: string|null }[]}
+ */
+export function scanLocators(text) {
+  const lines = text.split('\n');
+  const out = [];
+  const seen = new Set();
+  for (let i = 0; i < lines.length; i++) {
+    if (COMMENT.test(lines[i]) || !CALL.test(lines[i])) continue;
+    // The statement: back up over continuation lines, then forward until it closes.
+    let start = i;
+    while (start > 0 && (CONTINUES.test(lines[start]) || OPENS.test(lines[start - 1])) && !COMMENT.test(lines[start - 1])) start--;
+    if (seen.has(start)) continue;
+    seen.add(start);
+    let end = i;
+    while (end + 1 < lines.length && (CONTINUES.test(lines[end + 1]) || OPENS.test(lines[end]))) end++;
+    const statement = lines.slice(start, end + 1).join('\n');
+    // The id: in the statement itself, or in the comment block right above it.
+    let id = ID_PATTERN.exec(statement)?.[1] ?? null;
+    for (let k = start - 1; !id && k >= 0 && COMMENT.test(lines[k]); k--) id = ID_PATTERN.exec(lines[k])?.[1] ?? null;
+    out.push({ line: start + 1, statement: statement.trim(), id, positional: POSITIONAL.test(statement), expression: rootedExpression(statement) });
+  }
+  return out;
+}
+
+/** YAML: each `key: value` line and its id, from the `# COR cor:…` comment above it. */
+export function scanYaml(text) {
+  const lines = text.split('\n');
+  const out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const m = /^\s*([\w$-]+)\s*:\s*\S/.exec(lines[i]);
+    if (!m || COMMENT.test(lines[i])) continue;
+    let id = null;
+    for (let k = i - 1; !id && k >= 0 && COMMENT.test(lines[k]); k--) id = ID_PATTERN.exec(lines[k])?.[1] ?? null;
+    out.push({ line: i + 1, key: m[1], id, statement: lines[i].trim(), positional: />>\s*nth=|\[\s*\d+\s*\]\s*$/.test(lines[i]) });
+  }
+  return out;
+}

@@ -2,7 +2,7 @@
 Now at {base}/site/bstackdemo — "StackDemo" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
 Locators: page objects in tests/pages/ (default — no specs found).
---- cor_inspect {"selector":"[id=\"2\"] .shelf-item__buy-btn","framework":"cypress"} (3220 chars)
+--- cor_inspect {"selector":"[id=\"2\"] .shelf-item__buy-btn","framework":"cypress"} (3252 chars)
 Recommended — parameterised: 25 items share this shape; every value checked, each finds exactly its own item (25/25).
   Proof: emulated — not run in Cypress. The template was checked in the page for every value; its Cypress idioms were not conformance-tested on this version.
   title = "iPhone 12 Mini"   (also: "iPhone 12", "iPhone 12 Pro Max", "iPhone 12 Pro", "iPhone 11", … 20 more)
@@ -23,7 +23,7 @@ Declined as the answer — the most durable single-item locator today:
    ! Anchored on a class name — breaks whenever a redesign renames it (shelf-item__buy-btn)
 
 Entry — place in tests/pages/bstackdemo.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
-  // the helper, once per file (module scope):
+  // COR cor:{id} · 25/25 items checked · helper, once per file (module scope)
   const shelfItem = (title) =>
     cy.get('div.shelf-item')
       .contains('p.shelf-item__title', new RegExp(`^\\s*${Cypress._.escapeRegExp(title)}\\s*$`))

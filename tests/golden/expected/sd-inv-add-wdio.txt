@@ -2,7 +2,7 @@
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
 Locators: page objects in tests/pages/ (default — no specs found).
---- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]","framework":"webdriverio"} (2464 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]","framework":"webdriverio"} (2494 chars)
 Recommended — parameterised: 6 items share this shape; every value checked, each finds exactly its own item (6/6).
   Proof: emulated — not run in WebdriverIO. The template was checked in the page for every value; its WebdriverIO idioms were not conformance-tested on this version.
   name = "Sauce Labs Backpack"   (also: "Sauce Labs Bike Light", "Sauce Labs Bolt T-Shirt", "Sauce Labs Fleece Jacket", "Sauce Labs Onesie", … 1 more)
@@ -21,7 +21,7 @@ For this one item alone (webdriverio):
   + Short and shallow
 
 Entry — place in tests/pages/saucedemoInventory.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
-  // the helper, once per file (module scope):
+  // COR cor:{id} · 6/6 items checked · helper, once per file (module scope)
   const inventoryItem = (name) =>
     $$('[data-test="inventory-item"]')
       .find(async (el) => (await el.$('[data-test="inventory-item-name"]').getText()) === name);

@@ -4,6 +4,8 @@ import { createSession } from './session.js';
 import { sessionTools } from './tools/session-tools.js';
 import { inspectTools } from './tools/inspect.js';
 import { gradeTools } from './tools/grade.js';
+import { checkTools } from './tools/check.js';
+import { createInspector } from './tools/inspect.js';
 
 const { name, version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -11,7 +13,8 @@ const { name, version } = JSON.parse(readFileSync(new URL('../package.json', imp
 // agent must never be offered a tool that cannot work.
 export function defaultTools(session, fingerprints = null, records = null) {
   const idCache = new Map(); // id-stability verdicts, shared by inspect and grade
-  return [...sessionTools(session), ...inspectTools(session, idCache, fingerprints, records), ...gradeTools(session, idCache)];
+  const inspector = createInspector(session, idCache, fingerprints, records); // shared: cor_check issues entries too (U9)
+  return [...sessionTools(session), ...inspectTools(session, idCache, fingerprints, records, inspector), ...gradeTools(session, idCache), ...checkTools(session, inspector, records)];
 }
 
 // Sent once at connect. The user asks the agent for tests, not for locators,
@@ -22,7 +25,9 @@ export const INSTRUCTIONS = [
     'write one function that takes the parameter (e.g. addToCart(title)) instead of a locator per item. ' +
     'When the test covers every item ("every FAQ question", "all plans"), loop over the Every item locator instead of typing the values, so an item added later is tested too; use the listed values only for items the test names.',
   'To read a table value, cor_snapshot within the row\'s name — it lists the row\'s cells by column with refs — then cor_inspect the cell for a row × column template.',
-  'Before running the tests, pass each locator you wrote or extended yourself — anything not copied as-is from cor_inspect — to cor_grade, with param when it takes one. ' +
+  'cor_inspect gives an Entry for each element: the code to place, the file and member it belongs in, and a // COR cor:… comment. Place it as given, comment included — ' +
+    'the id is how COR tells its locators from typed ones. Before running the tests, run cor_check: it fails on any locator without a COR id and returns the entry to paste. ' +
+    'Pass a locator you wrote or extended yourself to cor_grade, with param when it takes one. ' +
     'Adding a step to a template (card.locator(\'.price\')) makes a new locator: the step can match several elements inside an item. ' +
     'Keep the page open — no cor_close — until you have graded them: grading needs it. ' +
     'Every locator comes from cor_inspect or is graded — including elements you only assert on (a heading, a total, a message): a navigation reply lists the new page\'s headings with refs. ' +

@@ -123,14 +123,77 @@ export async function verifyTemplate(page, params) {
   }
 }
 
-/** @param {ReturnType<import('../session.js').createSession>} session */
-export function inspectTools(session, idCache = new Map(), fingerprints = null, records = null) {
+/**
+ * U9: the inspect pipeline, shared by cor_inspect and cor_check (which issues an entry for a typed locator's element).
+ * @returns {(args: object) => Promise<{ reply: string, entry: string[]|null }>}
+ */
+export function createInspector(session, idCache = new Map(), fingerprints = null, records = null) {
   const openPage = () => {
     if (!session.isOpen) throw new Error('No page is open — call cor_open with a URL first.');
     return session.getPage();
   };
-
   let dataCyNoted = false;
+  return async function inspect({ ref, selector, element, framework: asked, all = false, quiet = false }) {
+    const framework = session.resolveFramework(asked) ?? 'playwright';
+    const page = await openPage();
+    let entryLines = null;
+    let result = await callPage(page, 'inspect', { ref, selector, element, framework, max: 6, testIdAttribute: session.testIdAttribute, order: session.order });
+    if (result.error === 'unknown-ref' || result.error === 'detached') throw goneError(ref);
+    if (result.error === 'invalid-selector') {
+      // U21: not CSS — a Playwright selector (:text-is, >>, text=)? Playwright resolves it.
+      const matches = page.locator(selector);
+      const count = await matches.count().catch(() => null);
+      if (count === null) throw new Error(`"${selector}" is not a valid selector (CSS or Playwright).`);
+      if (count === 1) {
+        const handle = await matches.elementHandle();
+        result = await callPage(page, 'inspect', { element: handle, framework, max: 6, testIdAttribute: session.testIdAttribute, order: session.order }).finally(() => handle.dispose());
+      } else result = { error: 'match-count', count };
+    }
+    if (result.error === 'match-count') {
+      throw new Error(
+        result.count === 0
+          ? `No element matches "${selector}". Call cor_snapshot and pass a ref instead.${await frameHint(page)}`
+          : `"${selector}" matches ${result.count} elements — narrow it to one, or call cor_snapshot and pass a ref.`,
+      );
+    }
+    await verifyNumberedIds(page, result.locators, idCache);
+    await verifyTemplate(page, result.params);
+    const top = result.locators.reduce((a, b) => (b.score > a.score ? b : a), result.locators[0]);
+    if (top?.volatileId && top !== result.locators[0]) {
+      const [best] = result.locators;
+      result.rankingNote = `Demoted ${top.value} (score ${top.score}) — its id changes on every page load (${top.volatileId.id} was ${top.volatileId.seen} on a fresh load). Ranked ${best.value} first.`;
+    }
+    const refsLive = Boolean(session.refs && !session.refs.staleBecause);
+    // once per session: the note is about the page, not this element
+    const dataCyNote = !quiet && !dataCyNoted && framework === 'cypress' && result.testAttrs === false;
+    if (dataCyNote) dataCyNoted = true;
+    const detected = session.detection.candidates.find((c) => c.framework === framework);
+    // U8: an entry with a cor: id; its record (fingerprint + ranked strategies) is written under .cor/records/.
+    const typescript = Boolean(detected?.typescript);
+    const makeEntry = ({ lead, helper }) => {
+      const strategies = [
+        ...(lead?.template?.playwright ? [{ kind: 'template', value: lead.template.playwright.selectorTemplate }] : []),
+        ...result.locators.map((l) => ({ kind: l.strategy, value: l.value })),
+      ];
+      const id = records ? records.issue({ url: page.url(), fingerprint: result.capture.fingerprint, elementKey: result.capture.elementKey, strategies }) : newId();
+      const entry = entryFor({ result, lead, helper, framework, conventions: session.conventions, typescript, url: page.url(), id });
+      if (records && entry.store === 'json') records.link(`${entry.file}#${entry.member}`, id);
+      entryLines = entry.lines;
+      return entry.lines;
+    };
+    const reply = renderInspect(result, { refsLive, framework, all, dataCyNote, typescript, major: detected?.version ?? null, testingLibrary: Boolean(detected?.testingLibrary), makeEntry });
+    if (fingerprints && result.locators.length) {
+      fingerprints.record({ url: page.url(), ...result.capture, locators: result.locators.map((l) => l.value) });
+    }
+    return { reply, entry: entryLines };
+  };
+}
+/** @param {ReturnType<import('../session.js').createSession>} session */
+export function inspectTools(session, idCache = new Map(), fingerprints = null, records = null, inspector = createInspector(session, idCache, fingerprints, records)) {
+  const openPage = () => {
+    if (!session.isOpen) throw new Error('No page is open — call cor_open with a URL first.');
+    return session.getPage();
+  };
 
   return [
     {
@@ -200,59 +263,9 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null, 
         },
       },
       handler: async ({ ref, selector, framework: asked, all = false }) => {
-        const framework = session.resolveFramework(asked) ?? 'playwright';
         if (Boolean(ref) === Boolean(selector)) throw new Error('Pass exactly one of ref (from cor_snapshot) or selector.');
-        const page = await openPage();
         if (ref) checkRef(session, ref);
-        let result = await callPage(page, 'inspect', { ref, selector, framework, max: 6, testIdAttribute: session.testIdAttribute, order: session.order });
-        if (result.error === 'unknown-ref' || result.error === 'detached') throw goneError(ref);
-        if (result.error === 'invalid-selector') {
-          // U21: not CSS — a Playwright selector (:text-is, >>, text=)? Playwright resolves it.
-          const matches = page.locator(selector);
-          const count = await matches.count().catch(() => null);
-          if (count === null) throw new Error(`"${selector}" is not a valid selector (CSS or Playwright).`);
-          if (count === 1) {
-            const element = await matches.elementHandle();
-            result = await callPage(page, 'inspect', { element, framework, max: 6, testIdAttribute: session.testIdAttribute, order: session.order }).finally(() => element.dispose());
-          } else result = { error: 'match-count', count };
-        }
-        if (result.error === 'match-count') {
-          throw new Error(
-            result.count === 0
-              ? `No element matches "${selector}". Call cor_snapshot and pass a ref instead.${await frameHint(page)}`
-              : `"${selector}" matches ${result.count} elements — narrow it to one, or call cor_snapshot and pass a ref.`,
-          );
-        }
-        await verifyNumberedIds(page, result.locators, idCache);
-        await verifyTemplate(page, result.params);
-        const top = result.locators.reduce((a, b) => (b.score > a.score ? b : a), result.locators[0]);
-        if (top?.volatileId && top !== result.locators[0]) {
-          const [best] = result.locators;
-          result.rankingNote = `Demoted ${top.value} (score ${top.score}) — its id changes on every page load (${top.volatileId.id} was ${top.volatileId.seen} on a fresh load). Ranked ${best.value} first.`;
-        }
-        const refsLive = Boolean(session.refs && !session.refs.staleBecause);
-        // once per session: the note is about the page, not this element
-        const dataCyNote = !dataCyNoted && framework === 'cypress' && result.testAttrs === false;
-        if (dataCyNote) dataCyNoted = true;
-        const detected = session.detection.candidates.find((c) => c.framework === framework);
-        // U8: an entry with a cor: id; its record (fingerprint + ranked strategies) is written under .cor/records/.
-        const typescript = Boolean(detected?.typescript);
-        const makeEntry = ({ lead, helper }) => {
-          const strategies = [
-            ...(lead?.template?.playwright ? [{ kind: 'template', value: lead.template.playwright.selectorTemplate }] : []),
-            ...result.locators.map((l) => ({ kind: l.strategy, value: l.value })),
-          ];
-          const id = records ? records.issue({ url: page.url(), fingerprint: result.capture.fingerprint, elementKey: result.capture.elementKey, strategies }) : newId();
-          const entry = entryFor({ result, lead, helper, framework, conventions: session.conventions, typescript, url: page.url(), id });
-          if (records && entry.store === 'json') records.link(`${entry.file}#${entry.member}`, id);
-          return entry.lines;
-        };
-        const reply = renderInspect(result, { refsLive, framework, all, dataCyNote, typescript, major: detected?.version ?? null, testingLibrary: Boolean(detected?.testingLibrary), makeEntry });
-        const response = text(reply);
-        if (fingerprints && result.locators.length) {
-          fingerprints.record({ url: page.url(), ...result.capture, locators: result.locators.map((l) => l.value) });
-        }
-        return response;
+        return text((await inspector({ ref, selector, framework: asked, all })).reply);
       },
     },
   ];
