@@ -84,20 +84,20 @@ Alternatives:
 2. page.locator('button[data-test="add-to-cart-cap"][name="add-to-cart-cap"]')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_open {"url":"http://127.0.0.1:62029/app/inventory.html?release=2"} (200 chars)
+--- cor_open {"url":"{base}/app/inventory.html?release=2"} (200 chars)
 Now at {base}/app/inventory.html?release=2 — "COR Shop â€” Products" (HTTP 200). Browser: {browser}.
 Framework: Playwright — from cor.config.js.
 Locators: page objects in tests/pages/ (cor.config.js).
---- cor_heal {"id":"000001"} (477 chars)
-Heal for cor:000001 (recorded 2026-10-05).
+--- cor_heal {"id":"000001"} (473 chars)
+Heal for cor:000001 (recorded {date}).
 Evidence: stored role locator role=combobox, name=Sort still finds exactly one element, and it matches the recorded fingerprint (100% of a full match).
 Proposed — not applied. Replace the entry with (same id):
   Entry — place in tests/pages/inventory.page.js, member sortBy (cor_check reads the cor: id; keep the comment):
     // COR cor:000001 · 79 Good · 1 match
     sortBy = () => this.page.getByRole('combobox', { name: 'Sort' });
---- cor_heal {"id":"000002"} (310 chars)
-[error] Heal for cor:000002 (recorded 2026-10-05).
+--- cor_heal {"id":"000002"} (306 chars)
+[error] Heal for cor:000002 (recorded {date}).
 Declined — no stored locator finds it, and no element is close enough — best similarity 0.42, next 0.42; a heal needs ≥ 0.7 and a lead of 0.15. The element may be gone or changed beyond recognition: cor_snapshot the page and cor_inspect it if it still exists.
---- cor_heal {"id":"000003"} (310 chars)
-[error] Heal for cor:000003 (recorded 2026-10-05).
+--- cor_heal {"id":"000003"} (306 chars)
+[error] Heal for cor:000003 (recorded {date}).
 Declined — no stored locator finds it, and no element is close enough — best similarity 0.42, next 0.42; a heal needs ≥ 0.7 and a lead of 0.15. The element may be gone or changed beyond recognition: cor_snapshot the page and cor_inspect it if it still exists.

@@ -71,7 +71,7 @@ async function connect(project, { records = false } = {}) {
 
 // The local port and the installed Chrome version change between runs; nothing else may.
 // U8: entry ids are random per issue.
-const normalise = (text, keepIds = false) => (keepIds ? text : text.replace(/cor:[0-9a-f]{6}\b/g, 'cor:{id}')).split(base).join('{base}').replace(/Browser: [^\n]*?\d+(\.\d+)+\./g, 'Browser: {browser}.');
+const normalise = (text, keepIds = false) => (keepIds ? text : text.replace(/cor:[0-9a-f]{6}\b/g, 'cor:{id}')).split(base).join('{base}').replace(/Browser: [^\n]*?\d+(\.\d+)+\./g, 'Browser: {browser}.').replace(/\(recorded \d{4}-\d{2}-\d{2}\)/g, '(recorded {date})');
 
 for (const c of CASES) {
   test(`golden ${c.id}${c.defect ? ` (${c.defect})` : ''}`, { timeout: MAX_MS }, async (t) => {
@@ -81,7 +81,7 @@ for (const c of CASES) {
     for (const [tool, raw] of c.calls) {
       const args = raw.url?.startsWith('{base}') ? { ...raw, url: raw.url.replace('{base}', base) } : raw;
       const reply = normalise(await call(tool, args), c.records);
-      parts.push(`--- ${tool} ${JSON.stringify(args)} (${reply.length} chars)`, reply);
+      parts.push(`--- ${tool} ${JSON.stringify(raw)} (${reply.length} chars)`, reply);
     }
     const actual = `${parts.join('\n')}\n`;
     const file = new URL(`${c.id}.txt`, EXPECTED);
