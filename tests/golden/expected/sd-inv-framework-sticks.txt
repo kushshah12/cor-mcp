@@ -16,18 +16,22 @@ Alternatives:
 2. cy.get('select[data-test="product-sort-container"]')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_inspect {"selector":"[data-test=\"product-sort-container\"]"} (631 chars)
-Best locator (cypress):
-  cy.get('[data-test="product-sort-container"]')
+--- cor_inspect {"selector":"[data-test=\"product-sort-container\"]"} (1084 chars)
+Best locator (playwright):
+  page.locator('[data-test="product-sort-container"]')
   Point-in-time — true on this page now: 99 Excellent · 1 match
   + Anchored on a dedicated test attribute
   + Short and shallow
-Framework convention applied: cypress (published guidance).
+Framework convention applied: playwright (published guidance).
+playwright's guidance puts role, label and text first; this element has a test id, a team's marker for automation, and visible text changes with copy edits and translation, so the test id leads. Without a test id the order is playwright's own.
 
 Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
 // COR: anchored on a dedicated test attribute; no known risk
 
 Alternatives:
-2. cy.get('select[data-test="product-sort-container"]')
+2. page.locator('select[data-test="product-sort-container"]')
    99 Excellent · 1 match
-(4 more alternatives not shown — cor_inspect with all: true lists every one.)
+6. page.locator('[data-test="secondary-header"] select[data-test="product-sort-container"]')
+   95 Excellent · 1 match
+   ! Long selector (73 chars) — hard to read and usually over-specified
+(3 more alternatives not shown — cor_inspect with all: true lists every one.)

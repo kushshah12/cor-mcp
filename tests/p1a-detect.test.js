@@ -99,19 +99,18 @@ test('workspaces: two frameworks across packages are ambiguous; a package past t
 test('the line cor_open prints names the framework, version, language and source', () => {
   const dir = project('line', { 'package.json': pkg({ '@wdio/cli': '^9.2.1', typescript: '5' }) });
   assert.equal(frameworkLine(detectFramework(dir)), 'Framework: WebdriverIO v9 (TypeScript) — from ./package.json (@wdio/cli). Override with framework: "…".');
-  assert.match(frameworkLine(detectFramework(project('line2', { 'package.json': pkg({ cypress: '16', '@playwright/test': '1' }) }))), /^Framework: several found — Playwright v1 \(\.\/package\.json\), Cypress v16 \(\.\/package\.json\)\. Rendering Playwright until you pass framework: "playwright" or "cypress"\.$/);
+  assert.match(frameworkLine(detectFramework(project('line2', { 'package.json': pkg({ cypress: '16', '@playwright/test': '1' }) }))), /^Framework: several found — Playwright v1 \(\.\/package\.json\), Cypress v16 \(\.\/package\.json\)\. Rendering Playwright unless a call passes framework: "playwright" or "cypress"\.$/);
   assert.equal(frameworkLine(detectFramework(project('line3', { 'x': 'y' }))), 'Framework: no framework found — rendering Playwright. Pass framework: "…" to change.');
-  assert.equal(frameworkLine(detectFramework(dir), 'cypress'), 'Framework: Cypress — from your framework argument.');
 });
 
-test('session: detected once and kept; the argument wins and sticks', () => {
+test('U2 session: detected once and kept; an argument applies to its own call only (D3)', () => {
   const dir = project('sess', { 'package.json': pkg({ cypress: '16' }) });
   const session = createSession({ cwd: dir });
   assert.equal(session.resolveFramework(), 'cypress');
   rmSync(join(dir, 'package.json'));
   assert.equal(session.resolveFramework(), 'cypress', 'the file is not read again');
   assert.equal(session.resolveFramework('webdriverio'), 'webdriverio');
-  assert.equal(session.resolveFramework(), 'webdriverio', 'an earlier argument holds');
+  assert.equal(session.resolveFramework(), 'cypress', 'an earlier argument does not stick');
   assert.equal(createSession({ cwd: project('sess2', { 'x': 'y' }) }).resolveFramework(), null);
 });
 
@@ -142,7 +141,7 @@ async function connect(t, cwd) {
   };
 }
 
-test('cor_open names the framework; cor_inspect renders for it without an argument; the argument wins', async (t) => {
+test('cor_open names the framework; cor_inspect renders for it without an argument; U2: an argument applies to its call only', async (t) => {
   const call = await connect(t, project('e2e-cy', { 'package.json': pkg({ cypress: '16' }) }));
   const opened = await call('cor_open', { url: base });
   assert.match(opened, /\nFramework: Cypress v16 — from \.\/package\.json \(cypress\)\. Override with framework: "…"\.$/);
@@ -151,12 +150,12 @@ test('cor_open names the framework; cor_inspect renders for it without an argume
   assert.doesNotMatch(detected, /page\.get/);
   const asked = await call('cor_inspect', { selector: '#email', framework: 'playwright' });
   assert.match(asked, /page\.getBy/);
-  assert.match(await call('cor_inspect', { selector: '#email' }), /page\.getBy/, 'the argument holds for the session');
+  assert.match(await call('cor_inspect', { selector: '#email' }), /cy\.get\(/, 'U2 (D3): the argument does not stick');
 });
 
 test('two frameworks: cor_open asks, and output stays Playwright until the agent answers', async (t) => {
   const call = await connect(t, project('e2e-two', { 'package.json': pkg({ cypress: '16', '@wdio/cli': '9' }) }));
-  assert.match(await call('cor_open', { url: base }), /Framework: several found — .*Rendering Playwright until you pass framework/);
+  assert.match(await call('cor_open', { url: base }), /Framework: several found — .*Rendering Playwright unless a call passes framework/);
   assert.match(await call('cor_inspect', { selector: '#email' }), /page\.getBy/);
 });
 

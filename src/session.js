@@ -44,10 +44,9 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
     throw new Error(NO_BROWSER);
   }
 
-  // P1a: the project's test framework — read from package.json once per session; an
-  // agent's `framework` argument wins and sticks.
+  // P1a: the project's test framework — read from package.json once per session.
+  // U2 (D3): an agent's `framework` argument renders that call only; it never changes the session's.
   let detection = null;
-  let chosen = null;
 
   let highestRef = 0;
   const note = (live) => { for (const r of live) highestRef = Math.max(highestRef, Number(r.slice(1))); };
@@ -59,7 +58,7 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
   function reset() {
     browser = context = page = null;
     refs = null;
-    detection = chosen = null;
+    detection = null;
     clearTimeout(idleTimer);
   }
 
@@ -121,13 +120,12 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
   return {
     getPage,
     close,
-    /** The framework to render for: the argument, else the session's, else the detected one, else null (callers render Playwright). */
+    /** The framework to render for: the call's argument, else the detected one, else null (callers render Playwright). */
     resolveFramework(argument) {
-      if (argument) chosen = argument;
-      return chosen ?? this.detection.framework;
+      return argument ?? this.detection.framework;
     },
     get detection() { return (detection ??= detectFramework(cwd)); },
-    get frameworkLine() { return frameworkLine(this.detection, chosen); },
+    get frameworkLine() { return frameworkLine(this.detection); },
     invalidateRefs,
     /** The refs the page now resolves — the whole set, after a full or scoped snapshot. */
     issueRefs(live, { expiredBefore = null } = {}) {

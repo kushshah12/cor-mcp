@@ -95,14 +95,13 @@ const describe = (c, cwd) => {
   return { name, where: where.startsWith('..') ? join(c.dir, 'package.json') : `./${where}` };
 };
 
-/** The one line cor_open prints (spec §6.4). `chosen` is a framework the agent passed earlier. */
-export function frameworkLine(detection, chosen = null) {
-  if (chosen) return `Framework: ${LABELS[chosen] ?? chosen} — from your framework argument.`;
+/** The one line cor_open prints (spec §6.4). U2: an argument never changes it — it applies to its own call only. */
+export function frameworkLine(detection) {
   const { candidates, ambiguous, cwd } = detection;
   if (ambiguous) {
     const list = candidates.map((c) => { const d = describe(c, cwd); return `${d.name} (${d.where})`; }).join(', ');
     const args = candidates.map((c) => `"${c.framework}"`).join(' or ');
-    return `Framework: several found — ${list}. Rendering Playwright until you pass framework: ${args}.`;
+    return `Framework: several found — ${list}. Rendering Playwright unless a call passes framework: ${args}.`;
   }
   if (!candidates.length) return 'Framework: no framework found — rendering Playwright. Pass framework: "…" to change.';
   const [c] = candidates;
