@@ -50,7 +50,7 @@ for (const tl of [false, true]) for (const c of CASES) {
     for (const [row, col] of combos) {
       const loc = new Function('page', `return (${params.code})`)(pw)(row, col);
       const n = await loc.count();
-      const want = n === 1 ? await loc.evaluate((el) => [...document.getElementsByTagName('*')].indexOf(el)) : null;
+      const want = n === 1 ? await loc.evaluate((el) => [...document.body.getElementsByTagName('*')].indexOf(el)) : null;
       specs.push({ id: `${mode}|${c.id}|${row} × ${col}|match`, fixture: c.fixture, define: out.define, names: params.model.vars, args: [row, col], expr: out.call, want, idioms: ['cell.css'] });
     }
     continue;
@@ -61,7 +61,7 @@ for (const tl of [false, true]) for (const c of CASES) {
   for (const v of values) {
     const loc = new Function('page', params.model.param, `return ${params.code}`)(pw, v);
     const n = await loc.count();
-    const want = n === 1 ? await loc.evaluate((el) => [...document.getElementsByTagName('*')].indexOf(el)) : null;
+    const want = n === 1 ? await loc.evaluate((el) => [...document.body.getElementsByTagName('*')].indexOf(el)) : null;
     specs.push({ id: `${mode}|${c.id}|${v}|match`, fixture: c.fixture, define: out.define, names: [params.model.param], args: [v], expr: leafUse ?? out.call, want, idioms: out.idioms.filter((i) => !i.startsWith('variant') && !i.endsWith('click')) });
     specs.push({ id: `${mode}|${c.id}|${v.slice(0, -1)}|partial`, fixture: c.fixture, define: out.define, names: [params.model.param], args: [v.slice(0, -1)], expr: leafUse ?? out.call, negative: true, idioms: [out.idioms[0]] });
   }
@@ -88,7 +88,8 @@ writeFileSync(`${WORK}/support/e2e.js`, "import '@testing-library/cypress/add-co
 writeFileSync(`${WORK}/e2e/p3b.cy.js`, `
 const CASES = ${JSON.stringify(specs.map((s) => ({ ...s, define: undefined })))};
 const DEFINE = ${JSON.stringify(Object.fromEntries(specs.map((s) => [s.id, s.define])))};
-const indexOf = (el) => Array.from(el.ownerDocument.getElementsByTagName('*')).indexOf(el);
+// U10: counted within <body> — Cypress injects into <head> on pages that have one (frozen saucedemo), which shifted every index by one.
+const indexOf = (el) => Array.from(el.ownerDocument.body.getElementsByTagName('*')).indexOf(el);
 describe('P3b conformance', () => {
   for (const c of CASES) {
     it(c.id, () => {

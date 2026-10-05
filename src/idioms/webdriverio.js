@@ -4,7 +4,7 @@
 import { helperName, js, plainValue, withinBar } from './shared.js';
 
 /** Idioms this renderer can emit (each has a conformance fixture, §10). */
-export const IDIOMS = ['item.attribute', 'item.label', 'item.either', 'leaf.aria', 'leaf.aria.shown', 'leaf.css', 'every', 'variant.click',
+export const IDIOMS = ['item.attribute', 'item.label', 'item.label.attr', 'item.either', 'leaf.aria', 'leaf.aria.shown', 'leaf.css', 'every', 'variant.click',
   'group.aria', 'group.label-click', 'cell.xpath'];
 
 function item(model, values, ts) {

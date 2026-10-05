@@ -1,0 +1,44 @@
+# sd-inv-add-wdio9
+Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
+Framework: WebdriverIO v9 — from ./package.json (@wdio/cli). Override with framework: "…".
+Locators: page objects in test/pageobjects/ (default — no specs found).
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]"} (2456 chars)
+Recommended — parameterised: 6 items share this shape; every value checked, each finds exactly its own item (6/6).
+  Proof: rendered from a checked template (every value checked in the page); WebdriverIO 9.32.0 idioms conformance-tested.
+  name = "Sauce Labs Backpack"   (also: "Sauce Labs Bike Light", "Sauce Labs Bolt T-Shirt", "Sauce Labs Fleece Jacket", "Sauce Labs Onesie", … 1 more)
+  const inventoryItem = (name) =>
+    $$('[data-test="inventory-item"]')
+      .find(async (el) => (await el.$('[data-test="inventory-item-name"]').getText()) === name);
+  inventoryItem(name).$('aria/Add to cart')
+  Every item (6 now): $$('[data-test="inventory-item"]') — loop over it when the test covers every item, so one added later is tested too.
+  When the test touches more than one item, write one function taking name instead of a locator per item.
+  The 5 lookalike button "Add to cart" elements are the other items — pass their name instead.
+
+For this one item alone (webdriverio):
+  await $('[data-test="add-to-cart-sauce-labs-backpack"]')
+  Point-in-time — true on this page now: 99 Excellent · 1 match
+  + Anchored on a dedicated test attribute
+  + Short and shallow
+
+Entry — place in test/pageobjects/saucedemoInventory.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 6/6 items checked · helper, once per file (module scope)
+  const inventoryItem = (name) =>
+    $$('[data-test="inventory-item"]')
+      .find(async (el) => (await el.$('[data-test="inventory-item-name"]').getText()) === name);
+  // COR cor:{id} · 6/6 items checked
+  addToCart = (name) => inventoryItem(name).$('aria/Add to cart');
+Facts:
+  • 5 other visible button "Add to cart"s look the same
+Framework convention applied: webdriverio (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on a dedicated test attribute; no known risk
+
+Alternatives:
+2. await $('button[data-test="add-to-cart-sauce-labs-backpack"][name="add-to-cart-sauce-labs-backpack"]')
+   89 Excellent · 1 match
+   ! Long selector (91 chars) — hard to read and usually over-specified
+6. await $('[data-test="inventory-item-description"] #add-to-cart-sauce-labs-backpack')
+   89 Excellent · 1 match
+   ! Long selector (73 chars) — hard to read and usually over-specified
+(3 more alternatives not shown — cor_inspect with all: true lists every one.)

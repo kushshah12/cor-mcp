@@ -1,0 +1,18 @@
+<!doctype html>
+<title>U6 slots</title>
+<!-- U6: saucedemo's shape (test ids on the item, its name and a per-item button) plus the traps a prefix must survive. -->
+<section id="shop">
+  <div class="inventory_item" data-test="inventory-item"><div class="inventory_item_name" data-test="inventory-item-name">Backpack</div><button class="btn" data-test="add-to-cart-backpack">Add to cart</button></div>
+  <div class="inventory_item" data-test="inventory-item"><div class="inventory_item_name" data-test="inventory-item-name">Bike Light</div><button class="btn" data-test="add-to-cart-bike-light">Add to cart</button></div>
+  <div class="inventory_item" data-test="inventory-item"><div class="inventory_item_name" data-test="inventory-item-name">Onesie</div><button class="btn" data-test="add-to-cart-onesie">Add to cart</button></div>
+</section>
+<!-- A prefix that also names a sibling control in each card (add-to-wishlist-…) must not be offered as add-to-. -->
+<section id="wish">
+  <div class="card" data-test="product-card"><h3>Mug</h3><button class="buy" data-test="add-to-basket-mug">Buy</button><button class="wish" data-test="add-to-wishlist-mug">Save</button></div>
+  <div class="card" data-test="product-card"><h3>Pen</h3><button class="buy" data-test="add-to-basket-pen">Buy</button><button class="wish" data-test="add-to-wishlist-pen">Save</button></div>
+</section>
+<!-- No test attributes at all: the class scope stays, as before. -->
+<section id="plain">
+  <div class="tile"><h4 class="tile__name">Alpha</h4><button class="tile__go">Open</button></div>
+  <div class="tile"><h4 class="tile__name">Beta</h4><button class="tile__go">Open</button></div>
+</section>

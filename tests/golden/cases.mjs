@@ -36,6 +36,10 @@ export const CASES = [
   // U3: a Playwright project whose config sets testIdAttribute: 'data-test'.
   { id: 'sd-grade-testid-configured', project: 'pw-data-test', open: 'site/saucedemo-inventory', calls: [['cor_grade', { selector: "page.getByTestId('shopping-cart-link')" }], ['cor_inspect', { selector: '[data-test="shopping-cart-link"]' }]] },
 
+  // U10: in a project that declares the framework's major, a conformance-run idiom is labelled as run, not emulated.
+  { id: 'sd-inv-add-wdio9', project: 'wdio9', open: 'site/saucedemo-inventory', calls: [['cor_inspect', { selector: ADD_BACKPACK }]] },
+  { id: 'sd-inv-add-cy16', project: 'cy16', open: 'site/saucedemo-inventory', calls: [['cor_inspect', { selector: ADD_BACKPACK }]] },
+
   // ── bstackdemo ──
   { id: 'bs-buy-pw', open: 'site/bstackdemo', calls: [['cor_inspect', { selector: '[id="2"] .shelf-item__buy-btn' }]] },
   { id: 'bs-buy-cy', open: 'site/bstackdemo', calls: [['cor_inspect', { selector: '[id="2"] .shelf-item__buy-btn', framework: 'cypress' }]] },

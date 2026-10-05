@@ -15,4 +15,7 @@ export const CASES = [
   { id: 'cell-picks', fixture: 'p3b-tables.html', target: 'table.picks tr:nth-child(2) td:nth-child(3)', idioms: ['cell.xpath'], cy: ['cell.css'] },
   { id: 'cell-copies', fixture: 'p3b-tables-copies.html', target: 'div[data-product="live"] tbody tr:nth-child(2) td:nth-child(2)', idioms: ['cell.xpath'], cy: ['cell.css'] },
   { id: 'transformed', fixture: 'p3a-transformed.html', target: '.row:nth-child(1) button', none: /text-transform/ },
+  // U10: the U6 shapes — a test-attribute item scope and name slot, a per-item test-id leaf — on frozen saucedemo and a fixture.
+  { id: 'u10-saucedemo-add', fixture: 'u10-saucedemo-inventory.html', target: '[data-test="add-to-cart-sauce-labs-backpack"]', idioms: ['item.label.attr', 'leaf.aria'], cy: ['item.label', 'leaf.css'] },
+  { id: 'u10-prefix-leaf', fixture: 'u10-slots.html', target: '[data-test="add-to-basket-pen"]', idioms: ['item.label', 'leaf.aria'], cy: ['item.label', 'leaf.css'] },
 ];
