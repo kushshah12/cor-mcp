@@ -23,6 +23,8 @@ function repo(name, files) {
   }
   return dir;
 }
+// cor.config.js as `cor init` would hold it: the SDK's framework at the top, the MCP's settings under locators.
+const corConfig = ({ framework, ...locators }) => `export default ${JSON.stringify({ ...(framework ? { framework } : {}), locators })};\n`;
 const PKG = { 'package.json': { name: 'x', devDependencies: { '@playwright/test': '1', typescript: '5' } } };
 const PO = { 'tests/pages/home.page.ts': "export class HomePage { constructor(page) { this.page = page; } x = () => this.page.locator('#x'); }\n", 'tests/home.spec.ts': "import { HomePage } from './pages/home.page';\n" };
 
@@ -102,7 +104,7 @@ test('U8 (R15, R42) JSON store: a plain string, no comment, and the id in COR\'s
 });
 
 test('U8 YAML store: a # comment carries the id', async (t) => {
-  const dir = repo('yaml', { ...PKG, 'cor.config.json': { store: 'yaml', storeDir: 'locators' } });
+  const dir = repo('yaml', { ...PKG, 'cor.config.js': corConfig({ store: 'yaml', storeDir: 'locators' }) });
   const { call } = await connect(t, dir);
   await call('cor_open', { url: `${base}/inventory.html` });
   const out = await call('cor_inspect', { selector: '[data-test="shopping-cart-badge"]' });

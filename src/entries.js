@@ -66,7 +66,7 @@ export function entryFor({ result, lead, helper, framework, conventions, typescr
     const value = lead
       ? lead.template?.xpath?.selectorTemplate?.replace(new RegExp(`__${p}__`, 'g'), `{${p}}`)
       : result.locators.find((l) => l.resolution?.usable !== false && isPlainSelector(l.value))?.value;
-    if (!value) return { lines: [`Entry: no plain CSS or XPath string reaches this element for a ${store.toUpperCase()} map — keep it in code (cor.config.json store) or add a test attribute.`, ''], member, file, store };
+    if (!value) return { lines: [`Entry: no plain CSS or XPath string reaches this element for a ${store.toUpperCase()} map — keep it in code (cor.config.js locators.store) or add a test attribute.`, ''], member, file, store };
     const lines = store === 'json'
       ? [head, `  ${JSON.stringify(member)}: ${JSON.stringify(value)}`, `  .cor/ids.json: ${JSON.stringify(`${file}#${member}`)} → "${id}" (written by COR; JSON holds no comments)`]
       : [head, `  # ${tag}`, `  ${member}: ${JSON.stringify(value)}`];

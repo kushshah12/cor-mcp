@@ -1,5 +1,5 @@
 import { detectFramework, frameworkLine, LABELS } from './detect.js';
-import { conventionsLines, resolveConventions } from './conventions.js';
+import { conventionsLines, loadCorConfig, resolveConventions } from './conventions.js';
 
 // One browser, one page per server process — created on first use, reused
 // across calls, closed on cor_close, on idle, or when the server shuts down.
@@ -48,7 +48,8 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
   // P1a: the project's test framework — read from package.json once per session.
   // U2 (D3): an agent's `framework` argument renders that call only; it never changes the session's.
   let detection = null;
-  let conventions = null; // U7: cor.config.json + the repo's locator store, read once per session
+  let conventions = null; // U7: cor.config.js + the repo's locator store, read once per session
+  let corConfig = null; // the loaded cor.config.js (prepare())
 
   let highestRef = 0;
   const note = (live) => { for (const r of live) highestRef = Math.max(highestRef, Number(r.slice(1))); };
@@ -60,7 +61,7 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
   function reset() {
     browser = context = page = null;
     refs = null;
-    detection = conventions = null;
+    detection = conventions = null; // the loaded cor.config.js (corConfig) outlives a browser relaunch
     clearTimeout(idleTimer);
   }
 
@@ -77,8 +78,8 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
    * @param {{ storageState?: string }} [options]
    */
   function getPage(options) {
-    // Serialised: two tool calls arriving together must not launch two browsers.
-    const run = queue.then(() => openPage(options));
+    // Serialised: two tool calls arriving together must not launch two browsers. cor.config.js is loaded first (once).
+    const run = queue.then(() => api.prepare()).then(() => openPage(options));
     queue = run.catch(() => {});
     return run;
   }
@@ -127,21 +128,27 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
     close,
     /** The framework to render for: the call's argument, else the detected one, else null (callers render Playwright). */
     resolveFramework(argument) {
-      const configured = this.conventions.framework.from === 'cor.config.json' ? this.conventions.framework.value : null;
+      const configured = this.conventions.framework.from === 'cor.config.js' ? this.conventions.framework.value : null;
       return argument ?? configured ?? this.detection.framework;
     },
     get detection() { return (detection ??= detectFramework(cwd)); },
     /** U8: the project root — where the framework's package.json is, else the working folder. Records live under it. */
     get root() { return this.detection.candidates[0]?.dir ?? cwd; },
-    /** U7: cor.config.json and the repo's locator store; the project root is where the framework's package.json is. */
-    get conventions() { return (conventions ??= resolveConventions(this.detection.candidates[0]?.dir ?? cwd, this.detection.framework)); },
-    /** U3/U7: the project's Playwright testIdAttribute (cor.config.json, else playwright.config), or null for data-testid. */
+    /** U7: cor.config.js and the repo's locator store; the project root is where the framework's package.json is. */
+    get conventions() { return (conventions ??= resolveConventions(this.root, this.detection.framework, corConfig ?? undefined)); },
+    /** Load the project's cor.config.js (a module, so async) once, before conventions are read. */
+    async prepare() {
+      if (corConfig) return;
+      corConfig = await loadCorConfig(this.root);
+      conventions = null;
+    },
+    /** U3/U7: the project's Playwright testIdAttribute (cor.config.js, else playwright.config), or null for data-testid. */
     get testIdAttribute() { return this.conventions.testIdAttribute?.value ?? this.detection.testIdAttribute?.value ?? null; },
-    /** U7: 'testid-first' when cor.config.json asks for it; the engine's framework order otherwise. */
+    /** U7: 'testid-first' when cor.config.js asks for it; the engine's framework order otherwise. */
     get order() { return this.conventions.order.value === 'testid-first' ? 'testid-first' : null; },
     get frameworkLine() {
       const fw = this.conventions.framework;
-      const head = fw.from === 'cor.config.json' ? `Framework: ${LABELS[fw.value]} — from cor.config.json.` : frameworkLine(this.detection);
+      const head = fw.from === 'cor.config.js' ? `Framework: ${LABELS[fw.value]} — from cor.config.js.` : frameworkLine(this.detection);
       return [head, ...conventionsLines(this.conventions)].join('\n');
     },
     invalidateRefs,

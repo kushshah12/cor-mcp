@@ -75,6 +75,7 @@ export function checkTools(session, inspector, records = null) {
       },
     },
     handler: async ({ files, all = false }) => {
+      await session.prepare();
       const root = session.root;
       const changed = files?.length || all ? null : changedFiles(root);
       if (changed && !changed.length) return text('cor_check: no test or locator files changed on this branch — nothing to check. Pass all: true to check every file.');

@@ -1,6 +1,8 @@
-// U7: where and how a team keeps its locators — read from the repo, overridden by an optional cor.config.json.
+// U7: where and how a team keeps its locators — read from the repo, overridden by the project's cor.config.js.
 // COR writes nothing here; the entries it returns (U8) target what this finds, and cor_open says what it found.
 import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { createRequire } from 'node:module';
+import { pathToFileURL } from 'node:url';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 
 export const STORES = ['page-object-class', 'constants', 'json', 'yaml'];
@@ -20,24 +22,43 @@ const CODE_EXT = ['', '.ts', '.js', '.mjs', '.cjs', '/index.ts', '/index.js'];
 const posix = (p) => p.split(sep).join('/');
 const readText = (file) => { try { return readFileSync(file, 'utf8'); } catch { return null; } };
 
-/** cor.config.json at the project root: only known keys with valid values; anything else is reported, not used. */
-export function readConfig(root) {
-  const raw = readText(join(root, 'cor.config.json'));
-  if (raw == null) return { config: {}, problems: [] };
-  let json;
-  try { json = JSON.parse(raw); } catch { return { config: {}, problems: ['cor.config.json is not valid JSON — ignored'] }; }
+/**
+ * The project's cor.config.js — the same file @corlabs/client reads (`framework` at the top level, as the SDK has it;
+ * the MCP's settings under `locators`). It is the team's own module, imported as the SDK imports it. ESM first; a
+ * CommonJS file (what `cor init` writes) through require. A missing file is the normal case.
+ * @returns {Promise<{ raw: object|null, problem: string|null }>}
+ */
+export async function loadCorConfig(root) {
+  const file = join(root, 'cor.config.js');
+  if (!existsSync(file)) return { raw: null, problem: null };
+  try {
+    const mod = await import(`${pathToFileURL(file).href}?t=${statSync(file).mtimeMs}`);
+    return { raw: mod.default ?? mod, problem: null };
+  } catch (esmError) {
+    try {
+      return { raw: createRequire(file)(file), problem: null };
+    } catch {
+      return { raw: null, problem: `cor.config.js could not be loaded (${esmError.message.split('\n')[0]}) — ignored` };
+    }
+  }
+}
+
+/** The settings COR uses from cor.config.js: only known keys with valid values; anything else is reported, not used. */
+export function readConfig(raw) {
   const config = {};
   const problems = [];
-  const take = (key, ok) => {
-    if (json[key] === undefined) return;
-    if (ok(json[key])) config[key] = json[key];
-    else problems.push(`cor.config.json ${key}: ${JSON.stringify(json[key])} is not one of the accepted values — ignored`);
+  if (!raw || typeof raw !== 'object') return { config, problems };
+  const take = (key, value, ok, where) => {
+    if (value === undefined) return;
+    if (ok(value)) config[key] = value;
+    else problems.push(`cor.config.js ${where}: ${JSON.stringify(value)} is not one of the accepted values — ignored`);
   };
-  take('framework', (v) => FRAMEWORKS.includes(v));
-  take('order', (v) => ORDERS.includes(v));
-  take('testIdAttribute', (v) => typeof v === 'string' && /^[\w:.-]+$/.test(v));
-  take('store', (v) => STORES.includes(v));
-  take('storeDir', (v) => typeof v === 'string' && v.length > 0 && !v.startsWith('/') && !v.includes('..'));
+  take('framework', raw.framework, (v) => FRAMEWORKS.includes(v), 'framework');
+  const l = raw.locators ?? {};
+  take('order', l.order, (v) => ORDERS.includes(v), 'locators.order');
+  take('testIdAttribute', l.testIdAttribute, (v) => typeof v === 'string' && /^[\w:.-]+$/.test(v), 'locators.testIdAttribute');
+  take('store', l.store, (v) => STORES.includes(v), 'locators.store');
+  take('storeDir', l.storeDir, (v) => typeof v === 'string' && v.length > 0 && !v.startsWith('/') && !v.includes('..'), 'locators.storeDir');
   // Review fix: './locators/' and 'locators' are the same folder — entries, the sidecar and cor_check compare it as text.
   if (config.storeDir) config.storeDir = config.storeDir.replace(/^(\.\/)+/, '').replace(/\/+$/, '') || '.';
   return { config, problems };
@@ -112,20 +133,21 @@ export function inferStore(root) {
  * The conventions COR follows: config first, then what the repo shows, then defaults — each value with where it came
  * from, so cor_open can say so.
  */
-export function resolveConventions(root, detectedFramework) {
-  const { config, problems } = readConfig(root);
+export function resolveConventions(root, detectedFramework, loaded = { raw: null, problem: null }) {
+  const { config, problems } = readConfig(loaded.raw);
+  if (loaded.problem) problems.push(loaded.problem);
   const { specs, found } = inferStore(root);
   const framework = config.framework ?? detectedFramework ?? 'playwright';
   const top = found[0];
   return {
-    framework: { value: framework, from: config.framework ? 'cor.config.json' : detectedFramework ? 'detected' : 'default' },
-    order: { value: config.order ?? 'framework', from: config.order ? 'cor.config.json' : 'default' },
-    testIdAttribute: config.testIdAttribute ? { value: config.testIdAttribute, from: 'cor.config.json' } : null,
+    framework: { value: framework, from: config.framework ? 'cor.config.js' : detectedFramework ? 'detected' : 'default' },
+    order: { value: config.order ?? 'framework', from: config.order ? 'cor.config.js' : 'default' },
+    testIdAttribute: config.testIdAttribute ? { value: config.testIdAttribute, from: 'cor.config.js' } : null,
     store: config.store
-      ? { value: config.store, from: 'cor.config.json' }
+      ? { value: config.store, from: 'cor.config.js' }
       : top ? { value: top.store, from: `inferred from ${top.imports} spec import${top.imports === 1 ? '' : 's'}` } : { value: 'page-object-class', from: specs ? 'default — no spec imports a locator file' : 'default — no specs found' },
     storeDir: config.storeDir
-      ? { value: config.storeDir, from: 'cor.config.json' }
+      ? { value: config.storeDir, from: 'cor.config.js' }
       : top ? { value: top.dir, from: 'inferred' } : { value: DEFAULT_DIR[framework], from: 'default' },
     others: config.store ? [] : found.slice(1).filter((f) => f.store !== top.store || f.dir !== top.dir),
     problems,
@@ -135,8 +157,8 @@ export function resolveConventions(root, detectedFramework) {
 /** The lines cor_open adds (at most 4): where locators go, any other store in use, the order, config problems. */
 export function conventionsLines(c) {
   const lines = [`Locators: ${LABEL[c.store.value]} in ${c.storeDir.value}/ (${c.store.from}).`];
-  if (c.others.length) lines.push(`Also in use: ${c.others.slice(0, 2).map((o) => `${LABEL[o.store]} in ${o.dir}/ (${o.imports})`).join('; ')} — COR follows the most-used; set store in cor.config.json to choose.`);
-  if (c.order.value === 'testid-first') lines.push('Order: test id first (cor.config.json) — then id, name, stable attribute, class, text.');
+  if (c.others.length) lines.push(`Also in use: ${c.others.slice(0, 2).map((o) => `${LABEL[o.store]} in ${o.dir}/ (${o.imports})`).join('; ')} — COR follows the most-used; set locators.store in cor.config.js to choose.`);
+  if (c.order.value === 'testid-first') lines.push('Order: test id first (cor.config.js) — then id, name, stable attribute, class, text.');
   if (c.problems.length) lines.push(c.problems.join('; '));
   return lines.slice(0, 4);
 }

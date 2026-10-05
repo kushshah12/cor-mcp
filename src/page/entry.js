@@ -105,7 +105,7 @@ function resolveTarget({ ref, selector, element }) {
 
 // U3: the project's Playwright testIdAttribute (playwright.config), set by each call that builds candidates.
 let pwTestId = null;
-// U7: the project's ranking order — 'testid-first' from cor.config.json, else the framework's published order.
+// U7: the project's ranking order — 'testid-first' from cor.config.js, else the framework's published order.
 let rankOrder = null;
 
 function inspect({ ref, selector, element, framework, max, testIdAttribute = null, order = null }) {

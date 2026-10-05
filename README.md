@@ -8,13 +8,20 @@ An MCP server that lets a coding agent open a page, pick an element, and get ran
 
 Configure COR MCP **instead of** Playwright MCP for test authoring, not alongside it: COR drives the browser (open, click, fill, press), returns locators as entries for your locator files, checks them (`cor_check`) and repairs them (`cor_heal`). With a second browser server attached, an agent falls back to its snapshots and types its own selectors — which `cor_check` will then fail.
 
-Optional `cor.config.json` at your project root (every field overrides what COR infers from the repo; `cor_open` reports both):
+Settings live in the project's `cor.config.js` — the same file `@corlabs/client` reads, which `cor init` writes. `framework` is the SDK's own key; the MCP's settings go under `locators`. Every field is optional and overrides what COR infers from the repo; `cor_open` reports both:
 
-```json
-{ "framework": "playwright", "order": "framework", "testIdAttribute": "data-test", "store": "page-object-class", "storeDir": "tests/pages" }
+```js
+module.exports = {
+  // …the SDK's apiUrl, projectId, branch, cacheFile…
+  framework: 'playwright',          // also the SDK's
+  locators: {
+    order: 'framework',             // 'framework' (default: each framework's published guidance, after uniqueness) or 'testid-first'
+    testIdAttribute: 'data-test',   // what getByTestId reads (default: playwright.config's testIdAttribute, else data-testid)
+    store: 'page-object-class',     // 'page-object-class' | 'constants' | 'json' | 'yaml'
+    storeDir: 'tests/pages',
+  },
+}
 ```
-
-`order`: `framework` (default — each framework's published guidance, after uniqueness) or `testid-first`. `store`: `page-object-class`, `constants`, `json`, `yaml`.
 
 ## Entry records: what is written inside your project
 

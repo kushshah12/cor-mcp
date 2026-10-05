@@ -1,4 +1,4 @@
-// U7 — where and how the team keeps locators, read from the repo (spec imports) and overridden by cor.config.json;
+// U7 — where and how the team keeps locators, read from the repo (spec imports) and overridden by cor.config.js;
 // cor_open says what COR found. Nothing is written to the repo.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -10,7 +10,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
 import { createSession } from '../src/session.js';
-import { conventionsLines, inferStore, readConfig, resolveConventions } from '../src/conventions.js';
+import { conventionsLines, inferStore, loadCorConfig, readConfig, resolveConventions } from '../src/conventions.js';
 
 const root = mkdtempSync(join(tmpdir(), 'cor-u7-'));
 after(() => rmSync(root, { recursive: true, force: true }));
@@ -22,6 +22,8 @@ function repo(name, files) {
   }
   return dir;
 }
+// cor.config.js as `cor init` would hold it: the SDK's framework at the top, the MCP's settings under locators.
+const corConfig = ({ framework, ...locators }) => `export default ${JSON.stringify({ ...(framework ? { framework } : {}), locators })};\n`;
 const PKG = { 'package.json': { name: 'x', devDependencies: { '@playwright/test': '1' } } };
 const PAGE_OBJECT = "export class InventoryPage {\n  constructor(page) { this.page = page; }\n  cartBadge = () => this.page.locator('[data-test=\"shopping-cart-badge\"]');\n}\n";
 const CONSTANTS = "export const inventory = { cartBadge: '[data-test=\"shopping-cart-badge\"]' };\n";
@@ -48,16 +50,24 @@ test('U7 two shapes in use: the most-used wins and the other is reported', () =>
   });
   const lines = conventionsLines(resolveConventions(dir, 'playwright'));
   assert.equal(lines[0], 'Locators: page objects in tests/pages/ (inferred from 2 spec imports).');
-  assert.match(lines[1], /^Also in use: locator constants in tests\/locators\/ \(1\) — COR follows the most-used; set store in cor\.config\.json to choose\.$/);
+  assert.match(lines[1], /^Also in use: locator constants in tests\/locators\/ \(1\) — COR follows the most-used; set locators\.store in cor\.config\.js to choose\.$/);
 });
 
-test('U7 cor.config.json overrides inference; invalid values are reported and ignored', () => {
+test('U7 cor.config.js (the SDK\'s file) overrides inference; invalid values are reported and ignored', async () => {
   const dir = repo('cfg', { ...PKG, 'tests/pages/a.page.ts': PAGE_OBJECT, 'tests/one.spec.ts': "import { A } from './pages/a.page';\n",
-    'cor.config.json': { store: 'yaml', storeDir: 'locators', order: 'alphabetical', framework: 'cypress' } });
-  const c = resolveConventions(dir, 'playwright');
-  assert.deepEqual([c.store.value, c.store.from, c.storeDir.value, c.framework.value, c.order.value], ['yaml', 'cor.config.json', 'locators', 'cypress', 'framework']);
-  assert.match(conventionsLines(c).at(-1), /cor\.config\.json order: "alphabetical" is not one of the accepted values — ignored/);
-  assert.deepEqual(readConfig(repo('bad', { 'cor.config.json': '{oops' })).problems, ['cor.config.json is not valid JSON — ignored']);
+    'cor.config.js': corConfig({ store: 'yaml', storeDir: './locators/', order: 'alphabetical', framework: 'cypress' }) });
+  const c = resolveConventions(dir, 'playwright', await loadCorConfig(dir));
+  assert.deepEqual([c.store.value, c.store.from, c.storeDir.value, c.framework.value, c.order.value], ['yaml', 'cor.config.js', 'locators', 'cypress', 'framework']);
+  assert.match(conventionsLines(c).at(-1), /cor\.config\.js locators\.order: "alphabetical" is not one of the accepted values — ignored/);
+  const broken = repo('bad', { ...PKG, 'cor.config.js': 'export default {' });
+  assert.match(resolveConventions(broken, 'playwright', await loadCorConfig(broken)).problems[0], /^cor\.config\.js could not be loaded \(.*\) — ignored$/);
+});
+
+test('U7 a CommonJS cor.config.js (what cor init writes) is read too, with the SDK\'s keys alongside', async () => {
+  const dir = repo('cjs', { ...PKG, 'cor.config.js': "module.exports = { apiUrl: 'https://x', projectId: 'p', framework: 'webdriverio', locators: { store: 'constants' } };\n" });
+  const c = resolveConventions(dir, 'playwright', await loadCorConfig(dir));
+  assert.deepEqual([c.framework.value, c.store.value], ['webdriverio', 'constants']);
+  assert.deepEqual(readConfig({ apiUrl: 'x', locators: { storeDir: 'a/' } }), { config: { storeDir: 'a' }, problems: [] });
 });
 
 test('U7 no specs: page-object defaults, said to be defaults', () => {
@@ -91,16 +101,16 @@ async function connect(t, cwd) {
   return async (name, args = {}) => (await client.callTool({ name, arguments: args })).content.map((x) => x.text).join('\n');
 }
 
-test('U7 (R18) order: testid-first in cor.config.json makes the test id lead under Playwright; cor_open says so', async (t) => {
-  const call = await connect(t, repo('e2e-order', { ...PKG, 'cor.config.json': { order: 'testid-first' } }));
+test('U7 (R18) order: testid-first in cor.config.js makes the test id lead under Playwright; cor_open says so', async (t) => {
+  const call = await connect(t, repo('e2e-order', { ...PKG, 'cor.config.js': corConfig({ order: 'testid-first' }) }));
   const opened = await call('cor_open', { url: base });
-  assert.match(opened, /\nLocators: page objects in tests\/pages\/ \(default — no specs found\)\.\nOrder: test id first \(cor\.config\.json\)/, opened);
+  assert.match(opened, /\nLocators: page objects in tests\/pages\/ \(default — no specs found\)\.\nOrder: test id first \(cor\.config\.js\)/, opened);
   const out = await call('cor_inspect', { selector: '[data-test="save"]' });
   assert.match(out.split('\n')[1], /page\.locator\('\[data-test="save"\]'\)/, out);
 });
 
-test('U7 framework from cor.config.json renders without an argument, and cor_open names the source', async (t) => {
-  const call = await connect(t, repo('e2e-fw', { ...PKG, 'cor.config.json': { framework: 'cypress', testIdAttribute: 'data-test' } }));
-  assert.match(await call('cor_open', { url: base }), /\nFramework: Cypress — from cor\.config\.json\.\n/);
+test('U7 framework from cor.config.js renders without an argument, and cor_open names the source', async (t) => {
+  const call = await connect(t, repo('e2e-fw', { ...PKG, 'cor.config.js': corConfig({ framework: 'cypress', testIdAttribute: 'data-test' }) }));
+  assert.match(await call('cor_open', { url: base }), /\nFramework: Cypress — from cor\.config\.js\.\n/);
   assert.match((await call('cor_inspect', { selector: '[data-test="save"]' })).split('\n')[1], /cy\.get\(/);
 });
