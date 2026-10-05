@@ -28,7 +28,8 @@ export const INSTRUCTIONS = [
   'To read a table value, cor_snapshot within the row\'s name — it lists the row\'s cells by column with refs — then cor_inspect the cell for a row × column template.',
   'cor_inspect gives an Entry for each element: the code to place, the file and member it belongs in, and a // COR cor:… comment. Place it as given, comment included — ' +
     'the id is how COR tells its locators from typed ones. Before running the tests, run cor_check: it fails on any locator without a COR id and returns the entry to paste. ' +
-    'Pass a locator you wrote or extended yourself to cor_grade, with param when it takes one. ' +
+    'If the entry\'s file does not exist, create it in the project\'s style (a class wrapping the page for page objects). ' +
+    'Pass a locator you wrote or extended yourself to cor_grade, with param when it takes one — graded is not accepted: cor_check still needs its COR id, so replace it with the entry cor_check returns. ' +
     'Adding a step to a template (card.locator(\'.price\')) makes a new locator: the step can match several elements inside an item. ' +
     'Keep the page open — no cor_close — until you have graded them: grading needs it. ' +
     'Every locator comes from cor_inspect or is graded — including elements you only assert on (a heading, a total, a message): a navigation reply lists the new page\'s headings with refs. ' +

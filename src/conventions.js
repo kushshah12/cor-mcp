@@ -38,6 +38,8 @@ export function readConfig(root) {
   take('testIdAttribute', (v) => typeof v === 'string' && /^[\w:.-]+$/.test(v));
   take('store', (v) => STORES.includes(v));
   take('storeDir', (v) => typeof v === 'string' && v.length > 0 && !v.startsWith('/') && !v.includes('..'));
+  // Review fix: './locators/' and 'locators' are the same folder — entries, the sidecar and cor_check compare it as text.
+  if (config.storeDir) config.storeDir = config.storeDir.replace(/^(\.\/)+/, '').replace(/\/+$/, '') || '.';
   return { config, problems };
 }
 

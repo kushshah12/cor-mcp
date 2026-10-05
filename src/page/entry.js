@@ -331,6 +331,11 @@ function framesOf() {
 /** P1c: does the page carry any test attribute (data-cy, data-test, data-testid, data-qa)? */
 const hasTestAttributes = () => Boolean(document.querySelector('[data-cy],[data-test],[data-testid],[data-test-id],[data-qa]'));
 
+/** U12 review fix: the live element's fingerprint, for the identity check in heal. */
+function fingerprintOf({ element: el }) {
+  return el ? computeFingerprint(el) : null;
+}
+
 /** U12: how closely a live element matches a stored fingerprint (0–1). */
 function similarityTo({ element: el, fingerprint }) {
   return el ? scoreSimilarity(fingerprint, computeFingerprint(el)) : 0;
@@ -352,4 +357,4 @@ function healBest({ fingerprint, min, margin }) {
   return a.element;
 }
 
-window.__corMcp = { snapshot, scoped, inspect, element, headings, grade, scoreSteps, stableScopeFor, itemCandidates, itemIndexOf, beginAct, afterAct, countXpaths, frames: framesOf, xpathFindsOnly, similarityTo, healScores, healBest };
+window.__corMcp = { snapshot, scoped, inspect, element, headings, grade, scoreSteps, stableScopeFor, itemCandidates, itemIndexOf, beginAct, afterAct, countXpaths, frames: framesOf, xpathFindsOnly, similarityTo, healScores, healBest, fingerprintOf };

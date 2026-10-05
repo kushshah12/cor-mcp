@@ -7,6 +7,8 @@ import { join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
 import { scanLocators, scanYaml } from '../check-scan.js';
 import { parseGradable } from '../grade-parse.js';
+import { callPage } from '../page-runtime.js';
+import { ID_PATTERN, pathOf, recordPage } from '../records.js';
 
 const text = (value) => ({ content: [{ type: 'text', text: value }] });
 const CODE = /\.[cm]?[jt]sx?$/;
@@ -15,7 +17,8 @@ const MAX_FILES = 2000;
 const MAX_FINDINGS = 15;
 const posix = (p) => p.split(sep).join('/');
 
-const git = (root, args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+// Review fix: a hung git must not block the MCP server.
+const git = (root, args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 10_000, maxBuffer: 64 * 1024 * 1024 }).trim();
 
 /** Files changed on this branch, uncommitted, or untracked — absolute paths — or null outside a git repo. */
 export function changedFiles(root) {
@@ -25,27 +28,31 @@ export function changedFiles(root) {
   for (const ref of ['origin/HEAD', 'origin/main', 'origin/master', 'main', 'master']) {
     try { base = git(root, ['merge-base', 'HEAD', ref]); break; } catch { /* next */ }
   }
+  if (!base) return null; // no merge base (shallow clone, unusual default branch): the caller checks every file and says so
   const names = new Set();
   const add = (out) => out.split('\n').filter(Boolean).forEach((n) => names.add(resolve(top, n)));
-  try { add(git(root, ['diff', '--name-only', ...(base ? [base] : ['HEAD'])])); } catch { /* no commits yet */ }
-  try { add(git(root, ['ls-files', '--others', '--exclude-standard'])); } catch { /* ignore */ }
+  try { add(git(root, ['diff', '--name-only', base])); } catch { /* no commits yet */ }
+  // Review fix: --full-name — without it ls-files prints paths relative to the cwd, and a project in a subfolder lost its new specs.
+  try { add(git(root, ['ls-files', '--others', '--exclude-standard', '--full-name'])); } catch { /* ignore */ }
   // git reports real paths (macOS: /private/var/… for /var/…); answer in the root's own spelling.
   const real = realpathSync(root);
-  return [...names].filter((f) => f.startsWith(real) && existsSync(f)).map((f) => join(root, relative(real, f)));
+  return [...names].filter((f) => (f === real || f.startsWith(real + sep)) && existsSync(f)).map((f) => join(root, relative(real, f)));
 }
 
+/** Candidate files only (code, JSON, YAML), capped — `truncated` says when the cap cut the walk short. */
 function allFiles(root) {
   const out = [];
+  out.truncated = false;
   const walk = (dir) => {
     let names;
     try { names = readdirSync(dir).sort(); } catch { return; }
     for (const name of names) {
-      if (out.length >= MAX_FILES) return;
+      if (out.length >= MAX_FILES) { out.truncated = true; return; }
       if (SKIP.has(name) || name.startsWith('.')) continue;
       const full = join(dir, name);
       let st;
       try { st = statSync(full); } catch { continue; }
-      if (st.isDirectory()) walk(full); else out.push(full);
+      if (st.isDirectory()) walk(full); else if (CODE.test(name) || /\.(json|ya?ml)$/.test(name)) out.push(full);
     }
   };
   walk(root);
@@ -53,6 +60,7 @@ function allFiles(root) {
 }
 
 export function checkTools(session, inspector, records = null) {
+  const MAX_FIXES = MAX_FINDINGS; // each fix runs an inspect and may write a record: only for findings that are shown
   return [{
     name: 'cor_check',
     config: {
@@ -69,23 +77,26 @@ export function checkTools(session, inspector, records = null) {
     handler: async ({ files, all = false }) => {
       const root = session.root;
       const changed = files?.length || all ? null : changedFiles(root);
+      if (changed && !changed.length) return text('cor_check: no test or locator files changed on this branch — nothing to check. Pass all: true to check every file.');
       const listed = files?.length ? files.map((f) => resolve(root, f)) : changed ?? allFiles(root);
       const scope = files?.length ? 'the given files' : changed ? 'files changed on this branch' : 'all project files';
       const storeDir = posix(session.conventions.storeDir.value);
       const recordDir = join(root, '.cor', 'records');
-      const recordsOn = existsSync(recordDir);
+      // Review fix: with capture off, committed records cannot be extended — ids are checked for presence only.
+      const recordsOn = existsSync(recordDir) && records?.enabled !== false;
       const known = new Set(recordsOn ? readdirSync(recordDir).filter((n) => n.endsWith('.json')).map((n) => n.slice(0, -5)) : []);
       let sidecar = {};
       try { sidecar = JSON.parse(readFileSync(join(root, '.cor', 'ids.json'), 'utf8')); } catch { /* none */ }
       const page = session.isOpen ? await session.getPage() : null;
 
       const findings = [];
+      let fixes = 0;
       let count = 0;
       let filesWithLocators = 0;
       for (const file of listed) {
         const rel = posix(relative(root, file));
-        if (rel.startsWith('.cor/') || rel.startsWith('node_modules/')) continue;
-        const inStore = rel.startsWith(`${storeDir}/`);
+        if (rel.startsWith('.cor/') || rel.startsWith('node_modules/') || rel.startsWith('../')) continue;
+        const inStore = storeDir === '.' || rel.startsWith(`${storeDir}/`);
         let src;
         try { src = readFileSync(file, 'utf8'); } catch { continue; }
         let sites = [];
@@ -105,6 +116,10 @@ export function checkTools(session, inspector, records = null) {
           if (site.positional) {
             findings.push({ where, what: `${shown} — picks by position (.first/.nth/.eq/[n]): a reorder silently changes the element.`, fix: await fixFor(site) });
           } else if (site.id && (known.has(site.id) || !recordsOn)) {
+            // Review fix: an id copied onto another locator, or an entry extended with a typed step, finds a different
+            // element than its record — checked by element on the record's page (R46: never by comparing text).
+            const drift = recordsOn ? await elementDrift(site) : null;
+            if (drift) findings.push({ where, what: drift, fix: await fixFor(site) });
             continue; // issued by COR (with records off, the id is all there is to check)
           } else if (site.id) {
             findings.push({ where, what: `cor:${site.id} is not a record COR issued in this project (copied from elsewhere, or edited?).`, fix: await fixFor(site) });
@@ -114,8 +129,23 @@ export function checkTools(session, inspector, records = null) {
         }
       }
 
+      /** Review fix: an id on a locator that, on the record's own page, finds a different element than the one recorded. */
+      async function elementDrift(site) {
+        const record = records?.read(site.id);
+        if (!page || !site.expression || !record || pathOf(record.page) !== pathOf(recordPage(page.url()))) return null;
+        try {
+          const loc = parseGradable(site.expression).build(page);
+          if (await loc.count() !== 1) return null; // broken or ambiguous here: cor_grade / cor_heal territory, not identity
+          const handle = await loc.elementHandle();
+          const r = await callPage(page, 'inspect', { element: handle, framework: 'playwright', max: 1 }).finally(() => handle.dispose());
+          return r.capture?.elementKey && r.capture.elementKey !== record.elementKey
+            ? `cor:${site.id} was issued for another element on this page — the locator was edited after COR issued it.` : null;
+        } catch { return null; }
+      }
+
       /** COR's fix for a site: run its locator on the open page; the element it finds gets an entry (or its existing id). */
       async function fixFor(site) {
+        if (fixes++ >= MAX_FIXES) return ['Fix the ones above and run cor_check again for this one.'];
         if (!page || !site.expression) return [`Open the page it targets (cor_open) and run cor_check again for COR's entry — or cor_inspect the element.`];
         let parsed;
         try { parsed = parseGradable(site.expression, { framework: session.resolveFramework() ?? undefined }); } catch { return ['Not readable as a locator COR can run — cor_inspect the element and place its entry.']; }
@@ -126,15 +156,20 @@ export function checkTools(session, inspector, records = null) {
         } catch { /* not on this page */ }
         if (!handle) return ['It finds no single element on the open page — open the page it targets, or cor_inspect the element and place its entry.'];
         const before = new Set(known);
-        const { entry } = await inspector({ element: handle, quiet: true }).finally(() => handle.dispose());
+        let entry = null;
+        try { ({ entry } = await inspector({ element: handle, quiet: true })); } catch { /* page changed under us */ } finally { await handle.dispose().catch(() => {}); }
         if (!entry) return ['COR has no durable locator for this element — cor_inspect it for the recommendation.'];
-        const id = /cor:([0-9a-f]{6})/.exec(entry.join('\n'))?.[1];
+        const id = ID_PATTERN.exec(entry.join('\n'))?.[1];
         if (id) known.add(id);
-        if (!site.positional && id && before.has(id)) return [`COR already has a record of this element: add \`// COR cor:${id}\` on the line above it (keep the locator).`];
-        return ['Replace it with COR\'s entry:', ...entry.filter(Boolean).map((l) => `  ${l}`)];
+        // Review fix: the fix is for the element this locator finds on the OPEN page — say which page, in case it targets another.
+        const on = `On ${pathOf(page.url())} (if this locator targets another page, cor_open it and run cor_check again):`;
+        if (!site.positional && id && before.has(id)) return [on, `COR already has a record of this element: add \`// COR cor:${id}\` on the line above it (keep the locator).`];
+        return [on, 'Replace it with COR\'s entry:', ...entry.filter(Boolean).map((l) => `  ${l}`)];
       }
 
-      const head = `cor_check: ${count} locator${count === 1 ? '' : 's'} in ${filesWithLocators} file${filesWithLocators === 1 ? '' : 's'} (${scope}) — ${count - findings.length} carry a COR id, ${findings.length} to fix.`;
+      const cut = listed.truncated ? ` Scanned the first ${MAX_FILES} files only — pass files to check the rest.` : '';
+      const head = `cor_check: ${count} locator${count === 1 ? '' : 's'} in ${filesWithLocators} file${filesWithLocators === 1 ? '' : 's'} (${scope}) — ${count - findings.length} carry a COR id, ${findings.length} to fix.${cut}`;
+      if (listed.truncated && !findings.length) return text(head, true);
       if (!findings.length) return text(`${head}${recordsOn ? '' : '\nNo .cor/records/ in this project (records off): ids were checked for presence only.'}`);
       const lines = [head, ''];
       for (const f of findings.slice(0, MAX_FINDINGS)) lines.push(`✗ ${f.where} — ${f.what}`, ...f.fix.map((l) => `  ${l}`), '');

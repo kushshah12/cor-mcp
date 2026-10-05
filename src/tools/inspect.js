@@ -5,7 +5,7 @@ import { renderAmbiguousScope, renderInspect, renderScoped, renderSnapshot } fro
 import { REF, checkRef, goneError } from './refs.js';
 import { applyIdVerdicts, checkIds, numberedIds } from '../id-stability.js';
 import { parseGradable } from '../grade-parse.js';
-import { entryFor } from '../entries.js';
+import { entryFor, memberName } from '../entries.js';
 
 export const FRAMEWORKS = ['playwright', 'cypress', 'selenium', 'webdriverio', 'nightwatch', 'testcafe', 'puppeteer'];
 
@@ -176,11 +176,14 @@ export function createInspector(session, idCache = new Map(), fingerprints = nul
         ...(lead?.template?.playwright ? [{ kind: 'template', value: lead.template.playwright.selectorTemplate }] : []),
         ...result.locators.map((l) => ({ kind: l.strategy, value: l.value })),
       ];
-      const id = reuseId ?? (records ? records.issue({ url: page.url(), fingerprint: result.capture.fingerprint, elementKey: result.capture.elementKey, strategies }) : newId());
+      const member = memberName(result, lead);
+      const id = reuseId ?? (records ? records.issue({ url: page.url(), fingerprint: result.capture.fingerprint, elementKey: result.capture.elementKey, member, strategies }) : newId());
       const entry = entryFor({ result, lead, helper, framework, conventions: session.conventions, typescript, url: page.url(), id });
       if (records && !reuseId && entry.store === 'json') records.link(`${entry.file}#${entry.member}`, id);
-      entryLines = entry.lines;
-      return entry.lines;
+      // Review fix: a record that could not be written does not fail the inspect — the reply says heal has nothing for it.
+      const lines = records?.lastError && !reuseId ? [...entry.lines.slice(0, -1), `  (record not saved: ${records.lastError} — cor_heal will have no record for this id)`, ''] : entry.lines;
+      entryLines = lines;
+      return lines;
     };
     const reply = renderInspect(result, { refsLive, framework, all, dataCyNote, typescript, major: detected?.version ?? null, testingLibrary: Boolean(detected?.testingLibrary), makeEntry });
     if (fingerprints && result.locators.length) {

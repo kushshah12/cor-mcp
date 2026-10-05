@@ -4,7 +4,10 @@
 import { ID_PATTERN } from './records.js';
 
 // A locator call: Playwright (page./this.page./any receiver .locator/.getBy*), Cypress (cy.get/cy.contains), WebdriverIO ($/$$).
-const CALL = /(?:\b(?:this\.)?page\s*\.\s*(?:locator|getBy[A-Z]\w*)\s*\(|\.\s*(?:locator|getBy[A-Z]\w*)\s*\(|\bcy\s*\.\s*(?:get|contains)\s*\(|(?:^|[^\w$.])\$\$?\s*\()/;
+// Review fix: also page.$ / browser.$ / el.$ (WebdriverIO, Puppeteer-style), cy.xpath and Testing Library's cy.findBy*.
+const CALL = /(?:\b(?:this\.)?page\s*\.\s*(?:locator|getBy[A-Z]\w*)\s*\(|\.\s*(?:locator|getBy[A-Z]\w*)\s*\(|\bcy\s*\.\s*(?:get|contains|xpath|find(?:All)?By[A-Z]\w*)\s*\(|(?:^|[^\w$])\$\$?\s*\()/;
+// Testing Library's screen.getBy* in a component test queries a rendered component, not the app page: not COR's.
+const COMPONENT_QUERY = /\bscreen\s*\.\s*(?:get|query|find)(?:All)?By/;
 const COMMENT = /^\s*(\/\/|\/\*|\*|#)/;
 const CONTINUES = /^\s*[.)]/; // a line that continues the statement above (a chain step, a closing paren)
 // A line that leaves its statement open: ends in `(`, `=>` or `=`. Not `,` or `{` — those end one member and start the
@@ -56,7 +59,7 @@ export function scanLocators(text) {
   const out = [];
   const seen = new Set();
   for (let i = 0; i < lines.length; i++) {
-    if (COMMENT.test(lines[i]) || !CALL.test(lines[i])) continue;
+    if (COMMENT.test(lines[i]) || !CALL.test(lines[i]) || (COMPONENT_QUERY.test(lines[i]) && !CALL.test(lines[i].replace(COMPONENT_QUERY, '')))) continue;
     // The statement: back up over continuation lines, then forward until it closes.
     let start = i;
     while (start > 0 && (CONTINUES.test(lines[start]) || OPENS.test(lines[start - 1])) && !COMMENT.test(lines[start - 1])) start--;
@@ -67,8 +70,12 @@ export function scanLocators(text) {
     const statement = lines.slice(start, end + 1).join('\n');
     // The id: in the statement itself, or in the comment block right above it.
     let id = ID_PATTERN.exec(statement)?.[1] ?? null;
-    for (let k = start - 1; !id && k >= 0 && COMMENT.test(lines[k]); k--) id = ID_PATTERN.exec(lines[k])?.[1] ?? null;
-    out.push({ line: start + 1, statement: statement.trim(), id, positional: POSITIONAL.test(statement), expression: rootedExpression(statement) });
+    let helper = false; // an entry's helper (Cypress/WebdriverIO) carries its member's id: `// COR cor:… · helper, once per file`
+    for (let k = start - 1; !id && k >= 0 && COMMENT.test(lines[k]); k--) {
+      id = ID_PATTERN.exec(lines[k])?.[1] ?? null;
+      if (id) helper = /\bhelper\b/.test(lines[k]);
+    }
+    out.push({ line: start + 1, statement: statement.trim(), id, helper, positional: POSITIONAL.test(statement), expression: rootedExpression(statement) });
   }
   return out;
 }
