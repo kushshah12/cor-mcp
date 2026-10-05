@@ -12,10 +12,10 @@ const { name, version } = JSON.parse(readFileSync(new URL('../package.json', imp
 
 // Tools join this list as they are implemented (U8). No placeholders: an
 // agent must never be offered a tool that cannot work.
-export function defaultTools(session, fingerprints = null, records = null) {
+export function defaultTools(session, records = null) {
   const idCache = new Map(); // id-stability verdicts, shared by inspect and grade
-  const inspector = createInspector(session, idCache, fingerprints, records); // shared: cor_check issues entries too (U9)
-  return [...sessionTools(session), ...inspectTools(session, idCache, fingerprints, records, inspector), ...gradeTools(session, idCache), ...checkTools(session, inspector, records), ...healTools(session, inspector, records)];
+  const inspector = createInspector(session, idCache, records); // shared: cor_check and cor_heal issue entries too
+  return [...sessionTools(session), ...inspectTools(session, idCache, inspector), ...gradeTools(session, idCache), ...checkTools(session, inspector, records), ...healTools(session, inspector, records)];
 }
 
 // Sent once at connect. The user asks the agent for tests, not for locators,
@@ -53,15 +53,13 @@ export const INSTRUCTIONS = [
  *
  * @param {{
  *   session?: ReturnType<typeof createSession>,
- *   fingerprints?: ReturnType<typeof import('./fingerprints.js').createFingerprintStore> | null,
  *   tools?: Array<{ name: string, config: object, handler: Function }>,
  * }} [options]
  */
 export function createServer({
   session = createSession(),
-  fingerprints = null, // capture is the bin's decision (bin/cor-mcp.js), not a library default
-  records = null, // U8: likewise — .cor/records/ in the project is written only when the bin turns it on
-  tools = defaultTools(session, fingerprints, records),
+  records = null, // U8: .cor/records/ in the project is written only when the bin turns it on (bin/cor-mcp.js)
+  tools = defaultTools(session, records),
 } = {}) {
   const server = new McpServer({ name, version }, { instructions: INSTRUCTIONS });
   // The client going away must not leave a Chrome process behind.

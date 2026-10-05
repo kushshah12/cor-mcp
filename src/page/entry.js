@@ -125,7 +125,7 @@ function inspect({ ref, selector, element, framework, max, testIdAttribute = nul
     shadowFix: framework === 'cypress' ? cypressShadowFix(target.el, candidates.locators) : null,
     params: parameterise(target.el),
     stateBound: stateBoundFor(target.el, framework),
-    // For silent capture (src/fingerprints.js) — never rendered.
+    // For the entry's record (src/records.js) — never rendered.
     capture: { fingerprint: computeFingerprint(target.el), elementKey: structuralPath(target.el) },
   };
 }

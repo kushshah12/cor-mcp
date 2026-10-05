@@ -24,33 +24,7 @@ Every `cor_inspect` that recommends a locator also gives it an **entry**: the co
 
 **Commit them.** They are how a repair works on a teammate's machine or in a CI checkout: the id travels in your code and the record travels with the repo. Add `.cor/records/` to `.gitignore` if you would rather keep them on one machine.
 
-**What each record holds:** the page (origin and path only), the element's position as a tag path, its fingerprint (as below), and up to 12 locators ranked for it, stored as data (`{ "kind": "testId", "value": "[data-test=\"…\"]" }`) — not as code to paste, and COR never shows a record's contents to the agent. The same masking as below applies; input values are never stored.
-
-**Turning it off:** the same switches as fingerprints (`--no-fingerprints`, `COR_FINGERPRINTS=off`) write no record; entries still carry an id.
-
-## Fingerprints: what is stored, where, and how to turn it off
-
-Every successful `cor_inspect` also records a **fingerprint** of the element: a small description of it that a future heal can use to find the same element after the page changes. It happens silently, adding nothing to the tool response or the log, so this section is the complete disclosure.
-
-**Where:** one file per working folder, kept **outside** that folder, under your home directory:
-`~/.cor/fingerprints/<folder name>-<6-character code of its full path>.json`
-for example `~/.cor/fingerprints/cor-pw-testing-23dbb4.json`. The file also records the folder's full path. This fingerprint file is written outside your project (entry records, above, are the part that lives inside it). No account is involved, and nothing is sent over the network; the file never leaves your machine.
-
-**Who reads it:** nothing yet. It is kept so a future COR repair tool can find what a broken locator used to point at. It is not meant for agents or people to read as advice; its locators are a history, and some may be ones COR no longer recommends.
-
-**Moved from an earlier version:** earlier versions wrote `.cor/fingerprints.json` inside the project. The first time the server records something in that folder, it moves those records into the new file and deletes the old one. It also deletes `.cor/.gitignore` if that file lists only the old store, and removes `.cor/` if nothing else is left in it. Any other files in `.cor/` are left alone.
-
-**What each record holds:**
-
-- The page it came from, as **origin and path only**. Query strings and fragments are dropped, because tokens travel there.
-- An element key: its position in the page as a tag path, e.g. `body:nth-of-type(1) > main:nth-of-type(1) > button:nth-of-type(2)`.
-- The locators `cor_inspect` returned for it, masked as below.
-- The fingerprint itself:
-  - The element's tag.
-  - These attributes, if present: `aria-label`, `aria-labelledby`, `name`, `placeholder`, `type`, `role`, `title`, `alt`, `href`, `for`.
-  - Up to 80 characters of the element's own text.
-  - Its first five class names.
-- `firstSeen` / `lastSeen` timestamps and a format version.
+**What each record holds:** the page (origin and path, masked), the element's position as a tag path, the entry's member name, the element's fingerprint — its tag; `aria-label`, `aria-labelledby`, `name`, `placeholder`, `type`, `role`, `title`, `alt`, `href`, `for` if present; up to 80 characters of its own text; its first five class names — and up to 12 locators ranked for it, stored as data (`{ "kind": "testId", "value": "[data-test=\"…\"]" }`), not as code to paste. COR never shows a record's contents to the agent.
 
 **What is never stored:** what anyone typed into a field (input values), cookies, local storage, or anything from a storage-state file you pass to `cor_open`.
 
@@ -65,6 +39,4 @@ for example `~/.cor/fingerprints/cor-pw-testing-23dbb4.json`. The file also reco
 
 Short numbers and ordinary words are kept, because a heal needs them ("Step 2", "Qty 12", "Pay now"). Values are masked, not hashed. A heal compares stored values with the live page as plain text, so a hashed value could never match again.
 
-**Retention:** a record is refreshed each time its element is inspected again. Records not seen for **90 days** are deleted the next time the file is written. The file holds at most **5,000** records, newest kept.
-
-**Turning it off:** start the server with `--no-fingerprints`, or set `COR_FINGERPRINTS=off`. Either way no file is created. Deleting any file in `~/.cor/fingerprints/` at any time is safe.
+**Turning it off:** start the server with `--no-records` or set `COR_RECORDS=off` (the old `--no-fingerprints` / `COR_FINGERPRINTS=off` still work): no record is written; entries still carry an id, and `cor_check` then checks ids for presence only. The `~/.cor/fingerprints/` store of earlier versions is no longer written or read; deleting it is safe.

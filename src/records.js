@@ -1,11 +1,11 @@
 // U8: one committed record per issued entry, under <project>/.cor/records/<id>.json — what a heal (U12) reads on any
 // machine that has the repo. A record holds the page (origin + path, masked), the element's fingerprint and up to 12
-// ranked strategies as data ({ kind, value }), masked like the old fingerprint store. It holds no ready-to-paste code,
+// ranked strategies as data ({ kind, value }), masked (src/redact.js). It holds no ready-to-paste code,
 // and COR never puts a record's contents in a reply: records are COR's, not advice for the agent (README).
 import { randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { pageKey, redactFingerprint, redactLocator, redactText } from './fingerprints.js';
+import { pageKey, redactFingerprint, redactLocator, redactText } from './redact.js';
 
 export const RECORD_VERSION = 1;
 const MAX_STRATEGIES = 12;

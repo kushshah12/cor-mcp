@@ -4,14 +4,14 @@ import { parseArgs } from 'node:util';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { createServer } from '../src/server.js';
 import { createSession, DEFAULT_IDLE_MS } from '../src/session.js';
-import { createFingerprintStore } from '../src/fingerprints.js';
 import { createRecordStore } from '../src/records.js';
 
 const { values } = parseArgs({
   options: {
     headless: { type: 'boolean', default: false },
     'idle-minutes': { type: 'string' },
-    'no-fingerprints': { type: 'boolean', default: false },
+    'no-records': { type: 'boolean', default: false },
+    'no-fingerprints': { type: 'boolean', default: false }, // the old name, kept as an alias
   },
 });
 const idleMinutes = Number(values['idle-minutes']);
@@ -28,10 +28,9 @@ process.stdin.on('end', shutdown);
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
-// Silent capture to ~/.cor/fingerprints/<folder>-<code>.json, outside the project; see the README.
-const capture = !values['no-fingerprints'] && process.env.COR_FINGERPRINTS !== 'off';
-const fingerprints = createFingerprintStore({ enabled: capture });
-// U8: one record per issued entry in <project>/.cor/records/ — committed, so heal works on any machine. Same switch.
+// U8: one record per issued entry in <project>/.cor/records/ — committed, so heal works on any machine.
+// Off with --no-records (or the old --no-fingerprints) or COR_RECORDS=off (or COR_FINGERPRINTS=off).
+const capture = !values['no-records'] && !values['no-fingerprints'] && process.env.COR_RECORDS !== 'off' && process.env.COR_FINGERPRINTS !== 'off';
 const records = createRecordStore({ enabled: capture, root: () => session.root });
 
-await createServer({ session, fingerprints, records }).connect(new StdioServerTransport());
+await createServer({ session, records }).connect(new StdioServerTransport());

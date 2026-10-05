@@ -127,7 +127,7 @@ export async function verifyTemplate(page, params) {
  * U9: the inspect pipeline, shared by cor_inspect and cor_check (which issues an entry for a typed locator's element).
  * @returns {(args: object) => Promise<{ reply: string, entry: string[]|null }>}
  */
-export function createInspector(session, idCache = new Map(), fingerprints = null, records = null) {
+export function createInspector(session, idCache = new Map(), records = null) {
   const openPage = () => {
     if (!session.isOpen) throw new Error('No page is open — call cor_open with a URL first.');
     return session.getPage();
@@ -186,14 +186,11 @@ export function createInspector(session, idCache = new Map(), fingerprints = nul
       return lines;
     };
     const reply = renderInspect(result, { refsLive, framework, all, dataCyNote, typescript, major: detected?.version ?? null, testingLibrary: Boolean(detected?.testingLibrary), makeEntry });
-    if (fingerprints && result.locators.length) {
-      fingerprints.record({ url: page.url(), ...result.capture, locators: result.locators.map((l) => l.value) });
-    }
     return { reply, entry: entryLines };
   };
 }
 /** @param {ReturnType<import('../session.js').createSession>} session */
-export function inspectTools(session, idCache = new Map(), fingerprints = null, records = null, inspector = createInspector(session, idCache, fingerprints, records)) {
+export function inspectTools(session, idCache = new Map(), inspector = createInspector(session, idCache)) {
   const openPage = () => {
     if (!session.isOpen) throw new Error('No page is open — call cor_open with a URL first.');
     return session.getPage();
