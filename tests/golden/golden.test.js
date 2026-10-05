@@ -7,7 +7,10 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer as createHttpServer } from 'node:http';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createRecordStore } from '../../src/records.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../../src/server.js';
@@ -19,11 +22,15 @@ const EXPECTED = new URL('./expected/', import.meta.url);
 const MAX_GROWTH = 1.15;
 const MAX_MS = 20_000; // per case; the suite records output, not timings (U13 measures time)
 
+const TYPES = { html: 'text/html', js: 'text/javascript' };
 const site = createHttpServer((req, res) => {
-  const m = /^\/(site|fixture)\/([\w-]+)$/.exec(req.url);
-  const file = m && (m[1] === 'site' ? new URL(`./sites/${m[2]}/page.html`, import.meta.url) : new URL(`../fixtures/${m[2]}.html`, import.meta.url));
+  const path = req.url.split('?')[0];
+  // Frozen real pages, fixtures, and COR Shop — the suite's own app (app/), which runs its JS.
+  const m = /^\/(site|fixture)\/([\w-]+)$/.exec(path) ?? /^\/(app)\/([\w-]+\.(?:html|js))$/.exec(path);
+  const file = m && (m[1] === 'site' ? new URL(`./sites/${m[2]}/page.html`, import.meta.url)
+    : m[1] === 'app' ? new URL(`./app/${m[2]}`, import.meta.url) : new URL(`../fixtures/${m[2]}.html`, import.meta.url));
   if (!file || !existsSync(file)) return res.writeHead(404).end();
-  res.writeHead(200, { 'content-type': 'text/html' });
+  res.writeHead(200, { 'content-type': TYPES[file.pathname.split('.').pop()] ?? 'text/html' });
   res.end(readFileSync(file));
 });
 // An empty project: detection finds no framework, config or locator store, so output does not depend on this repo.
@@ -34,35 +41,46 @@ before(() => new Promise((resolve) => site.listen(0, '127.0.0.1', () => { base =
 after(() => site.close());
 
 /** A fresh session per case: session state (the framework argument, refs) must not leak between cases. */
-async function connect(project) {
-  // `project` names a folder under projects/ (a package.json and test config) to detect conventions from.
-  const session = createSession({ headless: true, cwd: project ? new URL(`./projects/${project}/`, import.meta.url).pathname : CWD });
+async function connect(project, { records = false } = {}) {
+  // `project` names a folder under projects/ (a package.json and test config) to detect conventions from. A case with
+  // records runs in a temporary copy of it (records and files are written there), with ids 000001, 000002, … in order.
+  let cwd = project ? new URL(`./projects/${project}/`, import.meta.url).pathname : CWD;
+  let store = null;
+  if (records) {
+    const copy = mkdtempSync(join(tmpdir(), 'cor-golden-'));
+    cpSync(cwd, copy, { recursive: true });
+    cwd = copy;
+    let n = 0;
+    store = createRecordStore({ root: () => copy, newId: () => String(++n).padStart(6, '0') });
+  }
+  const session = createSession({ headless: true, cwd });
   const page = await session.getPage();
   // Frozen pages still reference images and fonts on their origin; only the local server answers.
   await page.context().route('**/*', (route) => (route.request().url().startsWith(base) ? route.continue() : route.abort()));
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'golden', version: '0' });
-  const server = createServer({ session });
+  const server = createServer({ session, records: store });
   server.server.onclose = null;
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
   const call = async (name, args) => {
     const r = await client.callTool({ name, arguments: args });
     return `${r.isError ? '[error] ' : ''}${r.content.map((c) => c.text).join('\n')}`;
   };
-  return { call, close: () => session.close() };
+  return { call, close: () => { if (store) rmSync(cwd, { recursive: true, force: true }); return session.close(); } };
 }
 
 // The local port and the installed Chrome version change between runs; nothing else may.
 // U8: entry ids are random per issue.
-const normalise = (text) => text.split(base).join('{base}').replace(/cor:[0-9a-f]{6}\b/g, 'cor:{id}').replace(/Browser: [^\n]*?\d+(\.\d+)+\./g, 'Browser: {browser}.');
+const normalise = (text, keepIds = false) => (keepIds ? text : text.replace(/cor:[0-9a-f]{6}\b/g, 'cor:{id}')).split(base).join('{base}').replace(/Browser: [^\n]*?\d+(\.\d+)+\./g, 'Browser: {browser}.');
 
 for (const c of CASES) {
   test(`golden ${c.id}${c.defect ? ` (${c.defect})` : ''}`, { timeout: MAX_MS }, async (t) => {
-    const { call, close } = await connect(c.project);
+    const { call, close } = await connect(c.project, { records: c.records });
     t.after(close);
-    const parts = [`# ${c.id}${c.defect ? ` — pins ${c.defect}` : ''}`, normalise(await call('cor_open', { url: `${base}/${c.open}` }))];
-    for (const [tool, args] of c.calls) {
-      const reply = normalise(await call(tool, args));
+    const parts = [`# ${c.id}${c.defect ? ` — pins ${c.defect}` : ''}`, normalise(await call('cor_open', { url: `${base}/${c.open}` }), c.records)];
+    for (const [tool, raw] of c.calls) {
+      const args = raw.url?.startsWith('{base}') ? { ...raw, url: raw.url.replace('{base}', base) } : raw;
+      const reply = normalise(await call(tool, args), c.records);
       parts.push(`--- ${tool} ${JSON.stringify(args)} (${reply.length} chars)`, reply);
     }
     const actual = `${parts.join('\n')}\n`;

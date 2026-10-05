@@ -58,4 +58,55 @@ export const CASES = [
   { id: 'fx-tables-snapshot', open: 'fixture/tables', calls: [['cor_snapshot', {}]] },
   { id: 'fx-faq-snapshot', open: 'fixture/faq', calls: [['cor_snapshot', {}]] },
   { id: 'fx-traps-snapshot', open: 'fixture/traps', calls: [['cor_snapshot', {}]] },
+
+  // ── COR Shop (app/): the suite's own app, with JS. One case per hard shape, plus cor_check and cor_heal end to end. ──
+  {
+    id: 'shop-login-flow', project: 'shop-repo', open: 'app/login.html',
+    calls: [
+      ['cor_inspect', { selector: '[data-test="login-button"]' }],
+      ['cor_fill', { target: '[data-test="username"]', value: 'standard' }],
+      ['cor_fill', { target: '[data-test="password"]', value: 'wrong' }],
+      ['cor_click', { target: '[data-test="login-button"]' }],
+      ['cor_inspect', { selector: '[data-test="error"]' }],
+      ['cor_fill', { target: '[data-test="password"]', value: 'secret' }],
+      ['cor_click', { target: '[data-test="login-button"]' }],
+    ],
+  },
+  {
+    id: 'shop-add-remove-state', project: 'shop-repo', open: 'app/inventory.html',
+    calls: [
+      ['cor_inspect', { selector: '[data-test="add-to-cart-pen"]' }],
+      ['cor_click', { target: '[data-test="add-to-cart-pen"]' }],
+      ['cor_inspect', { selector: '[data-test="remove-pen"]' }],
+      ['cor_inspect', { selector: '#cart-link' }],
+    ],
+  },
+  { id: 'shop-featured-no-testids', project: 'shop-repo', open: 'app/inventory.html', calls: [['cor_inspect', { selector: '.tile:nth-child(2) .tile__go' }]] },
+  { id: 'shop-orders-cell', project: 'shop-repo', open: 'app/inventory.html', calls: [['cor_snapshot', { within: 'A-1002' }], ['cor_inspect', { selector: 'table.orders tbody tr:nth-child(2) td:nth-child(2)' }]] },
+  { id: 'shop-shadow-widget', project: 'shop-repo', open: 'app/inventory.html', calls: [['cor_inspect', { selector: '#newsletter >>> button' }]] },
+  { id: 'shop-sort-cypress', project: 'shop-repo', open: 'app/inventory.html', calls: [['cor_inspect', { selector: '[data-test="sort"]', framework: 'cypress' }], ['cor_inspect', { selector: '[data-test="sort"]', framework: 'webdriverio' }]] },
+  {
+    id: 'shop-checkout-form', project: 'shop-repo', open: 'app/checkout.html',
+    calls: [['cor_inspect', { selector: '[data-test="postal-code"]' }], ['cor_click', { target: '[data-test="continue"]' }]],
+  },
+  {
+    // cor_check over the fixture repo: an entry placed as issued passes; its id copied onto another locator, a typed
+    // .first(), an id from another project fail; Testing Library's screen query in a component test is not scanned.
+    id: 'shop-cor-check', project: 'shop-repo', records: true, open: 'app/inventory.html',
+    calls: [['cor_inspect', { selector: '[data-test="sort"]' }], ['cor_check', { all: true }]],
+  },
+  {
+    // cor_heal across a release (?release=2): the sort select's test id renamed (label kept) heals from a stored
+    // locator; the Pen button, renamed AND re-worded, and the removed Cap are declined — never healed onto a sibling.
+    id: 'shop-cor-heal-release', project: 'shop-repo', records: true, open: 'app/inventory.html',
+    calls: [
+      ['cor_inspect', { selector: '[data-test="sort"]' }],
+      ['cor_inspect', { selector: '[data-test="add-to-cart-pen"]' }],
+      ['cor_inspect', { selector: '[data-test="add-to-cart-cap"]' }],
+      ['cor_open', { url: '{base}/app/inventory.html?release=2' }],
+      ['cor_heal', { id: '000001' }],
+      ['cor_heal', { id: '000002' }],
+      ['cor_heal', { id: '000003' }],
+    ],
+  },
 ];

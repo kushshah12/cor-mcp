@@ -1,0 +1,70 @@
+# shop-login-flow
+Now at {base}/app/login.html — "COR Shop â€” Sign in" (HTTP 200). Browser: {browser}.
+Framework: Playwright — from cor.config.js.
+Locators: page objects in tests/pages/ (cor.config.js).
+--- cor_inspect {"selector":"[data-test=\"login-button\"]"} (1236 chars)
+Best locator (playwright):
+  page.getByRole('button', { name: 'Login' })
+  Point-in-time — true on this page now: 79 Good · 1 match
+  + Targets the element by ARIA role and accessible name
+  + Uses the test framework’s idiomatic locator API
+  - Coupled to a label / accessible name
+
+Entry — place in tests/pages/login.page.js, member loginButton (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 79 Good · 1 match
+  loginButton = () => this.page.getByRole('button', { name: 'Login' });
+
+Why this order: Ranked role=button, name=Login (score 79) above [data-test="login-button"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
+Framework convention applied: playwright (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on ARIA role and accessible name; risk: coupled to a label / accessible name; chosen over page.getByTestId('login-button') because playwright guidance prefers role over testId
+
+Alternatives:
+2. page.getByTestId('login-button')
+   99 Excellent · 1 match
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)
+--- cor_fill {"target":"[data-test=\"username\"]","value":"standard"} (51 chars)
+Filled [data-test="username"].
+Refs: 0 still valid.
+--- cor_fill {"target":"[data-test=\"password\"]","value":"wrong"} (51 chars)
+Filled [data-test="password"].
+Refs: 0 still valid.
+--- cor_click {"target":"[data-test=\"login-button\"]"} (352 chars)
+Clicked [data-test="login-button"]. Now at {base}/app/login.html — "COR Shop â€” Sign in"
+Text:
++ "Username and password do not match" [ref=e1]
+Refs: 0 still valid.
+Assert what this changed — the new or changed text, the URL, that gone items are no longer displayed (hidden or removed: "not displayed" holds for both) — not only that an element exists.
+--- cor_inspect {"selector":"[data-test=\"error\"]"} (1077 chars)
+Best locator (playwright):
+  page.getByRole('alert')
+  Point-in-time — true on this page now: 79 Good · 1 match
+  + Anchored on a semantic attribute (href, title, alt, type, …)
+  + Short and shallow
+
+Entry — place in tests/pages/login.page.js, member error (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 79 Good · 1 match
+  error = () => this.page.getByRole('alert');
+
+Why this order: Ranked role=alert (score 79) above [data-test="error"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
+Framework convention applied: playwright (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on a semantic attribute (href, title, alt, type, …); no known risk; chosen over page.getByTestId('error') because playwright guidance prefers role over testId
+
+Alternatives:
+2. page.getByTestId('error')
+   99 Excellent · 1 match
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)
+--- cor_fill {"target":"[data-test=\"password\"]","value":"secret"} (51 chars)
+Filled [data-test="password"].
+Refs: 1 still valid.
+--- cor_click {"target":"[data-test=\"login-button\"]"} (367 chars)
+Clicked [data-test="login-button"]. Now at {base}/app/inventory.html — "COR Shop â€” Products"
+The page navigated. Headings on the new page (cor_inspect one for the exact locator of text you assert on; cor_snapshot for its controls):
+  h1 "Products" [ref=e2]
+  h3 "Coffee Mug" [ref=e3]
+  h3 "Gel Pen" [ref=e4]
+  h3 "Baseball Cap" [ref=e5]
+  h3 "Logo T-Shirt" [ref=e6]

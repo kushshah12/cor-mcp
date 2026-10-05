@@ -1,0 +1,45 @@
+# shop-sort-cypress
+Now at {base}/app/inventory.html — "COR Shop â€” Products" (HTTP 200). Browser: {browser}.
+Framework: Playwright — from cor.config.js.
+Locators: page objects in tests/pages/ (cor.config.js).
+--- cor_inspect {"selector":"[data-test=\"sort\"]","framework":"cypress"} (774 chars)
+Best locator (cypress):
+  cy.get('[data-test="sort"]')
+  Point-in-time — true on this page now: 99 Excellent · 1 match
+  + Anchored on a dedicated test attribute
+  + Short and shallow
+
+Entry — place in tests/pages/inventory.page.js, member sort (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 99 Excellent · 1 match
+  sort = () => cy.get('[data-test="sort"]');
+Framework convention applied: cypress (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on a dedicated test attribute; no known risk
+
+Alternatives:
+2. cy.get('#sort')
+   93 Excellent · 1 match
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)
+--- cor_inspect {"selector":"[data-test=\"sort\"]","framework":"webdriverio"} (1145 chars)
+Best locator (webdriverio):
+  await $('aria/Sort')
+  Point-in-time — true on this page now: 79 Good · 1 match
+  + Targets the element by ARIA role and accessible name
+  + Uses the test framework’s idiomatic locator API
+  - Coupled to a label / accessible name
+
+Entry — place in tests/pages/inventory.page.js, member sort (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 79 Good · 1 match
+  sort = () => $('aria/Sort');
+
+Why this order: Ranked aria/Sort (score 79) above [data-test="sort"] (score 99) — webdriverio guidance prefers role over testId. Both resolve to exactly one element.
+Framework convention applied: webdriverio (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on ARIA role and accessible name; risk: coupled to a label / accessible name; chosen over await $('[data-test="sort"]') because webdriverio guidance prefers role over testId
+
+Alternatives:
+2. await $('[data-test="sort"]')
+   99 Excellent · 1 match
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)

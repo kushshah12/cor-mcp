@@ -1,0 +1,95 @@
+# shop-add-remove-state
+Now at {base}/app/inventory.html — "COR Shop â€” Products" (HTTP 200). Browser: {browser}.
+Framework: Playwright — from cor.config.js.
+Locators: page objects in tests/pages/ (cor.config.js).
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-pen\"]"} (2049 chars)
+Recommended — parameterised: 4 items share this shape; every value checked, each finds exactly its own item (4/4).
+  Proof: counted by Playwright, every value.
+  title = "Gel Pen"   (also: "Coffee Mug", "Baseball Cap", "Logo T-Shirt")
+  page.locator('[data-test="inventory-item"]').filter({ has: page.getByRole('heading', { name: title, exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true })
+  Registry template (css-string): [data-test="inventory-item"]:has([data-test="inventory-item-name"]:text-is("__title__")) >> role=button[name="Add to cart"s]
+  Every item (4 now): page.locator('[data-test="inventory-item"]') — loop over it (for (const item of await ….all())) when the test covers every item, so one added later is tested too.
+  When the test touches more than one item, write one function taking title instead of a locator per item.
+  The 3 lookalike button "Add to cart" elements are the other items — pass their title instead.
+
+For this one item alone (playwright):
+  page.getByTestId('add-to-cart-pen')
+  Point-in-time — true on this page now: 99 Excellent · 1 match
+  + Anchored on a dedicated test attribute
+  + Short and shallow
+
+Entry — place in tests/pages/inventory.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 4/4 items checked
+  addToCart = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true });
+Facts:
+  • 3 other visible button "Add to cart"s look the same
+Framework convention applied: playwright (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on a dedicated test attribute; no known risk
+
+Alternatives:
+2. page.locator('button[data-test="add-to-cart-pen"][name="add-to-cart-pen"]')
+   99 Excellent · 1 match
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)
+--- cor_click {"target":"[data-test=\"add-to-cart-pen\"]"} (435 chars)
+Clicked [data-test="add-to-cart-pen"]. Now at {base}/app/inventory.html — "COR Shop â€” Products"
+Changes:
++ item "Gel Pen": button "Remove" [ref=e1]
+~ link "Cart, 1 item": "Cart, empty" → "Cart, 1 item"
+- button "Add to cart"
+Refs: 0 still valid.
+Assert what this changed — the new or changed text, the URL, that gone items are no longer displayed (hidden or removed: "not displayed" holds for both) — not only that an element exists.
+--- cor_inspect {"selector":"[data-test=\"remove-pen\"]"} (2150 chars)
+Recommended — parameterised: 4 items share this shape; every value checked, each finds exactly its own item (4/4).
+  Proof: counted by Playwright, every value.
+  title = "Gel Pen"   (also: "Coffee Mug", "Baseball Cap", "Logo T-Shirt")
+  page.locator('[data-test="inventory-item"]').filter({ has: page.getByRole('heading', { name: title, exact: true }) }).locator('button.btn')
+  Registry template (css-string): [data-test="inventory-item"]:has([data-test="inventory-item-name"]:text-is("__title__")) >> button.btn
+  Every item (4 now): page.locator('[data-test="inventory-item"]') — loop over it (for (const item of await ….all())) when the test covers every item, so one added later is tested too.
+  When the test touches more than one item, write one function taking title instead of a locator per item.
+
+For this one item alone (playwright):
+  page.getByRole('button', { name: 'Remove' })
+  Point-in-time — true on this page now: 79 Good · 1 match
+  + Targets the element by ARIA role and accessible name
+  + Uses the test framework’s idiomatic locator API
+  - Coupled to a label / accessible name
+
+Entry — place in tests/pages/inventory.page.js, member remove (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 4/4 items checked
+  remove = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).locator('button.btn');
+
+Why this order: Ranked role=button, name=Remove (score 79) above [data-test="remove-pen"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
+Framework convention applied: playwright (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on ARIA role and accessible name; risk: coupled to a label / accessible name; chosen over page.getByTestId('remove-pen') because playwright guidance prefers role over testId
+
+Alternatives:
+2. page.getByTestId('remove-pen')
+   99 Excellent · 1 match
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)
+--- cor_inspect {"selector":"#cart-link"} (1313 chars)
+Best locator (playwright):
+  page.getByRole('link', { name: 'Cart, 1 item' })
+  Point-in-time — true on this page now: 79 Good · 1 match
+  + Targets the element by ARIA role and accessible name
+  + Uses the test framework’s idiomatic locator API
+  - Coupled to a label / accessible name
+
+Entry — place in tests/pages/inventory.page.js, member cart1ItemLink (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 79 Good · 1 match
+  cart1ItemLink = () => this.page.getByRole('link', { name: 'Cart, 1 item' });
+
+Why this order: Ranked role=link, name=Cart, 1 item (score 79) above #cart-link (score 93) — playwright guidance prefers role over id. Both resolve to exactly one element.
+Framework convention applied: playwright (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on ARIA role and accessible name; risk: coupled to a label / accessible name; chosen over page.locator('#cart-link') because playwright guidance prefers role over id
+
+Alternatives:
+2. page.locator('header').getByText('Cart')
+   61 Fair · 1 match
+   ! Coupled to display copy — breaks on wording changes and localization (Cart)
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)

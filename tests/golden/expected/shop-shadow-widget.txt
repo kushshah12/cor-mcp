@@ -1,0 +1,29 @@
+# shop-shadow-widget
+Now at {base}/app/inventory.html — "COR Shop â€” Products" (HTTP 200). Browser: {browser}.
+Framework: Playwright — from cor.config.js.
+Locators: page objects in tests/pages/ (cor.config.js).
+--- cor_inspect {"selector":"#newsletter >>> button"} (1428 chars)
+Best locator (playwright):
+  page.getByRole('button', { name: 'Subscribe' })
+  Point-in-time — true on this page now: 79 Good · 1 match
+  + Targets the element by ARIA role and accessible name
+  + Uses the test framework’s idiomatic locator API
+  - Coupled to a label / accessible name
+
+Entry — place in tests/pages/inventory.page.js, member subscribeButton (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 79 Good · 1 match
+  subscribeButton = () => this.page.getByRole('button', { name: 'Subscribe' });
+Facts:
+  • inside a shadow root (host #newsletter) — Playwright and WebdriverIO see in; Cypress needs its shadow setting on
+
+Why this order: Demoted #newsletter (score 93) — Matches one element, but not this one. Ranked role=button, name=Subscribe first because it resolves to exactly one element.
+Framework convention applied: playwright (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on ARIA role and accessible name; risk: coupled to a label / accessible name; chosen over page.locator('#newsletter') because it does not resolve to this element
+
+Alternatives:
+2. page.getByText('Subscribe')
+   61 Fair · 1 match
+   ! Coupled to display copy — breaks on wording changes and localization (Subscribe)
+(3 more alternatives not shown — cor_inspect with all: true lists every one.)

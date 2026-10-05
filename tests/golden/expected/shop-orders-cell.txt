@@ -1,0 +1,51 @@
+# shop-orders-cell
+Now at {base}/app/inventory.html — "COR Shop â€” Products" (HTTP 200). Browser: {browser}.
+Framework: Playwright — from cor.config.js.
+Locators: page objects in tests/pages/ (cor.config.js).
+--- cor_snapshot {"within":"A-1002"} (319 chars)
+"COR Shop â€” Products" {base}/app/inventory.html — row "A-1002" in full (within: A-1002)
+All text in this region, in page order. Its refs are added to the current snapshot's; refs expire on navigation and any act.
+
+- cell "Order" [ref=e1]: "A-1002"
+- cell "Status" [ref=e2]: "Processing"
+- cell "Total" [ref=e3]: "$40"
+--- cor_inspect {"selector":"table.orders tbody tr:nth-child(2) td:nth-child(2)"} (2335 chars)
+Recommended — parameterised by row and column: 3 rows × 3 columns; every row and column checked (6/6).
+  Proof: counted by Playwright, every value.
+  order = "A-1002"   (also: "A-1001", "A-1003")
+  column = "Status"   (also: "Order", "Total")
+  const cell = (order, column) => {
+    const tables = "//table[contains(concat(' ', normalize-space(@class), ' '), ' orders ')]";
+    const header = `(${tables}//tr[th])[1]`;
+    const row = `${tables}//tr[*[1][normalize-space()="${order}"]]`;
+    const columnNo = `count(${header}/*[normalize-space()="${column}"]/preceding-sibling::*) + 1`;
+    return page.locator(`xpath=${row}/*[${columnNo}]`);
+  };
+  Registry template (xpath-literal): //table[contains(concat(' ', normalize-space(@class), ' '), ' orders ')]//tr[*[1][normalize-space()=__order__]]/*[count((//table[contains(concat(' ', normalize-space(@class), ' '), ' orders ')]//tr[th])[1]/*[normalize-space()=__column__]/preceding-sibling::*)+1]   (__order__ / __column__ are quoted XPath literals)
+  When the test reads more than one cell, write one function taking order and column.
+
+For this one item alone (playwright):
+  page.getByText('Processing')
+  Point-in-time — true on this page now: 61 Fair · 1 match
+  - Coupled to display copy
+  + Anchored on visible text
+
+Entry — place in tests/pages/inventory.page.js, member item (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 6/6 items checked
+  item = () => (order, column) => {
+  const tables = "//table[contains(concat(' ', normalize-space(@class), ' '), ' orders ')]";
+  const header = `(${tables}//tr[th])[1]`;
+  const row = `${tables}//tr[*[1][normalize-space()="${order}"]]`;
+  const columnNo = `count(${header}/*[normalize-space()="${column}"]/preceding-sibling::*) + 1`;
+  return this.page.locator(`xpath=${row}/*[${columnNo}]`);
+};
+Framework convention applied: playwright (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on visible text; risk: coupled to display copy
+
+Alternatives:
+2. page.locator('//td[normalize-space()="Processing"]')
+   61 Fair · 1 match
+   ! Coupled to display copy — breaks on wording changes and localization (Processing)
+(2 more alternatives not shown — cor_inspect with all: true lists every one.)
