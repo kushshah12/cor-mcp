@@ -1,6 +1,7 @@
 # sd-login-username-pw — pins D5
 Now at {base}/site/saucedemo-login — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
 --- cor_inspect {"selector":"[data-test=\"username\"]"} (1368 chars)
 Best locator (playwright):
   page.getByRole('textbox', { name: 'Username' })

@@ -25,8 +25,8 @@ const site = createHttpServer((req, res) => {
   res.writeHead(200, { 'content-type': 'text/html' });
   res.end(readFileSync(file));
 });
-// No package.json in the golden folder: framework detection finds none, so output does not depend on this repo.
-const CWD = new URL('.', import.meta.url).pathname;
+// An empty project: detection finds no framework, config or locator store, so output does not depend on this repo.
+const CWD = new URL('./projects/empty/', import.meta.url).pathname;
 let base;
 
 before(() => new Promise((resolve) => site.listen(0, '127.0.0.1', () => { base = `http://127.0.0.1:${site.address().port}`; resolve(); })));

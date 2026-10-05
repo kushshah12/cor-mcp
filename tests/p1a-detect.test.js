@@ -144,7 +144,7 @@ async function connect(t, cwd) {
 test('cor_open names the framework; cor_inspect renders for it without an argument; U2: an argument applies to its call only', async (t) => {
   const call = await connect(t, project('e2e-cy', { 'package.json': pkg({ cypress: '16' }) }));
   const opened = await call('cor_open', { url: base });
-  assert.match(opened, /\nFramework: Cypress v16 — from \.\/package\.json \(cypress\)\. Override with framework: "…"\.$/);
+  assert.match(opened, /\nFramework: Cypress v16 — from \.\/package\.json \(cypress\)\. Override with framework: "…"\.\nLocators: /); // U7: the conventions line follows
   const detected = await call('cor_inspect', { selector: '#email' });
   assert.match(detected, /cy\.get\(/);
   assert.doesNotMatch(detected, /page\.get/);

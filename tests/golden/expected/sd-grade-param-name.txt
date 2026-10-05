@@ -1,6 +1,7 @@
 # sd-grade-param-name — pins D6
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
 --- cor_grade {"selector":"page.locator('[data-test=\"inventory-item\"]').filter({ has: page.getByText(name, { exact: true }) }).getByRole('button', { name: 'Add to cart' })","param":"name"} (1593 chars)
 Across every item (name, 6 visible items of [data-test="inventory-item"]):
   item 1 "Sauce Labs Backpack": ✓ 1 match with name = "Sauce Labs Backpack"

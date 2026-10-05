@@ -1,6 +1,7 @@
 # sd-grade-testid-configured
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: Playwright v1 — from ./package.json (@playwright/test). Override with framework: "…". getByTestId reads data-test (playwright.config.ts).
+Locators: page objects in tests/pages/ (default — no specs found).
 --- cor_grade {"selector":"page.getByTestId('shopping-cart-link')"} (488 chars)
 Healthy — resolves to exactly one element. If a test using it failed, the cause is in the product or the assertion, not this locator. Stop repairing the locator.
   Point-in-time — true on this page now: 100 Excellent · 1 match

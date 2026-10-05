@@ -1,6 +1,7 @@
 # sd-login-button-pw
 Now at {base}/site/saucedemo-login — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
 --- cor_inspect {"selector":"[data-test=\"login-button\"]"} (1125 chars)
 Best locator (playwright):
   page.getByRole('button', { name: 'Login' })

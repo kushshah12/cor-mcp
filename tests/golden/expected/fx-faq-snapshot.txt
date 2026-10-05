@@ -1,6 +1,7 @@
 # fx-faq-snapshot
 Now at {base}/fixture/faq — "FAQ" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
 --- cor_snapshot {} (645 chars)
 "FAQ" {base}/fixture/faq — 8 interactive elements
 Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).

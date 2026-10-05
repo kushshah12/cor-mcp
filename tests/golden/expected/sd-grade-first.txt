@@ -1,6 +1,7 @@
 # sd-grade-first — pins D2
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
 --- cor_grade {"selector":"page.getByRole('button', { name: 'Add to cart' }).first()"} (920 chars)
 Positional — .first() picks one of 6 matches by position: a reorder, an added item or a hidden copy silently changes which element the test touches. Not acceptable as written.
 

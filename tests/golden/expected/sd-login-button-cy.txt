@@ -1,6 +1,7 @@
 # sd-login-button-cy
 Now at {base}/site/saucedemo-login — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
 --- cor_inspect {"selector":"[data-test=\"login-button\"]","framework":"cypress"} (592 chars)
 Best locator (cypress):
   cy.get('[data-test="login-button"]')

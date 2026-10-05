@@ -1,6 +1,7 @@
 # sd-grade-testid — pins D7
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
 --- cor_grade {"selector":"page.getByTestId('inventory-item')"} (889 chars)
 Broken — matches no element on this page. A test using it fails here because of the locator.
 Re-identify the element: cor_snapshot, then cor_inspect its ref.

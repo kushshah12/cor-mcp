@@ -1,6 +1,7 @@
 # sd-inv-framework-sticks — pins D3
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
 --- cor_inspect {"selector":"[data-test=\"product-sort-container\"]","framework":"cypress"} (631 chars)
 Best locator (cypress):
   cy.get('[data-test="product-sort-container"]')

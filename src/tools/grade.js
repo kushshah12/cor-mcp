@@ -34,8 +34,9 @@ export function gradeTools(session, idCache = new Map()) {
         if (!session.isOpen) throw new Error('No page is open — call cor_open with the page the selector targets first.');
         const page = await session.getPage();
         const testId = session.testIdAttribute;
-        if (param) return text(await gradeAcross(page, selector, framework, param, values, idCache, project, testId));
-        return text(await gradeOne(page, selector, framework, idCache, project, testId));
+        const order = session.order;
+        if (param) return text(await gradeAcross(page, selector, framework, param, values, idCache, project, testId, order));
+        return text(await gradeOne(page, selector, framework, idCache, project, testId, order));
       },
     },
   ];
@@ -59,7 +60,7 @@ const innermostMatch = (locator) =>
     .catch(() => null);
 
 /** Grade one literal selector (the original cor_grade). */
-async function gradeOne(page, selector, framework, idCache, project, testId = null) {
+async function gradeOne(page, selector, framework, idCache, project, testId = null, order = null) {
   let parsed;
   try {
     parsed = parseGradable(selector, { framework: framework ?? project });
@@ -118,7 +119,7 @@ async function gradeOne(page, selector, framework, idCache, project, testId = nu
     const before = await p.prefix(page).count().catch(() => 0);
     if (before > 1) { positional = { code: p.code, count: before }; break; }
   }
-  const { graded, candidates } = await callPage(page, 'grade', { element, value: scoreValue, framework: fw, matchCount, testIdAttribute: testId });
+  const { graded, candidates } = await callPage(page, 'grade', { element, value: scoreValue, framework: fw, matchCount, testIdAttribute: testId, order });
   if (chain) Object.assign(graded, { value: selector, code: selector, chain });
   if (matchCount === 1) {
     const ids = numberedIds(parsed.scoreValue);
@@ -147,7 +148,7 @@ async function testIdHint(page, selector, testId) {
  * page per item of its first CSS step — then grade durability on a value that
  * works. The agent writes the helper; COR proves it.
  */
-async function gradeAcross(page, selector, framework, param, given, idCache, project, testId = null) {
+async function gradeAcross(page, selector, framework, param, given, idCache, project, testId = null, order = null) {
   let parsed;
   try {
     parsed = parseGradable(selector, { param });
@@ -197,6 +198,6 @@ async function gradeAcross(page, selector, framework, param, given, idCache, pro
     lines.push(`Works for ${ok} of ${perItem.length} items.`);
   }
   if (!working) return [...lines, '', 'No value works, so there is no durability grade.'].join('\n');
-  const graded = await gradeOne(page, substituteParam(selector, param, working), framework, idCache, project, testId);
+  const graded = await gradeOne(page, substituteParam(selector, param, working), framework, idCache, project, testId, order);
   return [...lines, '', `Durability, graded on ${param} = "${working}":`, graded].join('\n');
 }

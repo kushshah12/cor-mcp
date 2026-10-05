@@ -1,6 +1,7 @@
 # fx-cards-choose-pw
 Now at {base}/fixture/cards — "Cards" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
 --- cor_inspect {"selector":".card:nth-child(2) > button"} (2354 chars)
 ⚠ Check this is the element you meant: 1 other visible element looks the same — button "Choose".
   You inspected: in "Team Ultimate" under "Desktop & Mobile, plus:"

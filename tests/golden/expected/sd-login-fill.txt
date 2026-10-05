@@ -1,6 +1,7 @@
 # sd-login-fill — pins D5
 Now at {base}/site/saucedemo-login — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
 --- cor_fill {"target":"[data-test=\"username\"]","value":"standard_user"} (157 chars)
 Filled [data-test="username"].
 No visible change. If you expected one, the act may not have landed — check the target, or try cor_press.

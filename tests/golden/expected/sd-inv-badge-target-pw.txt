@@ -1,6 +1,7 @@
 # sd-inv-badge-target-pw
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
 --- cor_inspect {"selector":"[data-test=\"shopping-cart-link\"]"} (1157 chars)
 Best locator (playwright):
   page.getByRole('button', { name: 'Cart, empty' })

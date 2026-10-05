@@ -1,6 +1,7 @@
 # sd-inv-add-cy — pins D1 D4
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
 --- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]","framework":"cypress"} (1772 chars)
 Recommended — parameterised: 6 items share this shape; every value checked, each finds exactly its own item (6/6).
   Proof: emulated — not run in Cypress. The template was checked in the page for every value; its Cypress idioms were not conformance-tested on this version.

@@ -1,4 +1,5 @@
-import { detectFramework, frameworkLine } from './detect.js';
+import { detectFramework, frameworkLine, LABELS } from './detect.js';
+import { conventionsLines, resolveConventions } from './conventions.js';
 
 // One browser, one page per server process — created on first use, reused
 // across calls, closed on cor_close, on idle, or when the server shuts down.
@@ -47,6 +48,7 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
   // P1a: the project's test framework — read from package.json once per session.
   // U2 (D3): an agent's `framework` argument renders that call only; it never changes the session's.
   let detection = null;
+  let conventions = null; // U7: cor.config.json + the repo's locator store, read once per session
 
   let highestRef = 0;
   const note = (live) => { for (const r of live) highestRef = Math.max(highestRef, Number(r.slice(1))); };
@@ -58,7 +60,7 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
   function reset() {
     browser = context = page = null;
     refs = null;
-    detection = null;
+    detection = conventions = null;
     clearTimeout(idleTimer);
   }
 
@@ -94,9 +96,8 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
     }
     if (!context) {
       // U3: getByTestId reads the project's testIdAttribute, as it does in the user's own test run.
-      const testId = detection?.testIdAttribute ?? detectFramework(cwd).testIdAttribute;
       // ponytail: Playwright's selectors are process-wide, so every new context sets the attribute (back to the default too).
-      (await import('playwright-core')).selectors.setTestIdAttribute(testId?.value ?? 'data-testid');
+      (await import('playwright-core')).selectors.setTestIdAttribute(api.testIdAttribute ?? 'data-testid');
       context = await browser.newContext(storageState ? { storageState } : {});
       storageStatePath = storageState ?? null;
     }
@@ -121,17 +122,26 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
     if (open) await open.close();
   }
 
-  return {
+  const api = {
     getPage,
     close,
     /** The framework to render for: the call's argument, else the detected one, else null (callers render Playwright). */
     resolveFramework(argument) {
-      return argument ?? this.detection.framework;
+      const configured = this.conventions.framework.from === 'cor.config.json' ? this.conventions.framework.value : null;
+      return argument ?? configured ?? this.detection.framework;
     },
     get detection() { return (detection ??= detectFramework(cwd)); },
-    /** U3: the project's Playwright testIdAttribute, or null for Playwright's default (data-testid). */
-    get testIdAttribute() { return this.detection.testIdAttribute?.value ?? null; },
-    get frameworkLine() { return frameworkLine(this.detection); },
+    /** U7: cor.config.json and the repo's locator store; the project root is where the framework's package.json is. */
+    get conventions() { return (conventions ??= resolveConventions(this.detection.candidates[0]?.dir ?? cwd, this.detection.framework)); },
+    /** U3/U7: the project's Playwright testIdAttribute (cor.config.json, else playwright.config), or null for data-testid. */
+    get testIdAttribute() { return this.conventions.testIdAttribute?.value ?? this.detection.testIdAttribute?.value ?? null; },
+    /** U7: 'testid-first' when cor.config.json asks for it; the engine's framework order otherwise. */
+    get order() { return this.conventions.order.value === 'testid-first' ? 'testid-first' : null; },
+    get frameworkLine() {
+      const fw = this.conventions.framework;
+      const head = fw.from === 'cor.config.json' ? `Framework: ${LABELS[fw.value]} — from cor.config.json.` : frameworkLine(this.detection);
+      return [head, ...conventionsLines(this.conventions)].join('\n');
+    },
     invalidateRefs,
     /** The refs the page now resolves — the whole set, after a full or scoped snapshot. */
     issueRefs(live, { expiredBefore = null } = {}) {
@@ -151,4 +161,5 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
     get browserLabel() { return browserLabel; },
     get isOpen() { return Boolean(browser?.isConnected()); },
   };
+  return api;
 }

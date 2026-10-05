@@ -1,6 +1,7 @@
 # sd-inv-add-wdio — pins D1 D4
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
 --- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]","framework":"webdriverio"} (2018 chars)
 Recommended — parameterised: 6 items share this shape; every value checked, each finds exactly its own item (6/6).
   Proof: emulated — not run in WebdriverIO. The template was checked in the page for every value; its WebdriverIO idioms were not conformance-tested on this version.

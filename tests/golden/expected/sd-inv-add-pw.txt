@@ -1,6 +1,7 @@
 # sd-inv-add-pw — pins D1
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
 --- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]"} (1783 chars)
 Recommended — parameterised: 6 items share this shape; every value checked, each finds exactly its own item (6/6).
   Proof: counted by Playwright, every value.

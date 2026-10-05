@@ -1,6 +1,7 @@
 # bs-signin-pw
 Now at {base}/site/bstackdemo — "StackDemo" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
 --- cor_inspect {"selector":"#signin"} (1214 chars)
 Best locator (playwright):
   page.getByRole('link', { name: 'Sign In' })

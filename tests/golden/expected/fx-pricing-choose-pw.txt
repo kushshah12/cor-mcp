@@ -1,6 +1,7 @@
 # fx-pricing-choose-pw
 Now at {base}/fixture/pricing — "Pricing" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
 --- cor_snapshot {} (1398 chars)
 "Pricing" {base}/fixture/pricing — 24 interactive elements
 Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>). "N items, each: …": every item has those controls; its line lists their refs in that order.
