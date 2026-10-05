@@ -1,0 +1,33 @@
+# sd-inv-add-pw — pins D1
+Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
+Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]"} (2168 chars)
+Recommended — parameterised: 6 items share this shape; every value checked, each finds exactly its own item (6/6).
+  Proof: counted by Playwright, every value.
+  name = "Sauce Labs Backpack"   (also: "Sauce Labs Bike Light", "Sauce Labs Bolt T-Shirt", "Sauce Labs Fleece Jacket", "Sauce Labs Onesie", … 1 more)
+  page.locator('div.inventory_item').filter({ has: page.locator('div.inventory_item_name').getByText(name, { exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true })
+  Registry template (css-string): div.inventory_item:has(div.inventory_item_name:text-is("__name__")) >> role=button[name="Add to cart"s]
+  Every item (6 now): page.locator('div.inventory_item') — loop over it (for (const item of await ….all())) when the test covers every item, so one added later is tested too.
+  When the test touches more than one item, write one function taking name instead of a locator per item.
+  The 5 lookalike button "Add to cart" elements are the other items — pass their name instead.
+
+For this one item alone (playwright):
+  page.locator('[data-test="add-to-cart-sauce-labs-backpack"]')
+  Point-in-time — true on this page now: 99 Excellent · 1 match
+  + Anchored on a dedicated test attribute
+  + Short and shallow
+Facts:
+  • 5 other visible button "Add to cart"s look the same
+Framework convention applied: playwright (published guidance).
+playwright's guidance puts role, label and text first; this element has a test id, a team's marker for automation, and visible text changes with copy edits and translation, so the test id leads. Without a test id the order is playwright's own.
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on a dedicated test attribute; no known risk
+
+Alternatives:
+2. page.locator('#add-to-cart-sauce-labs-backpack')
+   93 Excellent · 1 match
+6. page.locator('[data-test="inventory-item-description"] #add-to-cart-sauce-labs-backpack')
+   89 Excellent · 1 match
+   ! Long selector (73 chars) — hard to read and usually over-specified
+(3 more alternatives not shown — cor_inspect with all: true lists every one.)

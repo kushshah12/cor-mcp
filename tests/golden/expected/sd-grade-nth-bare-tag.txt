@@ -1,0 +1,21 @@
+# sd-grade-nth-bare-tag
+Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
+Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+--- cor_grade {"selector":"page.locator('.inventory_item').nth(0).locator('button')"} (1072 chars)
+Resolves to exactly one element, but fragile (Risky): bare tag selector carries no identity at all. It is not why a test fails today; it is likely to break on a future change.
+
+Graded: page.locator('.inventory_item').nth(0).locator('button')
+  Point-in-time — true on this page now: 45 Risky · 1 match
+  - Bare tag selector carries no identity at all
+  Chain — scored by its weakest step, since it breaks when any step does:
+    1. locator('.inventory_item')   65 Fair — anchored on a class name
+    2. locator('button')   45 Risky — bare tag selector carries no identity at all   ← weakest
+    ! .nth(0) — picks by position: whatever is number 0 among the matches, which changes if their order does
+
+More durable alternative for the same element (playwright):
+  page.locator('[data-test="add-to-cart-sauce-labs-backpack"]')
+   99 Excellent · 1 match
+Proof: counted by Playwright.
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: risk: bare tag selector carries no identity at all

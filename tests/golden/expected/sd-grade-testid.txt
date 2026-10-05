@@ -1,0 +1,17 @@
+# sd-grade-testid — pins D7
+Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
+Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+--- cor_grade {"selector":"page.getByTestId('inventory-item')"} (701 chars)
+Broken — matches no element on this page. A test using it fails here because of the locator.
+Re-identify the element: cor_snapshot, then cor_inspect its ref.
+The score below rates how durable the string is; whether it resolves is the verdict above.
+
+Graded: page.getByTestId('inventory-item')
+  Point-in-time — true on this page now: 100 Excellent · 0 matches
+  + Anchored on a dedicated test attribute
+  + Uses the test framework’s idiomatic locator API
+  + Short and shallow
+Proof: counted by Playwright.
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on a dedicated test attribute; no known risk

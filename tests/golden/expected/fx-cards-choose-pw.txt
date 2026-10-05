@@ -1,0 +1,43 @@
+# fx-cards-choose-pw
+Now at {base}/fixture/cards — "Cards" (HTTP 200). Browser: {browser}.
+Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+--- cor_inspect {"selector":".card:nth-child(2) > button"} (2354 chars)
+⚠ Check this is the element you meant: 1 other visible element looks the same — button "Choose".
+  You inspected: in "Team Ultimate" under "Desktop & Mobile, plus:"
+  Also:          in "Team"
+  If you meant another one, call cor_snapshot for current refs and cor_inspect it.
+
+Recommendation: change the application — no durable locator exists for this element (best is Unstable).
+Add a test attribute (this requires an application change):
+  <button data-testid="choose">
+
+Declined as the answer — the most durable locator available today:
+1. page.locator('div:nth-of-type(1) > div:nth-of-type(2) > button')
+   27 Unstable · 1 match
+   ! Depends on element position — silently picks a different element when order changes
+   ! Unique only by position — matches whatever occupies that slot, not this element
+Facts:
+  • a locator matching 2 elements: the test fails at once
+  • 1 other visible button "Choose" looks the same
+
+Why this order: Demoted role=button, name=Choose (score 79) — Matches 2 elements — Playwright throws a strict-mode error — the test fails immediately. Ranked div:nth-of-type(1) > div:nth-of-type(2) > button first because it resolves to exactly one element.
+Framework convention applied: playwright (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: risk: depends on element position; chosen over page.getByRole('button', { name: 'Choose' }) because it matches more than one element
+
+Not parameterised — 2 items share this shape, but the template matched 0 for "Team Team Pro" when Playwright counted it.
+
+Alternatives:
+2. page.getByRole('button', { name: 'Choose' })
+   79 Good · 2 matches
+   ! Coupled to a label / accessible name — breaks on rewording and localization (Choose)
+   ! Matches 2 elements — may interact with the wrong one (matches 2 elements)
+4. page.getByText('Choose')
+   61 Fair · 2 matches
+   ! Coupled to display copy — breaks on wording changes and localization (Choose)
+   ! Matches 2 elements — may interact with the wrong one (matches 2 elements)
+6. page.locator('//button[contains(normalize-space(), "Choose")]')
+   65 Fair · 2 matches
+   ! Matches 2 elements — may interact with the wrong one (matches 2 elements)
+(2 more alternatives not shown — cor_inspect with all: true lists every one.)

@@ -16,7 +16,8 @@
   "scripts": {
     "build": "tsup",
     "pretest": "tsup",
-    "test": "node --test \"tests/**/*.test.js\""
+    "test": "node --test \"tests/**/*.test.js\"",
+    "test:golden": "node --test tests/golden/golden.test.js"
   },
   "license": "UNLICENSED",
   "repository": {

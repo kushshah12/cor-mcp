@@ -1,0 +1,26 @@
+# bs-signin-pw
+Now at {base}/site/bstackdemo — "StackDemo" (HTTP 200). Browser: {browser}.
+Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+--- cor_inspect {"selector":"#signin"} (1214 chars)
+Best locator (playwright):
+  page.getByRole('link', { name: 'Sign In' })
+  Point-in-time — true on this page now: 79 Good · 1 match
+  + Targets the element by ARIA role and accessible name
+  + Uses the test framework’s idiomatic locator API
+  - Coupled to a label / accessible name
+
+Why this order: Ranked role=link, name=Sign In (score 79) above #signin (score 93) — playwright guidance prefers role over id. Both resolve to exactly one element.
+Framework convention applied: playwright (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on ARIA role and accessible name; risk: coupled to a label / accessible name; chosen over page.locator('#signin') because playwright guidance prefers role over id
+
+Not parameterised — 2 items share this shape, but the element is not the only one of its kind inside its item.
+
+Alternatives:
+2. page.getByText('Sign In')
+   61 Fair · 1 match
+   ! Coupled to display copy — breaks on wording changes and localization (Sign In)
+3. page.locator('#signin')
+   93 Excellent · 1 match
+(3 more alternatives not shown — cor_inspect with all: true lists every one.)

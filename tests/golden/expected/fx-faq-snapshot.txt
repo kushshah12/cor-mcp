@@ -1,0 +1,16 @@
+# fx-faq-snapshot
+Now at {base}/fixture/faq — "FAQ" (HTTP 200). Browser: {browser}.
+Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+--- cor_snapshot {} (645 chars)
+"FAQ" {base}/fixture/faq — 8 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
+
+- clickable "What is the cancellation policy?" [ref=e1]
+- clickable "How secure is my payment?" [ref=e2]
+- clickable "Can I get invoices?" [ref=e3]
+- button "Open" [ref=e4] (1 of 2)
+- button "Open" [ref=e5] (2 of 2)
+- section "Pro"
+  - link "Alpha" [ref=e6]
+  - link "Beta" [ref=e7]
+  - link "Gamma" [ref=e8]

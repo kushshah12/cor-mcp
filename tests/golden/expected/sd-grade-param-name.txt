@@ -1,0 +1,30 @@
+# sd-grade-param-name — pins D6
+Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
+Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+--- cor_grade {"selector":"page.locator('[data-test=\"inventory-item\"]').filter({ has: page.getByText(name, { exact: true }) }).getByRole('button', { name: 'Add to cart' })","param":"name"} (1828 chars)
+Across every item (name, 6 visible items of [data-test="inventory-item"]):
+  item 1 "Sauce Labs Backpack": ✓ 1 match with name = "Sauce Labs Backpack"
+  item 2 "Sauce Labs Bike Light": ✓ 1 match with name = "Sauce Labs Bike Light"
+  item 3 "Sauce Labs Bolt T-Shirt": ✓ 1 match with name = "Sauce Labs Bolt T-Shirt"
+  item 4 "Sauce Labs Fleece Jacket": ✓ 1 match with name = "Sauce Labs Fleece Jacket"
+  item 5 "Sauce Labs Onesie": ✓ 1 match with name = "Sauce Labs Onesie"
+  item 6 "Test.allTheThings() T-Shirt (Red)": ✓ 1 match with name = "Test.allTheThings() T-Shirt (Red)"
+Works for 6 of 6 items.
+
+Durability, graded on name = "Sauce Labs Backpack":
+Ambiguous — matches 3 elements, so it is not usable as written. In this framework the test fails at once.
+Re-identify the element: cor_snapshot, then cor_inspect its ref.
+The score below rates how durable the string is; whether it resolves is the verdict above.
+
+Graded: page.locator('[data-test="inventory-item"]').filter({ has: page.getByText('Sauce Labs Backpack', { exact: true }) }).getByRole('button', { 'Sauce Labs Backpack': 'Add to cart' })
+  Point-in-time — true on this page now: 61 Fair · 3 matches
+  - Coupled to display copy
+  + Anchored on visible text
+  Chain — scored by its weakest step, since it breaks when any step does:
+    1. locator('[data-test="inventory-item"]')   99 Excellent — matches 3 elements
+    2. filter has: getByText('Sauce Labs Backpack', { exact: true })   61 Fair — coupled to display copy   ← weakest
+    3. getByRole('button', { 'Sauce Labs Backpack': 'Add to cart' })   69 Fair — long selector (66 chars)
+Proof: counted by Playwright.
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on visible text; risk: coupled to display copy

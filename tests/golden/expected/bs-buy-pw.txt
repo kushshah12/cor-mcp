@@ -1,0 +1,5 @@
+# bs-buy-pw
+Now at {base}/site/bstackdemo — "StackDemo" (HTTP 200). Browser: {browser}.
+Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+--- cor_inspect {"selector":".shelf-item:nth-child(2) .shelf-item__buy-btn"} (117 chars)
+[error] No element matches ".shelf-item:nth-child(2) .shelf-item__buy-btn". Call cor_snapshot and pass a ref instead.

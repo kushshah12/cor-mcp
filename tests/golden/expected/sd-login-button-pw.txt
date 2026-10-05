@@ -1,0 +1,19 @@
+# sd-login-button-pw
+Now at {base}/site/saucedemo-login — "Swag Labs" (HTTP 200). Browser: {browser}.
+Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+--- cor_inspect {"selector":"[data-test=\"login-button\"]"} (854 chars)
+Best locator (playwright):
+  page.locator('[data-test="login-button"]')
+  Point-in-time — true on this page now: 99 Excellent · 1 match
+  + Anchored on a dedicated test attribute
+  + Short and shallow
+Framework convention applied: playwright (published guidance).
+playwright's guidance puts role, label and text first; this element has a test id, a team's marker for automation, and visible text changes with copy edits and translation, so the test id leads. Without a test id the order is playwright's own.
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on a dedicated test attribute; no known risk
+
+Alternatives:
+2. page.locator('#login-button')
+   93 Excellent · 1 match
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)
