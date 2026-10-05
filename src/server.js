@@ -5,6 +5,7 @@ import { sessionTools } from './tools/session-tools.js';
 import { inspectTools } from './tools/inspect.js';
 import { gradeTools } from './tools/grade.js';
 import { checkTools } from './tools/check.js';
+import { healTools } from './tools/heal.js';
 import { createInspector } from './tools/inspect.js';
 
 const { name, version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
@@ -14,7 +15,7 @@ const { name, version } = JSON.parse(readFileSync(new URL('../package.json', imp
 export function defaultTools(session, fingerprints = null, records = null) {
   const idCache = new Map(); // id-stability verdicts, shared by inspect and grade
   const inspector = createInspector(session, idCache, fingerprints, records); // shared: cor_check issues entries too (U9)
-  return [...sessionTools(session), ...inspectTools(session, idCache, fingerprints, records, inspector), ...gradeTools(session, idCache), ...checkTools(session, inspector, records)];
+  return [...sessionTools(session), ...inspectTools(session, idCache, fingerprints, records, inspector), ...gradeTools(session, idCache), ...checkTools(session, inspector, records), ...healTools(session, inspector, records)];
 }
 
 // Sent once at connect. The user asks the agent for tests, not for locators,
@@ -40,6 +41,7 @@ export const INSTRUCTIONS = [
   // U11: the Entry names the file, member and style (U7/U8), so the page-object and convention paragraphs went.
   'A Variants line becomes an action method that clicks the toggle first. Write the test against the entries\' members. ' +
     'An existing method for the element: cor_check gives it COR\'s id or the entry to replace it — fix it in place rather than adding a second one.',
+  'When a test fails on a locator: cor_grade it. Broken → cor_heal with the locator line, its cor: comment included — it proposes a replacement from the committed record, or declines; apply it only if it is the same element.',
   'In your final summary, list each locator you used on one line: the locator, its COR score, and the runner-up with its score — ' +
     'so the user can ask for a different choice.',
 ].join('\n');

@@ -1,7 +1,7 @@
 // Runs inside the page. Built to dist/page.js (IIFE, engine inlined) and
 // evaluated on demand — see src/page-runtime.js. Only JSON crosses back to
 // Node; no DOM handle leaves the page.
-import { LocatorEngine, computeFingerprint, extractElementInfo, scoreLocator } from '@corlabs/engine/core';
+import { LocatorEngine, computeFingerprint, extractElementInfo, findByFingerprint, scoreLocator, scoreSimilarity } from '@corlabs/engine/core';
 import { deepQueryAll, isControl, hintsFor, isShown, isVisible, roleAndName, squash, visibleLabelOf } from './dom.js';
 import { buildOutline } from './outline.js';
 import { scopedSnapshot } from './scope.js';
@@ -331,4 +331,25 @@ function framesOf() {
 /** P1c: does the page carry any test attribute (data-cy, data-test, data-testid, data-qa)? */
 const hasTestAttributes = () => Boolean(document.querySelector('[data-cy],[data-test],[data-testid],[data-test-id],[data-qa]'));
 
-window.__corMcp = { snapshot, scoped, inspect, element, headings, grade, scoreSteps, stableScopeFor, itemCandidates, itemIndexOf, beginAct, afterAct, countXpaths, frames: framesOf, xpathFindsOnly };
+/** U12: how closely a live element matches a stored fingerprint (0–1). */
+function similarityTo({ element: el, fingerprint }) {
+  return el ? scoreSimilarity(fingerprint, computeFingerprint(el)) : 0;
+}
+
+/** U12: the page's elements ranked by similarity to a stored fingerprint — the top two scores, for the evidence line. */
+function healScores({ fingerprint }) {
+  const [a, b] = findByFingerprint(fingerprint).filter((c) => isVisible(c.element));
+  return { best: a?.similarity ?? 0, next: b?.similarity ?? 0 };
+}
+
+/**
+ * U12: the best match — only when it clears `min` AND leads the runner-up by `margin`. Six "Add to cart" buttons score
+ * alike; picking one of them would be a wrong-element heal, so a near tie returns null (decline).
+ */
+function healBest({ fingerprint, min, margin }) {
+  const [a, b] = findByFingerprint(fingerprint).filter((c) => isVisible(c.element));
+  if (!a || a.similarity < min || (b && a.similarity - b.similarity < margin)) return null;
+  return a.element;
+}
+
+window.__corMcp = { snapshot, scoped, inspect, element, headings, grade, scoreSteps, stableScopeFor, itemCandidates, itemIndexOf, beginAct, afterAct, countXpaths, frames: framesOf, xpathFindsOnly, similarityTo, healScores, healBest };

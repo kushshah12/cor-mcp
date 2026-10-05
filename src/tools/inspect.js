@@ -133,7 +133,8 @@ export function createInspector(session, idCache = new Map(), fingerprints = nul
     return session.getPage();
   };
   let dataCyNoted = false;
-  return async function inspect({ ref, selector, element, framework: asked, all = false, quiet = false }) {
+  // reuseId (U12): render the entry under an existing id and write no record — a heal proposal keeps the entry's id.
+  return async function inspect({ ref, selector, element, framework: asked, all = false, quiet = false, reuseId = null }) {
     const framework = session.resolveFramework(asked) ?? 'playwright';
     const page = await openPage();
     let entryLines = null;
@@ -175,9 +176,9 @@ export function createInspector(session, idCache = new Map(), fingerprints = nul
         ...(lead?.template?.playwright ? [{ kind: 'template', value: lead.template.playwright.selectorTemplate }] : []),
         ...result.locators.map((l) => ({ kind: l.strategy, value: l.value })),
       ];
-      const id = records ? records.issue({ url: page.url(), fingerprint: result.capture.fingerprint, elementKey: result.capture.elementKey, strategies }) : newId();
+      const id = reuseId ?? (records ? records.issue({ url: page.url(), fingerprint: result.capture.fingerprint, elementKey: result.capture.elementKey, strategies }) : newId());
       const entry = entryFor({ result, lead, helper, framework, conventions: session.conventions, typescript, url: page.url(), id });
-      if (records && entry.store === 'json') records.link(`${entry.file}#${entry.member}`, id);
+      if (records && !reuseId && entry.store === 'json') records.link(`${entry.file}#${entry.member}`, id);
       entryLines = entry.lines;
       return entry.lines;
     };
