@@ -4,6 +4,18 @@ An MCP server that lets a coding agent open a page, pick an element, and get ran
 
 > The full README — install, tools and the maintenance workflow — lands with the release (U9). This file currently documents the one thing the server does without being asked.
 
+## Setup: COR as the only browser tool
+
+Configure COR MCP **instead of** Playwright MCP for test authoring, not alongside it: COR drives the browser (open, click, fill, press), returns locators as entries for your locator files, checks them (`cor_check`) and repairs them (`cor_heal`). With a second browser server attached, an agent falls back to its snapshots and types its own selectors — which `cor_check` will then fail.
+
+Optional `cor.config.json` at your project root (every field overrides what COR infers from the repo; `cor_open` reports both):
+
+```json
+{ "framework": "playwright", "order": "framework", "testIdAttribute": "data-test", "store": "page-object-class", "storeDir": "tests/pages" }
+```
+
+`order`: `framework` (default — each framework's published guidance, after uniqueness) or `testid-first`. `store`: `page-object-class`, `constants`, `json`, `yaml`.
+
 ## Entry records: what is written inside your project
 
 Every `cor_inspect` that recommends a locator also gives it an **entry**: the code to place in your locator file, the file and member it belongs in, and a comment carrying a short id, `// COR cor:7f3a2c · …` (in a YAML map, `# COR cor:…`). Keep that comment: `cor_check` uses the id to tell COR's locators from typed ones, and a later repair uses it to find what the locator pointed at. COR never edits your files — the agent places the entry.
