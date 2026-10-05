@@ -20,14 +20,19 @@ function item(model, values, ts) {
   }
   if (slot.transformed) return { none: 'the name is styled with text-transform, and getText() reports the displayed text' };
   if (!values.every(plainValue)) return { none: 'a name has a quote or backtick in it' };
-  const named = slot.sels.map((sel) => `(await el.$(\`${sel}=\${${param}}\`).isExisting())`);
+  // U6: `tag.class=text` is WebdriverIO's measured exact-text form; an attribute selector before `=` is not a documented
+  // form, so a test-attribute name slot compares getText() instead (not yet conformance-run: U10).
+  const byAttr = slot.sels.some((sel) => sel.includes('['));
+  const named = slot.sels.map((sel) => (sel.includes('[')
+    ? `(await el.$(${js(sel)}).getText()) === ${param}`
+    : `(await el.$(\`${sel}=\${${param}}\`).isExisting())`));
   const name = helperName(it.css);
   const lines = [
     `const ${name} = (${type}) =>`,
     `  $$(${js(it.css)})${shown}`,
     `    .find(async (el) => ${named.join(' ||\n      ')});`,
   ].join('\n').split('\n');
-  return { idiom: slot.kind === 'either' ? 'item.either' : 'item.label', lines };
+  return { idiom: byAttr ? 'item.label.attr' : slot.kind === 'either' ? 'item.either' : 'item.label', lines };
 }
 
 export function leaf(model, from) {

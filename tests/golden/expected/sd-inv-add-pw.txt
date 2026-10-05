@@ -1,13 +1,13 @@
 # sd-inv-add-pw — pins D1
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
---- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]"} (1733 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]"} (1783 chars)
 Recommended — parameterised: 6 items share this shape; every value checked, each finds exactly its own item (6/6).
   Proof: counted by Playwright, every value.
   name = "Sauce Labs Backpack"   (also: "Sauce Labs Bike Light", "Sauce Labs Bolt T-Shirt", "Sauce Labs Fleece Jacket", "Sauce Labs Onesie", … 1 more)
-  page.locator('div.inventory_item').filter({ has: page.locator('div.inventory_item_name').getByText(name, { exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true })
-  Registry template (css-string): div.inventory_item:has(div.inventory_item_name:text-is("__name__")) >> role=button[name="Add to cart"s]
-  Every item (6 now): page.locator('div.inventory_item') — loop over it (for (const item of await ….all())) when the test covers every item, so one added later is tested too.
+  page.locator('[data-test="inventory-item"]').filter({ has: page.locator('[data-test="inventory-item-name"]').getByText(name, { exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true })
+  Registry template (css-string): [data-test="inventory-item"]:has([data-test="inventory-item-name"]:text-is("__name__")) >> role=button[name="Add to cart"s]
+  Every item (6 now): page.locator('[data-test="inventory-item"]') — loop over it (for (const item of await ….all())) when the test covers every item, so one added later is tested too.
   When the test touches more than one item, write one function taking name instead of a locator per item.
   The 5 lookalike button "Add to cart" elements are the other items — pass their name instead.
 

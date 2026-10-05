@@ -8,7 +8,8 @@ export const plainValue = (v) => !/["'\\`$\n]/.test(String(v));
 
 /** `div.simplification-card` → `simplificationCard`; the helper's name. */
 export function helperName(css) {
-  const word = /(?:\.([\w-]+))?$/.exec(css)?.[1] ?? /^[a-z0-9]+/i.exec(css)?.[0] ?? 'item';
+  // U6: `[data-test="inventory-item"]` → `inventoryItem` (the test id names the item).
+  const word = /\[[\w-]+="([\w-]+)"\]$/.exec(css)?.[1] ?? /(?:\.([\w-]+))?$/.exec(css)?.[1] ?? /^[a-z0-9]+/i.exec(css)?.[0] ?? 'item';
   const name = word.replace(/[-_]+([a-z0-9])/gi, (_, c) => c.toUpperCase());
   return /^[a-z]/i.test(name) ? name[0].toLowerCase() + name.slice(1) : 'item';
 }

@@ -71,11 +71,19 @@ function itemOf(el, repeats) {
   return item;
 }
 
-/** A selector naming every item and nothing between them: tag + a class all share. */
+/**
+ * A selector naming every item and nothing between them. U6 (D1): a test attribute all items share first
+ * (saucedemo's `[data-test="inventory-item"]`), then tag + a class all share — the SDET order, since an item
+ * scope has no role or name of its own.
+ */
 function itemSelector(items) {
   const [first] = items;
   const tag = first.tagName.toLowerCase();
   if (!items.every((i) => i.tagName === first.tagName)) return null;
+  for (const a of TEST_ATTRS) {
+    const v = first.getAttribute(a);
+    if (v && !isUnstableValue(v, a) && items.every((i) => i.getAttribute(a) === v)) return { css: `[${a}=${cssString(v)}]`, xpath: `//*[@${a}=${xpathLiteral(v)}]` };
+  }
   const shared = namingClasses(first).find((c) => items.every((i) => i.classList.contains(c)));
   if (shared) return { css: `${tag}.${cssEscape(shared)}`, xpath: `//${tag}[contains(concat(' ', normalize-space(@class), ' '), ' ${shared} ')]` };
   // Rows and list items do not nest in practice; anything else needs a class.
@@ -85,12 +93,26 @@ function itemSelector(items) {
 
 // P3a: the target inside its item, for the WebdriverIO and Cypress renderers — checked in EVERY item, not only the target's.
 const LEAF_ATTRS = [...TEST_ATTRS, 'name', 'aria-label', 'value', 'title', 'alt'];
+/**
+ * U6 (D1): a per-item test id (`add-to-cart-sauce-labs-backpack`) shared up to a word boundary (`add-to-cart-`):
+ * `[data-test^="add-to-cart-"]`, longest prefix first. Only offered by the callers when it matches exactly one
+ * element in EVERY item, so a prefix that also names a sibling control is never used.
+ */
+function testIdPrefixes(target) {
+  const tag = target.tagName.toLowerCase();
+  return TEST_ATTRS.flatMap((a) => {
+    const v = target.getAttribute(a);
+    if (!v) return [];
+    const cuts = [...v.matchAll(/[-_]/g)].map((m) => m.index + 1).filter((n) => n >= 3 && n < v.length).reverse();
+    return cuts.map((n) => `${tag}[${a}^=${cssString(v.slice(0, n))}]`);
+  });
+}
 function leafCss(target, item, items) {
   const tag = target.tagName.toLowerCase();
-  const tries = LEAF_ATTRS.flatMap((a) => {
+  const tries = [...LEAF_ATTRS.flatMap((a) => {
     const v = target.getAttribute(a);
     return v && !PATH_LIKE.test(v) && !isUnstableValue(v, a) ? [`${tag}[${a}=${cssString(v)}]`] : [];
-  });
+  }), ...testIdPrefixes(target)];
   const names = namingClasses(target);
   const cls = names.find((c) => !c.includes('--')) ?? names[0];
   if (cls) tries.push(`${tag}.${cssEscape(cls)}`);
@@ -107,10 +129,10 @@ function leafCss(target, item, items) {
 function leafCssCy(target, item, items, named) {
   const tag = target.tagName.toLowerCase();
   const twinsIn = (it) => (named ? [...it.querySelectorAll('*')].filter((el) => isControl(el) && roleAndName(el).role === named.role && roleAndName(el).name === named.name).length : 1);
-  const tries = LEAF_ATTRS.flatMap((a) => {
+  const tries = [...LEAF_ATTRS.flatMap((a) => {
     const v = target.getAttribute(a);
     return v && !PATH_LIKE.test(v) && !isUnstableValue(v, a) ? [`${tag}[${a}=${cssString(v)}]`] : [];
-  });
+  }), ...testIdPrefixes(target)];
   const names = namingClasses(target);
   const cls = names.find((c) => !c.includes('--')) ?? names[0];
   if (cls) tries.push(`${tag}.${cssEscape(cls)}`);
@@ -219,12 +241,10 @@ function slotsFor(targetItem, target, { allowSelf = false } = {}) {
   if (allowSelf && more && isVisible(target) && text(target) && text(target).length <= LABEL_MAX && leafish(target)) candidates.push(target);
   const labelSlots = [];
   for (const label of candidates) {
-    const tag = label.tagName.toLowerCase();
-    const cls = namingClasses(label)[0];
-    const sel = cls ? `${tag}.${cssEscape(cls)}` : tag;
+    // U6 (D1): a test attribute on the label (`[data-test="inventory-item-name"]`) before its class.
+    const { sel, xpathSel } = labelSelector(label);
     // Every item is read by its FIRST such element, so the target's label must be its first.
     if (targetItem.querySelector(sel) !== label) continue;
-    const xpathSel = cls ? `${tag}[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]` : tag;
     labelSlots.push({
       kind: 'label', sel, xpathSel, rank: rank(label),
       param: /question/i.test(label.className) ? 'question' : label.matches(HEADING) || /title/i.test(label.className) ? 'title' : /name/i.test(label.className) ? 'name' : columnHeader(label) ?? 'value',
@@ -238,6 +258,19 @@ function slotsFor(targetItem, target, { allowSelf = false } = {}) {
     ...labelSlots,
     ...attrs.filter((a) => !TEST_ATTRS.includes(a)).map((a) => ({ ...attrSlot(a), rank: 10 })),
   ];
+}
+
+/** U6 (D1): how a name element is selected inside its item — a test attribute (any value), else tag + class, else tag. */
+function labelSelector(el) {
+  const tag = el.tagName.toLowerCase();
+  for (const a of TEST_ATTRS) {
+    const v = el.getAttribute(a);
+    if (v && !isUnstableValue(v, a)) return { sel: `[${a}=${cssString(v)}]`, xpathSel: `*[@${a}=${xpathLiteral(v)}]` };
+  }
+  const cls = namingClasses(el)[0];
+  return cls
+    ? { sel: `${tag}.${cssEscape(cls)}`, xpathSel: `${tag}[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]` }
+    : { sel: tag, xpathSel: tag };
 }
 
 /** A table cell's column header, camel-cased, as the parameter name ("Last name" → lastName). */
@@ -747,13 +780,12 @@ function namingSelectors(items) {
       && isVisible(el) && text(el) && text(el).length <= LABEL_MAX && leafish(el));
     for (const el of els) {
       const tag = el.tagName.toLowerCase();
-      const cls = namingClasses(el)[0];
-      const sel = cls ? `${tag}.${cssEscape(cls)}` : tag;
+      const { sel, xpathSel } = labelSelector(el);
       if (item.querySelector(sel) !== el || seen.has(sel)) continue;
       const first = [...item.querySelectorAll('*')].find((c) => isControl(c) && isVisible(c));
       const beforeControls = !first || Boolean(el.compareDocumentPosition(first) & Node.DOCUMENT_POSITION_FOLLOWING);
       const rank = (beforeControls ? 0 : 3) + (el.matches(HEADING) ? 0 : /title|name|heading|label/i.test(el.className) || tag === 'label' ? 1 : 2);
-      seen.set(sel, { sel, xpathSel: cls ? `${tag}[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]` : tag, rank, heading: el.matches(HEADING) });
+      seen.set(sel, { sel, xpathSel, rank, heading: el.matches(HEADING) });
     }
   }
   return [...seen.values()].sort((a, b) => a.rank - b.rank);

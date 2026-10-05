@@ -1,16 +1,16 @@
 # sd-inv-add-cy — pins D1 D4
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
---- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]","framework":"cypress"} (1709 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]","framework":"cypress"} (1772 chars)
 Recommended — parameterised: 6 items share this shape; every value checked, each finds exactly its own item (6/6).
   Proof: emulated — not run in Cypress. The template was checked in the page for every value; its Cypress idioms were not conformance-tested on this version.
   name = "Sauce Labs Backpack"   (also: "Sauce Labs Bike Light", "Sauce Labs Bolt T-Shirt", "Sauce Labs Fleece Jacket", "Sauce Labs Onesie", … 1 more)
   const inventoryItem = (name) =>
-    cy.get('div.inventory_item')
-      .contains('div.inventory_item_name', new RegExp(`^\\s*${Cypress._.escapeRegExp(name)}\\s*$`))
-      .closest('div.inventory_item');
-  inventoryItem(name).find('button.btn')
-  Every item (6 now): cy.get('div.inventory_item') — loop over it when the test covers every item, so one added later is tested too.
+    cy.get('[data-test="inventory-item"]')
+      .contains('[data-test="inventory-item-name"]', new RegExp(`^\\s*${Cypress._.escapeRegExp(name)}\\s*$`))
+      .closest('[data-test="inventory-item"]');
+  inventoryItem(name).find('button[data-test^="add-to-cart-"]')
+  Every item (6 now): cy.get('[data-test="inventory-item"]') — loop over it when the test covers every item, so one added later is tested too.
   When the test touches more than one item, write one function taking name instead of a locator per item.
   The 5 lookalike button "Add to cart" elements are the other items — pass their name instead.
 

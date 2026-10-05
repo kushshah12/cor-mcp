@@ -1,15 +1,15 @@
 # sd-inv-add-wdio — pins D1 D4
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
---- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]","framework":"webdriverio"} (1990 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]","framework":"webdriverio"} (2018 chars)
 Recommended — parameterised: 6 items share this shape; every value checked, each finds exactly its own item (6/6).
   Proof: emulated — not run in WebdriverIO. The template was checked in the page for every value; its WebdriverIO idioms were not conformance-tested on this version.
   name = "Sauce Labs Backpack"   (also: "Sauce Labs Bike Light", "Sauce Labs Bolt T-Shirt", "Sauce Labs Fleece Jacket", "Sauce Labs Onesie", … 1 more)
   const inventoryItem = (name) =>
-    $$('div.inventory_item')
-      .find(async (el) => (await el.$(`div.inventory_item_name=${name}`).isExisting()));
+    $$('[data-test="inventory-item"]')
+      .find(async (el) => (await el.$('[data-test="inventory-item-name"]').getText()) === name);
   inventoryItem(name).$('aria/Add to cart')
-  Every item (6 now): $$('div.inventory_item') — loop over it when the test covers every item, so one added later is tested too.
+  Every item (6 now): $$('[data-test="inventory-item"]') — loop over it when the test covers every item, so one added later is tested too.
   When the test touches more than one item, write one function taking name instead of a locator per item.
   The 5 lookalike button "Add to cart" elements are the other items — pass their name instead.
 
