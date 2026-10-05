@@ -2,6 +2,7 @@
 // from the id — never from comparing locator text (R46). A call's id is on its own line or in the comment lines right
 // above the statement it starts (an entry is placed as `// COR cor:7f3a2c · …` then the code).
 import { ID_PATTERN } from './records.js';
+import { POSITIONAL_TEXT as POSITIONAL } from './grade-parse.js';
 
 // A locator call: Playwright (page./this.page./any receiver .locator/.getBy*), Cypress (cy.get/cy.contains), WebdriverIO ($/$$).
 // Review fix: also page.$ / browser.$ / el.$ (WebdriverIO, Puppeteer-style), cy.xpath and Testing Library's cy.findBy*.
@@ -13,7 +14,6 @@ const CONTINUES = /^\s*[.)]/; // a line that continues the statement above (a ch
 // A line that leaves its statement open: ends in `(`, `=>` or `=`. Not `,` or `{` — those end one member and start the
 // next, and merging two members would let one's id cover the other.
 const OPENS = /(?:\(|=>|[^=!<>]=)\s*$/;
-const POSITIONAL = /\.(?:first|last)\(\s*\)|\.nth\(\s*-?\d+\s*\)|\.eq\(\s*\d+\s*\)|>>\s*nth=|\$\$\([^)]*\)\s*\[\s*\d+\s*\]/;
 // What starts a gradable expression on a line: a page / this.page / cy / $ receiver.
 const ROOTED = /(?:this\.)?page\s*\.\s*(?:locator|getBy[A-Z]\w*)\s*\(|\bcy\s*\.\s*(?:get|contains)\s*\(|\$\$?\s*\(/;
 const STEP = /^\s*\.\s*(locator|getBy[A-Z]\w*|filter|first|last|nth|or|and|find|eq)\s*\(/;
@@ -89,7 +89,7 @@ export function scanYaml(text) {
     if (!m || COMMENT.test(lines[i])) continue;
     let id = null;
     for (let k = i - 1; !id && k >= 0 && COMMENT.test(lines[k]); k--) id = ID_PATTERN.exec(lines[k])?.[1] ?? null;
-    out.push({ line: i + 1, key: m[1], id, statement: lines[i].trim(), positional: />>\s*nth=|\[\s*\d+\s*\]\s*$/.test(lines[i]) });
+    out.push({ line: i + 1, key: m[1], id, statement: lines[i].trim(), positional: POSITIONAL.test(lines[i]) || /\[\s*\d+\s*\]['"]?\s*$/.test(lines[i]) /* an XPath index in a map value */ });
   }
   return out;
 }

@@ -329,19 +329,29 @@ function viaLabelNote(labelText, framework) {
 const usableTemplate = (params, framework, helper) =>
   (params?.template && (framework === 'playwright' || params.template.xpath || helper) ? params : null);
 
-export function renderInspect(result, { refsLive = false, framework = result.framework, all = false, dataCyNote = false, typescript = false, major = null, testingLibrary = false, makeEntry = null } = {}) {
+/**
+ * What an inspect's answer rests on, before rendering: the framework helper (WebdriverIO/Cypress), the usable template
+ * (the lead), and whether an entry can be issued — a template, or a single locator that resolves and is durable.
+ * Refactor (review): inspect.js builds the entry from these and passes it in; renderInspect no longer calls back.
+ */
+export function inspectParts(result, { framework = result.framework, typescript = false, major = null, testingLibrary = false } = {}) {
   // P3a: WebdriverIO (and, in P3b, Cypress) get idiomatic helper code rendered from the checked template.
-  const helper = framework !== 'playwright' && result.params?.template && result.params.model
+  const rendered = framework !== 'playwright' && result.params?.template && result.params.model
     ? renderHelper(framework, result.params, { typescript, major, testingLibrary }) : null;
-  const lead = usableTemplate(result.params, framework, helper?.code ? helper : null);
+  const helper = rendered?.code ? rendered : null;
+  const lead = usableTemplate(result.params, framework, helper);
+  const [best] = result.locators;
+  const entryOk = Boolean(lead || (best && best.resolution?.usable !== false && !SUB_FLOOR.has(best.tier)));
+  return { helper, lead, entryOk };
+}
+
+export function renderInspect(result, { refsLive = false, framework = result.framework, all = false, dataCyNote = false, typescript = false, major = null, testingLibrary = false, entry = null, parts = inspectParts(result, { framework, typescript, major, testingLibrary }) } = {}) {
+  const { helper, lead } = parts;
   // The template covers the lookalikes only when they are all its items.
   const covered = lead && result.lookalikes && result.lookalikes.items.length === lead.count;
-  const out = lead ? paramLead(lead, framework, covered ? result.lookalikes : null, helper?.code ? helper : null) : [];
+  const out = lead ? paramLead(lead, framework, covered ? result.lookalikes : null, helper) : [];
   if (result.lookalikes && !covered) out.push(...lookalikeWarning(result.lookalikes, refsLive));
   const [best, ...alternatives] = result.locators;
-  // U8: the entry to place leads — for a template, or for a single locator that resolves and is durable.
-  const entryOk = lead || (best && best.resolution?.usable !== false && !SUB_FLOOR.has(best.tier));
-  const entry = entryOk && makeEntry ? makeEntry({ lead, helper: helper?.code ? helper : null }) : null;
 
   if (!best) {
     out.push('No locator could be generated for this element. What would make it locatable:');
@@ -420,196 +430,6 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
   }
   if (omitted) out.push(`${shown.length ? '' : '\n'}(${omitted} more alternative${omitted === 1 ? '' : 's'} not shown — cor_inspect with all: true lists every one.)`);
   return out.join('\n');
-}
-
-const SNAPSHOT_LEGEND =
-  'Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ' +
-  '✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. ' +
-  'clickable: no role, only cursor: pointer (a script-handled <div>).';
-const VIA_LABEL_LEGEND = '[via label]: a hidden input shown by its label — click the label, check state on the input.';
-
-const GROUP_LEGEND = '"N items, each: …": every item has those controls; its line lists their refs in that order.';
-
-function leafText(leaf, unstableIds) {
-  let text = `${leaf.role}${leaf.name ? ` "${leaf.name}"` : ''}${leaf.cls ? ` (.${leaf.cls})` : ''}${leaf.value ? ` = "${leaf.value}"` : ''} [ref=${leaf.ref}]`;
-  if (leaf.testId) text += ' ✓id';
-  for (const state of leaf.states) text += ` [${state}]`;
-  if (leaf.hidden) text += ` +${leaf.hidden} hidden`;
-  if (leaf.id && unstableIds.has(leaf.id)) text += ' [unstable id]';
-  if (leaf.viaLabel) text += ' [via label]';
-  if (leaf.hint) text += ` ${leaf.hint}`;
-  return text;
-}
-
-const containerText = (c) => `${c.type}${c.label ? ` "${c.label}"` : ''}`;
-
-/** What sets one control apart beyond role and name: the per-item part of a group line. */
-function markers(leaf, unstableIds) {
-  const out = [];
-  if (leaf.cls) out.push(`(.${leaf.cls})`);
-  if (leaf.value) out.push(`= "${leaf.value}"`);
-  if (leaf.testId) out.push('✓id');
-  for (const state of leaf.states) out.push(`[${state}]`);
-  if (leaf.hidden) out.push(`+${leaf.hidden} hidden`);
-  if (leaf.id && unstableIds.has(leaf.id)) out.push('[unstable id]');
-  if (leaf.viaLabel) out.push('[via label]');
-  return out.join(' ');
-}
-
-const GROUP_MIN = 3;
-const RUN_LEGEND = 'N× role "name": identical controls, one ref each in page order.';
-
-// U20. A link list with this many controls folds to one line, unless it holds
-// half the page or more (then there would be nothing left to see). Tables and
-// rows never fold: the "each:" grouping already keeps them to one line a row,
-// and they are what tests read. BrowserStack pricing's footer: 66 links.
-const FOLD_MIN = 25;
-const NO_FOLD = new Set(['table', 'row', 'column']);
-const controlCount = (node) => (node.kind === 'leaf' ? 1 : node.children.reduce((n, c) => n + controlCount(c), 0));
-const leavesOf = (node) => (node.kind === 'leaf' ? [node] : node.children.flatMap(leavesOf));
-
-// The name cor_snapshot within takes: sections and items always have a label;
-// an unlabelled landmark goes by its type ("footer"). Tables never fold.
-const foldName = (node) => node.label ?? node.type;
-
-function foldLine(node, total) {
-  const count = controlCount(node);
-  const name = foldName(node);
-  if (NO_FOLD.has(node.type) || count < FOLD_MIN || count * 2 >= total) return null;
-  const roles = new Map();
-  for (const leaf of leavesOf(node)) roles.set(leaf.role, (roles.get(leaf.role) ?? 0) + 1);
-  // Only link lists fold (footers, site menus): a section of fields, buttons
-  // or a table is what tests act on. selectorshub's "iframe and table" folded without this.
-  if ((roles.get('link') ?? 0) < count * 0.8) return null;
-  const size = [...roles].map(([role, n]) => `${n} ${role}${n === 1 ? '' : /(s|x|ch)$/.test(role) ? 'es' : 's'}`).join(', ');
-  // What is inside, by its named parts: `(sections "PRODUCTS", "RESOURCES", …)`.
-  const named = node.children.filter((c) => c.kind === 'container' && c.label);
-  const parts = named.length ? ` (${named[0].type}s ${named.slice(0, 6).map((c) => `"${c.label}"`).join(', ')}${named.length > 6 ? ', …' : ''})` : '';
-  return `${containerText(node)}: ${size}, folded${parts} — cor_snapshot within: "${name}" lists them`;
-}
-
-/** Same role, name and markers: controls an agent tells apart only by position. */
-const runKey = (item, unstableIds) => {
-  const [node] = item.nodes;
-  return !item.hinted && item.nodes.length === 1 && node.kind === 'leaf' && !HINT_IN.test(node.hint ?? '')
-    ? `${node.role}|${node.name}|${markers(node, unstableIds)}` : null;
-};
-const HINT_IN = /^in "(.*)"$/;
-
-/**
- * Sibling nodes as items: a container whose children are all controls, or a
- * run of controls sharing one `in "…"` hint (bstackdemo's cards reach the
- * outline as leaves hinted with their product). `controls` is null when the
- * node cannot be an item.
- */
-function itemsOf(nodes) {
-  const items = [];
-  for (const node of nodes) {
-    if (node.kind === 'container') {
-      items.push({ nodes: [node], type: node.type, label: node.label,
-        controls: node.label && node.children.every((c) => c.kind === 'leaf') ? node.children : null });
-      continue;
-    }
-    const label = HINT_IN.exec(node.hint ?? '')?.[1] ?? null;
-    const last = items.at(-1);
-    if (label !== null && last?.hinted && last.label === label) {
-      last.nodes.push(node);
-      last.controls.push(node);
-      continue;
-    }
-    items.push({ nodes: [node], type: 'item', label, hinted: label !== null, controls: label !== null ? [node] : null });
-  }
-  return items;
-}
-
-const shapeOf = (item) => (item.controls ? `${item.type}|${item.controls.map((c) => `${c.role}|${c.name}`).join('||')}` : null);
-const controlText = (c) => `${c.role}${c.name ? ` "${c.name}"` : ''}`;
-const plural = (type, n) => `${n} ${type === 'item' ? 'item' : type}${n === 1 ? '' : 's'}`;
-
-/**
- * Repeated items collapse to one "each:" line plus one line per item with its
- * own refs — never a range to count through, so picking "the Galaxy S20's
- * Add to cart" reads its ref straight off its line. Anything that sets one
- * item's control apart stays beside that ref; an item with other controls
- * breaks the run.
- */
-function renderGroup(run, depth, unstableIds, out) {
-  const pad = '  '.repeat(depth);
-  out.push(`${pad}- ${plural(run[0].type, run.length)}, each: ${run[0].controls.map(controlText).join(', ')}`);
-  for (const item of run) {
-    const refs = item.controls.map((c) => [c.ref, markers(c, unstableIds)].filter(Boolean).join(' ')).join(', ');
-    out.push(`${pad}  - "${item.label}": ${refs}`);
-  }
-}
-
-/** Chains of single-child containers fold into one line: `section "Team Ultimate" › button "Choose"`. */
-function renderNodes(nodes, depth, unstableIds, out, stats = { groups: 0, runs: 0, total: Infinity }) {
-  const items = itemsOf(nodes);
-  for (let i = 0; i < items.length;) {
-    const key = runKey(items[i], unstableIds);
-    let k = i + 1;
-    while (key && k < items.length && runKey(items[k], unstableIds) === key) k++;
-    if (key && k - i >= GROUP_MIN) {
-      const [first] = items[i].nodes;
-      const extra = markers(first, unstableIds);
-      out.push(`${'  '.repeat(depth)}- ${k - i}× ${controlText(first)}: ${items.slice(i, k).map((it) => it.nodes[0].ref).join(', ')}${extra ? ` ${extra}` : ''}`);
-      stats.runs += 1;
-      i = k;
-      continue;
-    }
-    const shape = shapeOf(items[i]);
-    let j = i + 1;
-    while (shape && j < items.length && shapeOf(items[j]) === shape) j++;
-    if (shape && j - i >= GROUP_MIN) {
-      renderGroup(items.slice(i, j), depth, unstableIds, out);
-      stats.groups += 1;
-      i = j;
-      continue;
-    }
-    for (const item of items.slice(i, j)) {
-      for (let node of item.nodes) {
-        const folded = node.kind === 'container' ? foldLine(node, stats.total) : null;
-        if (folded) {
-          out.push(`${'  '.repeat(depth)}- ${folded}`);
-          continue;
-        }
-        const prefix = [];
-        while (node.kind === 'container' && node.children.length === 1) {
-          prefix.push(containerText(node));
-          node = node.children[0];
-        }
-        const own = node.kind === 'leaf' ? leafText(node, unstableIds) : containerText(node);
-        out.push(`${'  '.repeat(depth)}- ${[...prefix, own].join(' › ')}`);
-        if (node.kind === 'container') renderNodes(node.children, depth + 1, unstableIds, out, stats);
-      }
-    }
-    i = j;
-  }
-  return out;
-}
-
-/**
- * @param {{ url: string, title: string, count: number, tree: object[] }} snapshot
- * @param {{ unstableIds?: Set<string> }} [options]  ids U7's reload check found regenerated
- */
-export function renderSnapshot(snapshot, { unstableIds = new Set() } = {}) {
-  const head = `${snapshot.title ? `"${snapshot.title}" ` : ''}${snapshot.url} — ${snapshot.count} interactive element${snapshot.count === 1 ? '' : 's'}`;
-  const stats = { groups: 0, runs: 0, total: snapshot.count };
-  const lines = renderNodes(snapshot.tree, 0, unstableIds, [], stats);
-  const viaLabel = (nodes) => nodes.some((n) => (n.kind === 'leaf' ? n.viaLabel : viaLabel(n.children)));
-  const legend = [SNAPSHOT_LEGEND, stats.groups && GROUP_LEGEND, stats.runs && RUN_LEGEND, viaLabel(snapshot.tree) && VIA_LABEL_LEGEND].filter(Boolean).join(' ');
-  return [head, legend, ...framesNote(snapshot.frames), '', ...lines].join('\n');
-}
-
-/**
- * The iframes COR cannot read: it lists and inspects the top document only, so the controls
- * inside a frame are missing from the snapshot and cannot be reached — said, not silently left out.
- */
-export function framesNote(frames) {
-  if (!frames?.length) return [];
-  const named = frames.slice(0, 3).map((f) => `${f.name ? `"${f.name}"` : 'unnamed'} (${f.sameOrigin ? 'same origin' : 'another site'})`).join(', ');
-  const more = frames.length > 3 ? ` and ${frames.length - 3} more` : '';
-  return [`Not listed: ${frames.length} iframe${frames.length === 1 ? '' : 's'} — ${named}${more}. COR reads the top document only; controls inside a frame are not in this list and cannot be inspected or acted on yet.`];
 }
 
 const REIDENTIFY = 'Re-identify the element: cor_snapshot, then cor_inspect its ref.';
@@ -759,103 +579,5 @@ export function renderGrade({ input, graded, candidates, note, uncountable, loos
   return out.join('\n');
 }
 
-// ── scoped snapshot (U15) ───────────────────────────────────────────────────
-const regionText = (r) => `${r.kind}${r.label ? ` "${r.label}"` : ''}`;
-
-/** One region in full: headings, text, images and controls, in page order. */
-export function renderScoped(scoped, within, { unstableIds = new Set() } = {}) {
-  const head = `${scoped.title ? `"${scoped.title}" ` : ''}${scoped.url} — ${regionText(scoped.region)} in full (within: ${within})`;
-  const note = 'All text in this region, in page order. Its refs are added to the current snapshot\'s; refs expire on navigation and any act.';
-  const lines = scoped.lines.map((line) => {
-    if (line.kind === 'leaf') return `- ${leafText(line, unstableIds)}`;
-    if (line.kind === 'cell') return `- cell "${line.column}" [ref=${line.ref}]: ${line.content}`;
-    return `- ${line.kind} "${line.text}"${line.ref ? ` [ref=${line.ref}]` : ''}`;
-  });
-  if (scoped.truncated) lines.push(`… ${scoped.truncated} more lines — pass a narrower region as within.`);
-  return [head, note, '', ...lines].join('\n');
-}
-
-/** A name that fits several regions: the candidates, each with a ref to pass back. */
-export function renderAmbiguousScope(scoped, within) {
-  const lines = scoped.candidates.map((c, i) => {
-    const sample = c.sample ? `${c.sample.role}${c.sample.name ? ` "${c.sample.name}"` : ''} [ref=${c.sample.ref}]` : 'no control inside';
-    return `${i + 1}. ${c.where || regionText(c)} — e.g. ${sample}`;
-  });
-  if (scoped.more) lines.push(`…and ${scoped.more} more.`);
-  return [
-    `"${within}" names ${scoped.candidates.length + (scoped.more ?? 0)} regions. Pick one and pass a ref from inside it as within:`,
-    ...lines,
-  ].join('\n');
-}
-
-// ── act results (U16 + U17) ─────────────────────────────────────────────────
-const leafBrief = (l) => `${l.role}${l.name ? ` "${l.name}"` : ''}${l.value ? ` = "${l.value}"` : ''}${l.ref ? ` [ref=${l.ref}]` : ''}`;
-
-/** What an act changed, and what happened to the refs. */
-export function renderActResult(result, { quietIfUnchanged = false } = {}) {
-  if (result.navigated) {
-    const shown = result.headings ?? [];
-    if (!shown.length) return 'The page navigated. Earlier refs expired — call cor_snapshot.';
-    const lines = shown.map((h) => `  ${h.level} "${h.text}" [ref=${h.ref}]`);
-    return ['The page navigated. Headings on the new page (cor_inspect one for the exact locator of text you assert on; cor_snapshot for its controls):', ...lines].join('\n');
-  }
-  const out = [];
-  if (!result.changes?.length && !result.texts?.length && !result.shownGroups?.length) {
-    // U11 (D5): a fill that changes nothing visible is the normal case — said only for clicks and key presses.
-    if (!quietIfUnchanged) out.push('No visible change. If you expected one, the act may not have landed — check the target, or try cor_press.');
-  } else if (result.changes?.length) {
-    out.push('Changes:');
-    for (const c of result.changes) {
-      if (c.kind === 'appeared') {
-        const leaves = c.leaves.slice(0, 6).map(leafBrief).join(', ');
-        const more = c.leaves.length > 6 ? `, …${c.leaves.length - 6} more` : '';
-        out.push(c.container ? `+ ${c.container}: ${leaves}${more}` : `+ ${leaves}${more}`);
-      } else if (c.kind === 'disappeared') {
-        out.push(`- ${c.role}${c.name ? ` "${c.name}"` : ''}`);
-      } else if (c.kind === 'gone') {
-        const shown = c.controls.slice(0, 6).map((g) => `${g.role}${g.name ? ` "${g.name}"` : ''}${g.count > 1 ? ` ×${g.count}` : ''}`);
-        out.push(`- gone (${c.total}): ${shown.join(', ')}${c.controls.length > 6 ? `, …${c.controls.length - 6} more kinds` : ''}`);
-      } else {
-        const parts = [];
-        if (c.was.name !== c.is.name) parts.push(`"${c.was.name}" → "${c.is.name}"`);
-        if (c.was.states !== c.is.states) parts.push(c.is.states ? `now ${c.is.states}` : `no longer ${c.was.states}`);
-        if (c.was.value !== c.is.value) parts.push(`"${c.was.value ?? ''}" → "${c.is.value ?? ''}"`);
-        out.push(`~ ${c.role}${c.name ? ` "${c.name}"` : ''}: ${parts.join('; ')}`);
-      }
-    }
-    if (result.more) out.push(`…and ${result.more} more changes — cor_snapshot for the whole page.`);
-  }
-  if (result.texts?.length || result.shownGroups?.length) {
-    out.push('Text:');
-    for (const t of result.texts) {
-      const where = t.where ? ` in ${t.where}` : '';
-      out.push(t.was === null ? `+ "${t.text}" [ref=${t.ref}]${where}` : `~ "${t.was}" → "${t.text}" [ref=${t.ref}]${where}`);
-    }
-    for (const g of result.shownGroups ?? []) {
-      const eg = g.examples.map((e) => `"${e.text}" [ref=${e.ref}]`).join(', ');
-      if (g.count === 1) out.push(`+ ${eg}${g.where ? ` in ${g.where}` : ''}`);
-      else {
-        out.push(g.where
-          ? `+ ${g.count} new lines in ${g.where}, e.g. ${eg} — cor_snapshot within: "${g.label}" for all`
-          : `+ ${g.count} new lines, e.g. ${eg}`);
-      }
-    }
-    if (result.moreTexts) out.push(`…and ${result.moreTexts} more text changes — cor_snapshot within a region for all its text.`);
-  }
-  const { kept, rebound, dropped } = result.refs ?? { kept: 0, rebound: [], dropped: {} };
-  const stale = Object.entries(dropped);
-  const refParts = [`${kept} still valid`];
-  if (rebound.length) refParts.push(`${rebound.join(', ')} re-bound to the re-rendered element`);
-  if (stale.length) {
-    // U21: grouped by reason — BrowserStack's For Individuals click listed ~65
-    // refs, each with the same reason (about 3k characters).
-    const byWhy = new Map();
-    for (const [ref, why] of stale) byWhy.set(why, [...(byWhy.get(why) ?? []), ref]);
-    const groups = [...byWhy].map(([why, refs]) => (refs.length > 3
-      ? `${refs.slice(0, 3).join(', ')}, … ${refs.length} refs (${why})`
-      : refs.map((r) => `${r} (${why})`).join(', ')));
-    refParts.push(`stale: ${groups.join('; ')}`);
-  }
-  out.push(`Refs: ${refParts.join('; ')}.`);
-  return out.join('\n');
-}
+export { renderSnapshot, framesNote, renderScoped, renderAmbiguousScope } from './format-snapshot.js';
+export { renderActResult } from './format-act.js';

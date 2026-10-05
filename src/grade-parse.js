@@ -13,6 +13,12 @@ const PLAYWRIGHT_METHODS = new Set([
 // Steps a chain may continue with after its first locator call.
 const CHAIN_METHODS = new Set(['filter', 'first', 'last', 'nth', 'or', 'and']);
 const POSITIONAL = new Set(['first', 'last', 'nth']);
+/**
+ * Refactor (review): the one textual definition of a positional pick, for cor_check's scan of whole statements —
+ * the same set the parser treats as positional here: .first() .last() .nth(n) (Playwright), .eq(n) .first() .last()
+ * (Cypress), `>> nth=n`, and $$(s)[n] (WebdriverIO).
+ */
+export const POSITIONAL_TEXT = /\.(?:first|last)\(\s*\)|\.nth\(\s*-?\d+\s*\)|\.eq\(\s*\d+\s*\)|>>\s*nth=-?\d+|\$\$\([^)]*\)\s*\[\s*\d+\s*\]/;
 /** Playwright's own positional pick on a locator: `first()`, `last()`, `nth(2)`, `eq(2)`, `[2]`, `nth=2`. */
 const pick = (loc, method, n) => (method === 'first' ? loc.first() : method === 'last' ? loc.last() : loc.nth(Number(n)));
 const LOCATOR_START = /^(?:[A-Za-z_$][\w$]*\s*\.\s*)*(getBy[A-Za-z]+|locator)\s*(?=\()/;

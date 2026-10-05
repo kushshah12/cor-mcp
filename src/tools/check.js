@@ -2,17 +2,17 @@
 // one fails and comes back with COR's entry to paste (R32); a working one with no id is tied to its element's record
 // and gets the id to add (R44). Identity is the id, or the element a locator finds — never its text (R46).
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
 import { scanLocators, scanYaml } from '../check-scan.js';
+import { walkFiles } from '../walk.js';
 import { parseGradable } from '../grade-parse.js';
 import { callPage } from '../page-runtime.js';
 import { ID_PATTERN, pathOf, recordPage } from '../records.js';
 
 const text = (value) => ({ content: [{ type: 'text', text: value }] });
 const CODE = /\.[cm]?[jt]sx?$/;
-const SKIP = new Set(['node_modules', 'dist', 'build', 'coverage']);
 const MAX_FILES = 2000;
 const MAX_FINDINGS = 15;
 const posix = (p) => p.split(sep).join('/');
@@ -40,24 +40,7 @@ export function changedFiles(root) {
 }
 
 /** Candidate files only (code, JSON, YAML), capped — `truncated` says when the cap cut the walk short. */
-function allFiles(root) {
-  const out = [];
-  out.truncated = false;
-  const walk = (dir) => {
-    let names;
-    try { names = readdirSync(dir).sort(); } catch { return; }
-    for (const name of names) {
-      if (out.length >= MAX_FILES) { out.truncated = true; return; }
-      if (SKIP.has(name) || name.startsWith('.')) continue;
-      const full = join(dir, name);
-      let st;
-      try { st = statSync(full); } catch { continue; }
-      if (st.isDirectory()) walk(full); else if (CODE.test(name) || /\.(json|ya?ml)$/.test(name)) out.push(full);
-    }
-  };
-  walk(root);
-  return out;
-}
+const allFiles = (root) => walkFiles(root, { accept: (name) => CODE.test(name) || /\.(json|ya?ml)$/.test(name), maxFiles: MAX_FILES });
 
 export function checkTools(session, inspector, records = null) {
   const MAX_FIXES = MAX_FINDINGS; // each fix runs an inspect and may write a record: only for findings that are shown

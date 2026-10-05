@@ -1,7 +1,7 @@
 import { frameHint } from '../frames.js';
 import { z } from 'zod';
 import { callPage, handleFromPage } from '../page-runtime.js';
-import { renderActResult } from '../format.js';
+import { renderActResult } from '../format-act.js';
 import { checkRef, goneError } from './refs.js';
 
 // Act tools only reach a page state so an element can be inspected; nothing

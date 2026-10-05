@@ -1,8 +1,9 @@
 // U7: where and how a team keeps its locators — read from the repo, overridden by the project's cor.config.js.
 // COR writes nothing here; the entries it returns (U8) target what this finds, and cor_open says what it found.
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, statSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { pathToFileURL } from 'node:url';
+import { walkFiles } from './walk.js';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 
 export const STORES = ['page-object-class', 'constants', 'json', 'yaml'];
@@ -15,7 +16,6 @@ const MAX_SPECS = 20; // spec files read, per N3 of the framework spec
 const MAX_DEPTH = 5;
 const MAX_DIRS = 400; // ponytail: a cap on folders visited; a huge repo is sampled, not walked
 const SPEC = /\.(spec|test|cy)\.[cm]?[jt]sx?$/;
-const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.cor']);
 const IMPORT = /(?:import\s[^'"]*?from\s*|require\(\s*|import\(\s*)['"](\.{1,2}\/[^'"]+)['"]/g;
 const CODE_EXT = ['', '.ts', '.js', '.mjs', '.cjs', '/index.ts', '/index.js'];
 
@@ -65,26 +65,9 @@ export function readConfig(raw) {
 }
 
 function specFiles(root) {
-  const out = [];
   // Only inside a project: with no package.json at the root (a home folder, `/`), there is nothing to infer from.
-  if (!existsSync(join(root, 'package.json'))) return out;
-  let dirs = 0;
-  const walk = (dir, depth) => {
-    if (out.length >= MAX_SPECS || depth > MAX_DEPTH || ++dirs > MAX_DIRS) return;
-    let names;
-    try { names = readdirSync(dir).sort(); } catch { return; }
-    for (const name of names) {
-      if (out.length >= MAX_SPECS) return;
-      if (SKIP.has(name) || name.startsWith('.')) continue;
-      const full = join(dir, name);
-      let st;
-      try { st = statSync(full); } catch { continue; }
-      if (st.isDirectory()) walk(full, depth + 1);
-      else if (SPEC.test(name)) out.push(full);
-    }
-  };
-  walk(root, 0);
-  return out;
+  if (!existsSync(join(root, 'package.json'))) return [];
+  return walkFiles(root, { accept: (name) => SPEC.test(name), maxFiles: MAX_SPECS, maxDepth: MAX_DEPTH, maxDirs: MAX_DIRS });
 }
 
 /** What one imported file is, as a locator store — or null when it is not one. */

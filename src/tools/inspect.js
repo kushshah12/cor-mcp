@@ -1,7 +1,8 @@
 import { frameHint } from '../frames.js';
 import { z } from 'zod';
 import { callPage } from '../page-runtime.js';
-import { renderAmbiguousScope, renderInspect, renderScoped, renderSnapshot } from '../format.js';
+import { inspectParts, renderInspect } from '../format.js';
+import { renderAmbiguousScope, renderScoped, renderSnapshot } from '../format-snapshot.js';
 import { REF, checkRef, goneError } from './refs.js';
 import { applyIdVerdicts, checkIds, numberedIds } from '../id-stability.js';
 import { parseGradable } from '../grade-parse.js';
@@ -137,7 +138,6 @@ export function createInspector(session, idCache = new Map(), records = null) {
   return async function inspect({ ref, selector, element, framework: asked, all = false, quiet = false, reuseId = null }) {
     const framework = session.resolveFramework(asked) ?? 'playwright';
     const page = await openPage();
-    let entryLines = null;
     let result = await callPage(page, 'inspect', { ref, selector, element, framework, max: 6, testIdAttribute: session.testIdAttribute, order: session.order });
     if (result.error === 'unknown-ref' || result.error === 'detached') throw goneError(ref);
     if (result.error === 'invalid-selector') {
@@ -169,9 +169,12 @@ export function createInspector(session, idCache = new Map(), records = null) {
     const dataCyNote = !quiet && !dataCyNoted && framework === 'cypress' && result.testAttrs === false;
     if (dataCyNote) dataCyNoted = true;
     const detected = session.detection.candidates.find((c) => c.framework === framework);
-    // U8: an entry with a cor: id; its record (fingerprint + ranked strategies) is written under .cor/records/.
+    // U8: the entry to place (store style, file, member, cor: id); its record is written under .cor/records/.
     const typescript = Boolean(detected?.typescript);
-    const makeEntry = ({ lead, helper }) => {
+    const parts = inspectParts(result, { framework, typescript, major: detected?.version ?? null, testingLibrary: Boolean(detected?.testingLibrary) });
+    let entryLines = null;
+    if (parts.entryOk) {
+      const { lead, helper } = parts;
       const strategies = [
         ...(lead?.template?.playwright ? [{ kind: 'template', value: lead.template.playwright.selectorTemplate }] : []),
         ...result.locators.map((l) => ({ kind: l.strategy, value: l.value })),
@@ -181,11 +184,9 @@ export function createInspector(session, idCache = new Map(), records = null) {
       const entry = entryFor({ result, lead, helper, framework, conventions: session.conventions, typescript, url: page.url(), id });
       if (records && !reuseId && entry.store === 'json') records.link(`${entry.file}#${entry.member}`, id);
       // Review fix: a record that could not be written does not fail the inspect — the reply says heal has nothing for it.
-      const lines = records?.lastError && !reuseId ? [...entry.lines.slice(0, -1), `  (record not saved: ${records.lastError} — cor_heal will have no record for this id)`, ''] : entry.lines;
-      entryLines = lines;
-      return lines;
-    };
-    const reply = renderInspect(result, { refsLive, framework, all, dataCyNote, typescript, major: detected?.version ?? null, testingLibrary: Boolean(detected?.testingLibrary), makeEntry });
+      entryLines = records?.lastError && !reuseId ? [...entry.lines.slice(0, -1), `  (record not saved: ${records.lastError} — cor_heal will have no record for this id)`, ''] : entry.lines;
+    }
+    const reply = renderInspect(result, { refsLive, framework, all, dataCyNote, typescript, major: detected?.version ?? null, testingLibrary: Boolean(detected?.testingLibrary), entry: entryLines, parts });
     return { reply, entry: entryLines };
   };
 }
