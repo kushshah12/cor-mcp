@@ -2,13 +2,17 @@
 Now at {base}/site/saucedemo-login — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
 Locators: page objects in tests/pages/ (default — no specs found).
---- cor_inspect {"selector":"[data-test=\"username\"]"} (1368 chars)
+--- cor_inspect {"selector":"[data-test=\"username\"]"} (1598 chars)
 Best locator (playwright):
   page.getByRole('textbox', { name: 'Username' })
   Point-in-time — true on this page now: 79 Good · 1 match
   + Targets the element by ARIA role and accessible name
   + Uses the test framework’s idiomatic locator API
   - Coupled to a label / accessible name
+
+Entry — place in tests/pages/saucedemoLogin.page.js, member username (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 79 Good · 1 match
+  username = () => this.page.getByRole('textbox', { name: 'Username' });
 
 Why this order: Ranked role=textbox, name=Username (score 79) above [data-test="username"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
 Framework convention applied: playwright (published guidance).

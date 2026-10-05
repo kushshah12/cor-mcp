@@ -5,6 +5,7 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { createServer } from '../src/server.js';
 import { createSession, DEFAULT_IDLE_MS } from '../src/session.js';
 import { createFingerprintStore } from '../src/fingerprints.js';
+import { createRecordStore } from '../src/records.js';
 
 const { values } = parseArgs({
   options: {
@@ -28,8 +29,9 @@ process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
 // Silent capture to ~/.cor/fingerprints/<folder>-<code>.json, outside the project; see the README.
-const fingerprints = createFingerprintStore({
-  enabled: !values['no-fingerprints'] && process.env.COR_FINGERPRINTS !== 'off',
-});
+const capture = !values['no-fingerprints'] && process.env.COR_FINGERPRINTS !== 'off';
+const fingerprints = createFingerprintStore({ enabled: capture });
+// U8: one record per issued entry in <project>/.cor/records/ — committed, so heal works on any machine. Same switch.
+const records = createRecordStore({ enabled: capture, root: () => session.root });
 
-await createServer({ session, fingerprints }).connect(new StdioServerTransport());
+await createServer({ session, fingerprints, records }).connect(new StdioServerTransport());

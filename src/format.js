@@ -329,7 +329,7 @@ function viaLabelNote(labelText, framework) {
 const usableTemplate = (params, framework, helper) =>
   (params?.template && (framework === 'playwright' || params.template.xpath || helper) ? params : null);
 
-export function renderInspect(result, { refsLive = false, framework = result.framework, all = false, dataCyNote = false, typescript = false, major = null, testingLibrary = false } = {}) {
+export function renderInspect(result, { refsLive = false, framework = result.framework, all = false, dataCyNote = false, typescript = false, major = null, testingLibrary = false, makeEntry = null } = {}) {
   // P3a: WebdriverIO (and, in P3b, Cypress) get idiomatic helper code rendered from the checked template.
   const helper = framework !== 'playwright' && result.params?.template && result.params.model
     ? renderHelper(framework, result.params, { typescript, major, testingLibrary }) : null;
@@ -339,6 +339,9 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
   const out = lead ? paramLead(lead, framework, covered ? result.lookalikes : null, helper?.code ? helper : null) : [];
   if (result.lookalikes && !covered) out.push(...lookalikeWarning(result.lookalikes, refsLive));
   const [best, ...alternatives] = result.locators;
+  // U8: the entry to place leads — for a template, or for a single locator that resolves and is durable.
+  const entryOk = lead || (best && best.resolution?.usable !== false && !SUB_FLOOR.has(best.tier));
+  const entry = entryOk && makeEntry ? makeEntry({ lead, helper: helper?.code ? helper : null }) : null;
 
   if (!best) {
     out.push('No locator could be generated for this element. What would make it locatable:');
@@ -382,6 +385,8 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
     }
   }
 
+  // U8: right after the decision — the code to place, its file, member and cor: id.
+  if (entry) out.push('', ...entry.slice(0, -1));
   out.push(...factsLines(result));
   // P1c (D3, spec 7.3): a note only — Cypress's own guidance; the engine ranks, the MCP does not.
   if (dataCyNote) out.push('Note: Cypress guidance prefers data-cy attributes and this page has none — ask for data-cy on the elements you test.');

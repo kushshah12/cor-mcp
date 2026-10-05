@@ -2,7 +2,7 @@
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
 Locators: page objects in tests/pages/ (default — no specs found).
---- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]"} (1783 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]"} (2183 chars)
 Recommended — parameterised: 6 items share this shape; every value checked, each finds exactly its own item (6/6).
   Proof: counted by Playwright, every value.
   name = "Sauce Labs Backpack"   (also: "Sauce Labs Bike Light", "Sauce Labs Bolt T-Shirt", "Sauce Labs Fleece Jacket", "Sauce Labs Onesie", … 1 more)
@@ -17,6 +17,10 @@ For this one item alone (playwright):
   Point-in-time — true on this page now: 99 Excellent · 1 match
   + Anchored on a dedicated test attribute
   + Short and shallow
+
+Entry — place in tests/pages/saucedemoInventory.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 6/6 items checked
+  addToCart = (name) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.locator('[data-test="inventory-item-name"]').getByText(name, { exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true });
 Facts:
   • 5 other visible button "Add to cart"s look the same
 Framework convention applied: playwright (published guidance).

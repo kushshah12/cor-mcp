@@ -5,10 +5,13 @@ import { renderAmbiguousScope, renderInspect, renderScoped, renderSnapshot } fro
 import { REF, checkRef, goneError } from './refs.js';
 import { applyIdVerdicts, checkIds, numberedIds } from '../id-stability.js';
 import { parseGradable } from '../grade-parse.js';
+import { entryFor } from '../entries.js';
 
 export const FRAMEWORKS = ['playwright', 'cypress', 'selenium', 'webdriverio', 'nightwatch', 'testcafe', 'puppeteer'];
 
 const text = (value) => ({ content: [{ type: 'text', text: value }] });
+// With no record store (a library caller, tests), an entry still gets an id; nothing is written.
+const newId = () => Math.floor(Math.random() * 0x1000000).toString(16).padStart(6, '0');
 
 /**
  * Ids ending in a number are checked against a fresh load before they are
@@ -121,7 +124,7 @@ export async function verifyTemplate(page, params) {
 }
 
 /** @param {ReturnType<import('../session.js').createSession>} session */
-export function inspectTools(session, idCache = new Map(), fingerprints = null) {
+export function inspectTools(session, idCache = new Map(), fingerprints = null, records = null) {
   const openPage = () => {
     if (!session.isOpen) throw new Error('No page is open — call cor_open with a URL first.');
     return session.getPage();
@@ -232,7 +235,19 @@ export function inspectTools(session, idCache = new Map(), fingerprints = null) 
         const dataCyNote = !dataCyNoted && framework === 'cypress' && result.testAttrs === false;
         if (dataCyNote) dataCyNoted = true;
         const detected = session.detection.candidates.find((c) => c.framework === framework);
-        const reply = renderInspect(result, { refsLive, framework, all, dataCyNote, typescript: Boolean(detected?.typescript), major: detected?.version ?? null, testingLibrary: Boolean(detected?.testingLibrary) });
+        // U8: an entry with a cor: id; its record (fingerprint + ranked strategies) is written under .cor/records/.
+        const typescript = Boolean(detected?.typescript);
+        const makeEntry = ({ lead, helper }) => {
+          const strategies = [
+            ...(lead?.template?.playwright ? [{ kind: 'template', value: lead.template.playwright.selectorTemplate }] : []),
+            ...result.locators.map((l) => ({ kind: l.strategy, value: l.value })),
+          ];
+          const id = records ? records.issue({ url: page.url(), fingerprint: result.capture.fingerprint, elementKey: result.capture.elementKey, strategies }) : newId();
+          const entry = entryFor({ result, lead, helper, framework, conventions: session.conventions, typescript, url: page.url(), id });
+          if (records && entry.store === 'json') records.link(`${entry.file}#${entry.member}`, id);
+          return entry.lines;
+        };
+        const reply = renderInspect(result, { refsLive, framework, all, dataCyNote, typescript, major: detected?.version ?? null, testingLibrary: Boolean(detected?.testingLibrary), makeEntry });
         const response = text(reply);
         if (fingerprints && result.locators.length) {
           fingerprints.record({ url: page.url(), ...result.capture, locators: result.locators.map((l) => l.value) });

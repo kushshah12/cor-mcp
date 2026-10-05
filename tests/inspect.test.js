@@ -306,7 +306,8 @@ test('a raw selector resolves the same element as its ref', async (t) => {
   const { refOf } = await openAndSnapshot(call, 'traps.html');
   const byRef = await call('cor_inspect', { ref: refOf(/"Place order"/) });
   const bySelector = await call('cor_inspect', { selector: '[data-testid="place-order"]' });
-  assert.equal(bySelector.text, byRef.text);
+  const noId = (s) => s.replace(/cor:[0-9a-f]{6}/g, 'cor:{id}'); // U8: ids are issued per call
+  assert.equal(noId(bySelector.text), noId(byRef.text));
   assert.match((await call('cor_inspect', { selector: 'button.rm' })).text, /matches 3 elements/);
 });
 

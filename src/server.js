@@ -9,9 +9,9 @@ const { name, version } = JSON.parse(readFileSync(new URL('../package.json', imp
 
 // Tools join this list as they are implemented (U8). No placeholders: an
 // agent must never be offered a tool that cannot work.
-export function defaultTools(session, fingerprints = null) {
+export function defaultTools(session, fingerprints = null, records = null) {
   const idCache = new Map(); // id-stability verdicts, shared by inspect and grade
-  return [...sessionTools(session), ...inspectTools(session, idCache, fingerprints), ...gradeTools(session, idCache)];
+  return [...sessionTools(session), ...inspectTools(session, idCache, fingerprints, records), ...gradeTools(session, idCache)];
 }
 
 // Sent once at connect. The user asks the agent for tests, not for locators,
@@ -55,7 +55,8 @@ export const INSTRUCTIONS = [
 export function createServer({
   session = createSession(),
   fingerprints = null, // capture is the bin's decision (bin/cor-mcp.js), not a library default
-  tools = defaultTools(session, fingerprints),
+  records = null, // U8: likewise — .cor/records/ in the project is written only when the bin turns it on
+  tools = defaultTools(session, fingerprints, records),
 } = {}) {
   const server = new McpServer({ name, version }, { instructions: INSTRUCTIONS });
   // The client going away must not leave a Chrome process behind.

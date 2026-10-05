@@ -2,13 +2,17 @@
 Now at {base}/site/bstackdemo — "StackDemo" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
 Locators: page objects in tests/pages/ (default — no specs found).
---- cor_inspect {"selector":"#signin"} (1214 chars)
+--- cor_inspect {"selector":"#signin"} (1440 chars)
 Best locator (playwright):
   page.getByRole('link', { name: 'Sign In' })
   Point-in-time — true on this page now: 79 Good · 1 match
   + Targets the element by ARIA role and accessible name
   + Uses the test framework’s idiomatic locator API
   - Coupled to a label / accessible name
+
+Entry — place in tests/pages/bstackdemo.page.js, member signInLink (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 79 Good · 1 match
+  signInLink = () => this.page.getByRole('link', { name: 'Sign In' });
 
 Why this order: Ranked role=link, name=Sign In (score 79) above #signin (score 93) — playwright guidance prefers role over id. Both resolve to exactly one element.
 Framework convention applied: playwright (published guidance).

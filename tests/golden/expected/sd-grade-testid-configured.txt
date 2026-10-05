@@ -9,13 +9,17 @@ No generated candidate scores higher.
 Proof: counted by Playwright.
 Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
 // COR: anchored on a dedicated test attribute; no known risk
---- cor_inspect {"selector":"[data-test=\"shopping-cart-link\"]"} (1137 chars)
+--- cor_inspect {"selector":"[data-test=\"shopping-cart-link\"]"} (1389 chars)
 Best locator (playwright):
   page.getByRole('button', { name: 'Cart, empty' })
   Point-in-time — true on this page now: 79 Good · 1 match
   + Targets the element by ARIA role and accessible name
   + Uses the test framework’s idiomatic locator API
   - Coupled to a label / accessible name
+
+Entry — place in tests/pages/saucedemoInventory.page.js, member shoppingCartLink (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 79 Good · 1 match
+  shoppingCartLink = () => this.page.getByRole('button', { name: 'Cart, empty' });
 
 Why this order: Ranked role=button, name=Cart, empty (score 79) above [data-test="shopping-cart-link"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
 Framework convention applied: playwright (published guidance).

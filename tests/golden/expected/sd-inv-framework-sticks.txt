@@ -2,12 +2,16 @@
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
 Locators: page objects in tests/pages/ (default — no specs found).
---- cor_inspect {"selector":"[data-test=\"product-sort-container\"]","framework":"cypress"} (631 chars)
+--- cor_inspect {"selector":"[data-test=\"product-sort-container\"]","framework":"cypress"} (888 chars)
 Best locator (cypress):
   cy.get('[data-test="product-sort-container"]')
   Point-in-time — true on this page now: 99 Excellent · 1 match
   + Anchored on a dedicated test attribute
   + Short and shallow
+
+Entry — place in tests/pages/saucedemoInventory.page.js, member productSortContainer (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 99 Excellent · 1 match
+  productSortContainer = () => cy.get('[data-test="product-sort-container"]');
 Framework convention applied: cypress (published guidance).
 
 Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
@@ -17,13 +21,17 @@ Alternatives:
 2. cy.get('select[data-test="product-sort-container"]')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_inspect {"selector":"[data-test=\"product-sort-container\"]"} (1555 chars)
+--- cor_inspect {"selector":"[data-test=\"product-sort-container\"]"} (1819 chars)
 Best locator (playwright):
   page.getByRole('combobox', { name: 'Sort products' })
   Point-in-time — true on this page now: 79 Good · 1 match
   + Targets the element by ARIA role and accessible name
   + Uses the test framework’s idiomatic locator API
   - Coupled to a label / accessible name
+
+Entry — place in tests/pages/saucedemoInventory.page.js, member productSortContainer (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 79 Good · 1 match
+  productSortContainer = () => this.page.getByRole('combobox', { name: 'Sort products' });
 
 Why this order: Ranked role=combobox, name=Sort products (score 79) above [data-test="product-sort-container"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
 Framework convention applied: playwright (published guidance).

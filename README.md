@@ -4,13 +4,25 @@ An MCP server that lets a coding agent open a page, pick an element, and get ran
 
 > The full README — install, tools and the maintenance workflow — lands with the release (U9). This file currently documents the one thing the server does without being asked.
 
+## Entry records: what is written inside your project
+
+Every `cor_inspect` that recommends a locator also gives it an **entry**: the code to place in your locator file, the file and member it belongs in, and a comment carrying a short id, `// COR cor:7f3a2c · …` (in a YAML map, `# COR cor:…`). Keep that comment: `cor_check` uses the id to tell COR's locators from typed ones, and a later repair uses it to find what the locator pointed at. COR never edits your files — the agent places the entry.
+
+**Where:** `.cor/records/<id>.json` in your project root (where your test framework's `package.json` is), one small file per element. Inspecting the same element again reuses its id and refreshes its file. For a JSON locator map, which cannot hold comments, COR also keeps `.cor/ids.json` (`"file#key": "id"`) — it never adds keys to your map.
+
+**Commit them.** They are how a repair works on a teammate's machine or in a CI checkout: the id travels in your code and the record travels with the repo. Add `.cor/records/` to `.gitignore` if you would rather keep them on one machine.
+
+**What each record holds:** the page (origin and path only), the element's position as a tag path, its fingerprint (as below), and up to 12 locators ranked for it, stored as data (`{ "kind": "testId", "value": "[data-test=\"…\"]" }`) — not as code to paste, and COR never shows a record's contents to the agent. The same masking as below applies; input values are never stored.
+
+**Turning it off:** the same switches as fingerprints (`--no-fingerprints`, `COR_FINGERPRINTS=off`) write no record; entries still carry an id.
+
 ## Fingerprints: what is stored, where, and how to turn it off
 
 Every successful `cor_inspect` also records a **fingerprint** of the element: a small description of it that a future heal can use to find the same element after the page changes. It happens silently, adding nothing to the tool response or the log, so this section is the complete disclosure.
 
 **Where:** one file per working folder, kept **outside** that folder, under your home directory:
 `~/.cor/fingerprints/<folder name>-<6-character code of its full path>.json`
-for example `~/.cor/fingerprints/cor-pw-testing-23dbb4.json`. The file also records the folder's full path. Nothing is written inside your project, so nothing can be committed, and a coding agent exploring your project won't find it. No account is involved, and nothing is sent over the network; the file never leaves your machine.
+for example `~/.cor/fingerprints/cor-pw-testing-23dbb4.json`. The file also records the folder's full path. This fingerprint file is written outside your project (entry records, above, are the part that lives inside it). No account is involved, and nothing is sent over the network; the file never leaves your machine.
 
 **Who reads it:** nothing yet. It is kept so a future COR repair tool can find what a broken locator used to point at. It is not meant for agents or people to read as advice; its locators are a history, and some may be ones COR no longer recommends.
 

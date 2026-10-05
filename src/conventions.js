@@ -1,6 +1,6 @@
 // U7: where and how a team keeps its locators — read from the repo, overridden by an optional cor.config.json.
 // COR writes nothing here; the entries it returns (U8) target what this finds, and cor_open says what it found.
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { dirname, extname, join, relative, resolve, sep } from 'node:path';
 
 export const STORES = ['page-object-class', 'constants', 'json', 'yaml'];
@@ -11,6 +11,7 @@ const DEFAULT_DIR = { playwright: 'tests/pages', webdriverio: 'test/pageobjects'
 
 const MAX_SPECS = 20; // spec files read, per N3 of the framework spec
 const MAX_DEPTH = 5;
+const MAX_DIRS = 400; // ponytail: a cap on folders visited; a huge repo is sampled, not walked
 const SPEC = /\.(spec|test|cy)\.[cm]?[jt]sx?$/;
 const SKIP = new Set(['node_modules', '.git', 'dist', 'build', 'coverage', '.cor']);
 const IMPORT = /(?:import\s[^'"]*?from\s*|require\(\s*|import\(\s*)['"](\.{1,2}\/[^'"]+)['"]/g;
@@ -42,13 +43,16 @@ export function readConfig(root) {
 
 function specFiles(root) {
   const out = [];
+  // Only inside a project: with no package.json at the root (a home folder, `/`), there is nothing to infer from.
+  if (!existsSync(join(root, 'package.json'))) return out;
+  let dirs = 0;
   const walk = (dir, depth) => {
-    if (out.length >= MAX_SPECS || depth > MAX_DEPTH) return;
+    if (out.length >= MAX_SPECS || depth > MAX_DEPTH || ++dirs > MAX_DIRS) return;
     let names;
     try { names = readdirSync(dir).sort(); } catch { return; }
     for (const name of names) {
       if (out.length >= MAX_SPECS) return;
-      if (SKIP.has(name)) continue;
+      if (SKIP.has(name) || name.startsWith('.')) continue;
       const full = join(dir, name);
       let st;
       try { st = statSync(full); } catch { continue; }

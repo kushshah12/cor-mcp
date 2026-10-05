@@ -131,6 +131,8 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
       return argument ?? configured ?? this.detection.framework;
     },
     get detection() { return (detection ??= detectFramework(cwd)); },
+    /** U8: the project root — where the framework's package.json is, else the working folder. Records live under it. */
+    get root() { return this.detection.candidates[0]?.dir ?? cwd; },
     /** U7: cor.config.json and the repo's locator store; the project root is where the framework's package.json is. */
     get conventions() { return (conventions ??= resolveConventions(this.detection.candidates[0]?.dir ?? cwd, this.detection.framework)); },
     /** U3/U7: the project's Playwright testIdAttribute (cor.config.json, else playwright.config), or null for data-testid. */

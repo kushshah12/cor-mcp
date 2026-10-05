@@ -267,13 +267,17 @@ test('verification: through the bin, one record per element, nothing on stderr, 
   const withCapture = await runBin(t, { cwd: on, env: { HOME: home } });
   assert.equal(withCapture.stderr, '', 'capture is silent');
   assert.equal(readRecords(on, home).records.length, 3, 'four inspects of three elements');
-  assert.deepEqual(readdirSync(on), [], 'nothing inside the working folder');
+  // U8: entry records are committed with the project, one per element (a re-inspect reuses its id); fingerprints stay outside.
+  assert.deepEqual(readdirSync(on), ['.cor'], 'only .cor/ inside the working folder');
+  assert.equal(readdirSync(join(on, '.cor', 'records')).length, 3, 'one record per element');
 
   const flagged = tempDir();
   const flaggedHome = tempDir();
   const withFlag = await runBin(t, { cwd: flagged, args: ['--no-fingerprints'], env: { HOME: flaggedHome } });
   assert.equal(existsSync(join(flaggedHome, '.cor')), false, '--no-fingerprints writes no file at all');
-  assert.deepEqual(withFlag.texts, withCapture.texts, 'tool responses are identical with capture on or off');
+  const noId = (texts) => texts.map((s) => s.replace(/cor:[0-9a-f]{6}/g, 'cor:{id}'));
+  assert.deepEqual(noId(withFlag.texts), noId(withCapture.texts), 'tool responses are identical with capture on or off, ids aside');
+  assert.equal(existsSync(join(flagged, '.cor')), false, '--no-fingerprints writes no record either');
   assert.equal(withFlag.stderr, '');
 
   const env = tempDir();

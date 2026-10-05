@@ -37,8 +37,8 @@ export const CASES = [
   { id: 'sd-grade-testid-configured', project: 'pw-data-test', open: 'site/saucedemo-inventory', calls: [['cor_grade', { selector: "page.getByTestId('shopping-cart-link')" }], ['cor_inspect', { selector: '[data-test="shopping-cart-link"]' }]] },
 
   // ── bstackdemo ──
-  { id: 'bs-buy-pw', open: 'site/bstackdemo', calls: [['cor_inspect', { selector: '.shelf-item:nth-child(2) .shelf-item__buy-btn' }]] },
-  { id: 'bs-buy-cy', open: 'site/bstackdemo', calls: [['cor_inspect', { selector: '.shelf-item:nth-child(2) .shelf-item__buy-btn', framework: 'cypress' }]] },
+  { id: 'bs-buy-pw', open: 'site/bstackdemo', calls: [['cor_inspect', { selector: '[id="2"] .shelf-item__buy-btn' }]] },
+  { id: 'bs-buy-cy', open: 'site/bstackdemo', calls: [['cor_inspect', { selector: '[id="2"] .shelf-item__buy-btn', framework: 'cypress' }]] },
   { id: 'bs-signin-pw', open: 'site/bstackdemo', calls: [['cor_inspect', { selector: '#signin' }]] },
 
   // ── fixtures: the hard shapes ──

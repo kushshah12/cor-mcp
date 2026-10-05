@@ -2,12 +2,16 @@
 Now at {base}/site/saucedemo-login — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
 Locators: page objects in tests/pages/ (default — no specs found).
---- cor_inspect {"selector":"[data-test=\"login-button\"]","framework":"webdriverio"} (635 chars)
+--- cor_inspect {"selector":"[data-test=\"login-button\"]","framework":"webdriverio"} (855 chars)
 Best locator (webdriverio):
   await $('[data-test="login-button"]')
   Point-in-time — true on this page now: 99 Excellent · 1 match
   + Anchored on a dedicated test attribute
   + Short and shallow
+
+Entry — place in tests/pages/saucedemoLogin.page.js, member loginButton (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 99 Excellent · 1 match
+  loginButton = () => $('[data-test="login-button"]');
 Framework convention applied: webdriverio (published guidance).
 
 Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:

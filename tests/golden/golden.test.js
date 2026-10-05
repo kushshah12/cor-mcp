@@ -52,7 +52,8 @@ async function connect(project) {
 }
 
 // The local port and the installed Chrome version change between runs; nothing else may.
-const normalise = (text) => text.split(base).join('{base}').replace(/Browser: [^\n]*?\d+(\.\d+)+\./g, 'Browser: {browser}.');
+// U8: entry ids are random per issue.
+const normalise = (text) => text.split(base).join('{base}').replace(/cor:[0-9a-f]{6}\b/g, 'cor:{id}').replace(/Browser: [^\n]*?\d+(\.\d+)+\./g, 'Browser: {browser}.');
 
 for (const c of CASES) {
   test(`golden ${c.id}${c.defect ? ` (${c.defect})` : ''}`, { timeout: MAX_MS }, async (t) => {

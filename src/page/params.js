@@ -247,7 +247,8 @@ function slotsFor(targetItem, target, { allowSelf = false } = {}) {
     if (targetItem.querySelector(sel) !== label) continue;
     labelSlots.push({
       kind: 'label', sel, xpathSel, rank: rank(label),
-      param: /question/i.test(label.className) ? 'question' : label.matches(HEADING) || /title/i.test(label.className) ? 'title' : /name/i.test(label.className) ? 'name' : columnHeader(label) ?? 'value',
+      // U6: the test id names it as well as a class does (`data-test="inventory-item-name"` → name).
+      param: /question/i.test(`${label.className} ${sel}`) ? 'question' : label.matches(HEADING) || /title/i.test(`${label.className} ${sel}`) ? 'title' : /name/i.test(`${label.className} ${sel}`) ? 'name' : columnHeader(label) ?? 'value',
       valueOf: (item) => text(item.querySelector(sel)),
       matches: (item, v) => [...item.querySelectorAll(sel)].some((el) => text(el) === v),
     });
