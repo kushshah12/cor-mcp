@@ -9,7 +9,7 @@ All text in this region, in page order. Its refs are added to the current snapsh
 - cell "Order" [ref=e1]: "A-1002"
 - cell "Status" [ref=e2]: "Processing"
 - cell "Total" [ref=e3]: "$40"
---- cor_inspect {"selector":"table.orders tbody tr:nth-child(2) td:nth-child(2)"} (2335 chars)
+--- cor_inspect {"selector":"table.orders tbody tr:nth-child(2) td:nth-child(2)"} (2345 chars)
 Recommended — parameterised by row and column: 3 rows × 3 columns; every row and column checked (6/6).
   Proof: counted by Playwright, every value.
   order = "A-1002"   (also: "A-1001", "A-1003")
@@ -30,15 +30,15 @@ For this one item alone (playwright):
   - Coupled to display copy
   + Anchored on visible text
 
-Entry — place in tests/pages/inventory.page.js, member item (cor_check reads the cor: id; keep the comment):
+Entry — place in tests/pages/inventory.page.js, member cellAt (cor_check reads the cor: id; keep the comment):
   // COR cor:{id} · 6/6 items checked
-  item = () => (order, column) => {
-  const tables = "//table[contains(concat(' ', normalize-space(@class), ' '), ' orders ')]";
-  const header = `(${tables}//tr[th])[1]`;
-  const row = `${tables}//tr[*[1][normalize-space()="${order}"]]`;
-  const columnNo = `count(${header}/*[normalize-space()="${column}"]/preceding-sibling::*) + 1`;
-  return this.page.locator(`xpath=${row}/*[${columnNo}]`);
-};
+  cellAt = (order, column) => {
+    const tables = "//table[contains(concat(' ', normalize-space(@class), ' '), ' orders ')]";
+    const header = `(${tables}//tr[th])[1]`;
+    const row = `${tables}//tr[*[1][normalize-space()="${order}"]]`;
+    const columnNo = `count(${header}/*[normalize-space()="${column}"]/preceding-sibling::*) + 1`;
+    return this.page.locator(`xpath=${row}/*[${columnNo}]`);
+  };
 Framework convention applied: playwright (published guidance).
 
 Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:

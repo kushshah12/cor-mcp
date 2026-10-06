@@ -58,7 +58,7 @@ test('U9 scan: one site per statement, the id from the comment above, positional
     "  first = () => this.page.locator('button').first();",
     '}',
   ].join('\n'));
-  assert.deepEqual(sites.map((s) => [s.line, s.id, s.positional]), [[3, 'aaaaaa', false], [4, null, true]]);
+  assert.deepEqual(sites.map((s) => [s.line, s.id, Boolean(s.positional)]), [[3, 'aaaaaa', false], [4, null, true]]); // P1: the reason, or null
 });
 
 test('U9 (AE8) a typed positional locator fails and comes back with COR\'s entry to paste', async (t) => {

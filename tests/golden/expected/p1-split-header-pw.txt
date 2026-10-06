@@ -1,0 +1,51 @@
+# p1-split-header-pw
+Now at {base}/fixture/p1-split-header — "Split header" (HTTP 200). Browser: {browser}.
+Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
+--- cor_inspect {"selector":"table.body tr:nth-child(2) td:nth-child(3)"} (3378 chars)
+Recommended — parameterised by row and column: 3 rows × 4 columns; every row and column checked (7/7).
+  Proof: counted by Playwright, every value.
+  feature = "Bug capture"   (also: "Parallel tests", "Screenshots")
+  column = "Team Pro"   (also: "Feature", "Team", "Enterprise")
+  const cell = (feature, column) => {
+    const tables = "//table[contains(concat(' ', normalize-space(@class), ' '), ' body ')]";
+    const header = "(//table[contains(concat(' ', normalize-space(@class), ' '), ' head ')]//tr[count(th)>1])[1]";
+    const row = `${tables}//tr[*[1][normalize-space()="${feature}"]]`;
+    const columnNo = `count(${header}/*[normalize-space()="${column}"]/preceding-sibling::*) + 1`;
+    return page.locator(`xpath=${row}/*[${columnNo}]`);
+  };
+  Registry template (xpath-literal): //table[contains(concat(' ', normalize-space(@class), ' '), ' body ')]//tr[*[1][normalize-space()=__feature__]]/*[count((//table[contains(concat(' ', normalize-space(@class), ' '), ' head ')]//tr[count(th)>1])[1]/*[normalize-space()=__column__]/preceding-sibling::*)+1]   (__feature__ / __column__ are quoted XPath literals)
+  When the test reads more than one cell, write one function taking feature and column.
+
+For this one item alone there is no durable locator (every locator found picks by position (.first/.nth/.eq/[n]): a reorder silently changes the element) — a test attribute would fix that: <td data-testid="yes">.
+Declined as the answer — the most durable single-item locator today:
+1. page.locator('//tr[td[normalize-space()="Bug capture"]]/td[3]')
+   59 Fair · 1 match
+   ! Unique only by position — matches whatever occupies that slot, not this element
+   ! Depends on element position — silently picks a different element when order changes
+
+Entry — place in tests/pages/p1SplitHeader.page.js, member cellAt (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · 7/7 items checked
+  cellAt = (feature, column) => {
+    const tables = "//table[contains(concat(' ', normalize-space(@class), ' '), ' body ')]";
+    const header = "(//table[contains(concat(' ', normalize-space(@class), ' '), ' head ')]//tr[count(th)>1])[1]";
+    const row = `${tables}//tr[*[1][normalize-space()="${feature}"]]`;
+    const columnNo = `count(${header}/*[normalize-space()="${column}"]/preceding-sibling::*) + 1`;
+    return this.page.locator(`xpath=${row}/*[${columnNo}]`);
+  };
+Facts:
+  • column headers are in a separate table above the rows
+  • a locator matching 2 elements: the test fails at once
+
+Why this order: Demoted Yes (score 61) — Matches 2 elements — Playwright throws a strict-mode error — the test fails immediately. Ranked //tr[td[normalize-space()="Bug capture"]]/td[3] first because it resolves to exactly one element.
+Framework convention applied: playwright (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on visible text; risk: unique only by position; chosen over page.getByText('Yes') because it matches more than one element
+
+Alternatives:
+4. page.getByText('Yes')
+   61 Fair · 2 matches
+   ! Coupled to display copy — breaks on wording changes and localization (Yes)
+   ! Matches 2 elements — may interact with the wrong one (matches 2 elements)
+(3 more alternatives not shown — cor_inspect with all: true lists every one.)

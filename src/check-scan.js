@@ -2,7 +2,7 @@
 // from the id — never from comparing locator text (R46). A call's id is on its own line or in the comment lines right
 // above the statement it starts (an entry is placed as `// COR cor:7f3a2c · …` then the code).
 import { ID_PATTERN } from './records.js';
-import { POSITIONAL_TEXT as POSITIONAL } from './grade-parse.js';
+import { bannedIn, bannedSelector } from './positional.js';
 
 // A locator call: Playwright (page./this.page./any receiver .locator/.getBy*), Cypress (cy.get/cy.contains), WebdriverIO ($/$$).
 // Review fix: also page.$ / browser.$ / el.$ (WebdriverIO, Puppeteer-style), cy.xpath and Testing Library's cy.findBy*.
@@ -51,10 +51,11 @@ export function rootedExpression(src) {
 
 /**
  * Every locator call in `text`, one per statement: its line, the statement, its cor: id (or null) and whether it
- * picks by position. JSON is handled by the caller (its ids are in the sidecar).
- * @returns {{ line: number, statement: string, id: string|null, positional: boolean, expression: string|null }[]}
+ * fails the shared positional / structural check (P1: `positional` is the reason, or null). JSON is handled by the caller
+ * (its ids are in the sidecar).
+ * @returns {{ line: number, statement: string, id: string|null, positional: string|null, expression: string|null }[]}
  */
-export function scanLocators(text) {
+export function scanLocators(text, framework = null) {
   const lines = text.split('\n');
   const out = [];
   const seen = new Set();
@@ -75,13 +76,13 @@ export function scanLocators(text) {
       id = ID_PATTERN.exec(lines[k])?.[1] ?? null;
       if (id) helper = /\bhelper\b/.test(lines[k]);
     }
-    out.push({ line: start + 1, statement: statement.trim(), id, helper, positional: POSITIONAL.test(statement), expression: rootedExpression(statement) });
+    out.push({ line: start + 1, statement: statement.trim(), id, helper, positional: bannedIn(statement, framework), expression: rootedExpression(statement) });
   }
   return out;
 }
 
 /** YAML: each `key: value` line and its id, from the `# COR cor:…` comment above it. */
-export function scanYaml(text) {
+export function scanYaml(text, framework = null) {
   const lines = text.split('\n');
   const out = [];
   for (let i = 0; i < lines.length; i++) {
@@ -89,7 +90,7 @@ export function scanYaml(text) {
     if (!m || COMMENT.test(lines[i])) continue;
     let id = null;
     for (let k = i - 1; !id && k >= 0 && COMMENT.test(lines[k]); k--) id = ID_PATTERN.exec(lines[k])?.[1] ?? null;
-    out.push({ line: i + 1, key: m[1], id, statement: lines[i].trim(), positional: POSITIONAL.test(lines[i]) || /\[\s*\d+\s*\]['"]?\s*$/.test(lines[i]) /* an XPath index in a map value */ });
+    out.push({ line: i + 1, key: m[1], id, statement: lines[i].trim(), positional: bannedIn(lines[i], framework) ?? bannedSelector(lines[i].slice(lines[i].indexOf(':') + 1).trim().replace(/^['"]|['"]$/g, ''), framework) });
   }
   return out;
 }

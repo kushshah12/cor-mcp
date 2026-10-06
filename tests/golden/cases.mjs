@@ -59,6 +59,13 @@ export const CASES = [
   { id: 'fx-faq-snapshot', open: 'fixture/faq', calls: [['cor_snapshot', {}]] },
   { id: 'fx-traps-snapshot', open: 'fixture/traps', calls: [['cor_snapshot', {}]] },
 
+  // ── P1 class pages: one per bug class, each entry must pass the shared positional / structural check ──
+  { id: 'p1-split-header-cy', project: 'cy16', open: 'fixture/p1-split-header', calls: [['cor_inspect', { selector: 'table.body tr:nth-child(2) td:nth-child(3)' }]] },
+  { id: 'p1-split-header-pw', open: 'fixture/p1-split-header', calls: [['cor_inspect', { selector: 'table.body tr:nth-child(2) td:nth-child(3)' }]] },
+  { id: 'p1-nested-heading-cy', project: 'cy16', open: 'fixture/p1-nested-heading', calls: [['cor_inspect', { selector: '#checkout-root h3' }]] },
+  { id: 'p1-no-durable-cy', project: 'cy16', open: 'fixture/p1-no-durable', calls: [['cor_inspect', { selector: '.list > div:nth-child(2) .dot' }]] },
+  { id: 'p1-xpath-only-cy', project: 'cy16', open: 'fixture/p1-xpath-only', calls: [['cor_inspect', { selector: 'div[data-product-id="live"] table:nth-of-type(3) tr:nth-child(2) td:nth-child(4)' }]] },
+
   // ── COR Shop (app/): the suite's own app, with JS. One case per hard shape, plus cor_check and cor_heal end to end. ──
   {
     id: 'shop-login-flow', project: 'shop-repo', open: 'app/login.html',

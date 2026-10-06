@@ -109,7 +109,7 @@ export function render(params, { typescript = false } = {}) {
   }
   if (!withinBar(found.lines, uses)) return { none: 'the helper does not fit the readability bar (8 lines, 120 characters)' };
   const define = found.lines.join('\n');
-  return { define, uses, idioms, code: [define, ...uses].join('\n') };
+  return { define, uses, idioms, code: [define, ...uses].join('\n'), call: `${name}(${model.param})` };
 }
 
 /** The every-item expression: loop over it. */

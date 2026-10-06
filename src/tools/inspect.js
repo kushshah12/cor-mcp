@@ -7,6 +7,7 @@ import { REF, checkRef, goneError } from './refs.js';
 import { applyIdVerdicts, checkIds, numberedIds } from '../id-stability.js';
 import { parseGradable } from '../grade-parse.js';
 import { entryFor, memberName } from '../entries.js';
+import { bannedIn, bannedSelector } from '../positional.js';
 
 export const FRAMEWORKS = ['playwright', 'cypress', 'selenium', 'webdriverio', 'nightwatch', 'testcafe', 'puppeteer'];
 
@@ -125,6 +126,20 @@ export async function verifyTemplate(page, params) {
 }
 
 /**
+ * P1: a locator that fails the shared check (positional, bare-tag chain, …) never leads while one that resolves and passes
+ * exists — so a text or role anchor outranks an anonymous `div div div h3` chain whatever the engine scored.
+ */
+function sinkBanned(result, framework) {
+  const banned = (l) => bannedIn(l.code || l.value, framework);
+  const [first] = result.locators;
+  if (!first || !banned(first)) return;
+  const ok = result.locators.filter((l) => l.resolution?.usable !== false && !banned(l));
+  if (!ok.length) return;
+  result.locators = [...ok, ...result.locators.filter((l) => !ok.includes(l))];
+  result.rankingNote = `Ranked ${ok[0].value} first — ${first.value} (score ${first.score}) ${banned(first)}, and COR never issues that.`;
+}
+
+/**
  * U9: the inspect pipeline, shared by cor_inspect and cor_check (which issues an entry for a typed locator's element).
  * @returns {(args: object) => Promise<{ reply: string, entry: string[]|null }>}
  */
@@ -164,6 +179,7 @@ export function createInspector(session, idCache = new Map(), records = null) {
       const [best] = result.locators;
       result.rankingNote = `Demoted ${top.value} (score ${top.score}) — its id changes on every page load (${top.volatileId.id} was ${top.volatileId.seen} on a fresh load). Ranked ${best.value} first.`;
     }
+    sinkBanned(result, framework);
     const refsLive = Boolean(session.refs && !session.refs.staleBecause);
     // once per session: the note is about the page, not this element
     const dataCyNote = !quiet && !dataCyNoted && framework === 'cypress' && result.testAttrs === false;
@@ -172,22 +188,20 @@ export function createInspector(session, idCache = new Map(), records = null) {
     // U8: the entry to place (store style, file, member, cor: id); its record is written under .cor/records/.
     const typescript = Boolean(detected?.typescript);
     const parts = inspectParts(result, { framework, typescript, major: detected?.version ?? null, testingLibrary: Boolean(detected?.testingLibrary) });
-    let entryLines = null;
-    if (parts.entryOk) {
-      const { lead, helper } = parts;
-      const strategies = [
-        ...(lead?.template?.playwright ? [{ kind: 'template', value: lead.template.playwright.selectorTemplate }] : []),
-        ...result.locators.map((l) => ({ kind: l.strategy, value: l.value })),
-      ];
-      const member = memberName(result, lead);
-      const id = reuseId ?? (records ? records.issue({ url: page.url(), fingerprint: result.capture.fingerprint, elementKey: result.capture.elementKey, member, strategies }) : newId());
-      const entry = entryFor({ result, lead, helper, framework, conventions: session.conventions, typescript, url: page.url(), id });
-      if (records && !reuseId && entry.store === 'json') records.link(`${entry.file}#${entry.member}`, id);
-      // Review fix: a record that could not be written does not fail the inspect — the reply says heal has nothing for it.
-      entryLines = records?.lastError && !reuseId ? [...entry.lines.slice(0, -1), `  (record not saved: ${records.lastError} — cor_heal will have no record for this id)`, ''] : entry.lines;
-    }
+    // P1: every inspect issues an id — an entry, or a decline (no locator passes); the record never keeps a positional strategy.
+    const { lead, entryLead, helper, declined } = parts;
+    const strategies = [
+      ...(lead?.template?.playwright ? [{ kind: 'template', value: lead.template.playwright.selectorTemplate }] : []),
+      ...result.locators.filter((l) => !bannedSelector(l.value)).map((l) => ({ kind: l.strategy, value: l.value })),
+    ];
+    const member = memberName(result, entryLead);
+    const id = reuseId ?? (records ? records.issue({ url: page.url(), fingerprint: result.capture.fingerprint, elementKey: result.capture.elementKey, member, strategies, declined }) : newId());
+    const entry = entryFor({ result, lead: entryLead, helper, framework, conventions: session.conventions, typescript, url: page.url(), id, declined });
+    if (records && !reuseId && entry.store === 'json') records.link(`${entry.file}#${entry.member}`, id);
+    // Review fix: a record that could not be written does not fail the inspect — the reply says heal has nothing for it.
+    const entryLines = records?.lastError && !reuseId ? [...entry.lines.slice(0, -1), `  (record not saved: ${records.lastError} — cor_heal will have no record for this id)`, ''] : entry.lines;
     const reply = renderInspect(result, { refsLive, framework, all, dataCyNote, typescript, major: detected?.version ?? null, testingLibrary: Boolean(detected?.testingLibrary), entry: entryLines, parts });
-    return { reply, entry: entryLines };
+    return { reply, entry: entryLines, declined };
   };
 }
 /** @param {ReturnType<import('../session.js').createSession>} session */

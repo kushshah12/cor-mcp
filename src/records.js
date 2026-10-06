@@ -69,7 +69,7 @@ export function createRecordStore({ root, enabled = true, newId = randomId, now 
    * Write the record for a just-issued entry. Returns the id; with capture off, an id and nothing written. A failed
    * write never fails the inspect: the id is returned and `lastError` says why the record is missing.
    */
-  function issue({ url, fingerprint, elementKey = null, member = null, strategies }) {
+  function issue({ url, fingerprint, elementKey = null, member = null, strategies, declined = null }) {
     store.lastError = null;
     const page = recordPage(url);
     const id = (enabled && elementKey && existing({ page, elementKey, member, fingerprint })) || issueId();
@@ -85,6 +85,8 @@ export function createRecordStore({ root, enabled = true, newId = randomId, now 
         fingerprint: redactFingerprint(fingerprint),
         strategies: strategies.slice(0, MAX_STRATEGIES).map((s) => ({ kind: s.kind, value: redactLocator(s.value) })),
         created: new Date(now()).toISOString().slice(0, 10),
+        // P1: a decline id — COR found no locator that passes the shared check; cor_check reports it as declined, cited.
+        ...(declined ? { declined } : {}),
       };
       writeAtomic(fileOf(id), `${JSON.stringify(record, null, 2)}\n`);
     } catch (error) {

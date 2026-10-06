@@ -2,6 +2,8 @@
 // and member name, and a grade comment carrying its `cor:` id (R13, R19, R42). The agent places it with its own edit
 // tools; COR never edits the team's files. cor_check (U9) finds entries again by that id, never by their text.
 
+import { helperUse } from './format.js';
+
 const camel = (s) => {
   const words = String(s ?? '').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
   if (!words.length) return null;
@@ -21,6 +23,7 @@ export function pageName(url) {
 
 /** The member's name: a parameterised entry by its action (`addToCart`), a single one by its test id or role + name. */
 export function memberName(result, lead) {
+  if (lead?.kind === 'cell') return 'cellAt'; // P1: not `cell` — the Cypress / WebdriverIO helper already has that name
   if (lead) {
     const leafName = result.params?.model?.leaf?.name ?? result.lookalikes?.name;
     return camel(leafName) ?? camel(lead.param) ?? 'item';
@@ -44,11 +47,15 @@ const STORE_FILE = {
 /** A plain CSS or XPath string: what a strings-only store can hold and every framework can read (R15). */
 const isPlainSelector = (v) => !/^(role|text|internal|aria)[=/:]|getBy|>>|:has-text|:text-is|:visible/.test(String(v));
 
+const indent = (code) => code.split('\n').map((l, i) => (i ? `  ${l}` : l)).join('\n');
+
 /**
- * The entry block for one inspected element: placed at the top of cor_inspect's reply.
- * @returns {{ lines: string[], member: string, file: string, store: string }}
+ * The entry block for one inspected element: placed at the top of cor_inspect's reply. `lead` is the template whose own
+ * code is placed (inspectParts' entryLead), so the grade comment describes exactly that code (P1). `declined` (P1): no
+ * locator passes — the entry is a decline id to cite, and no code.
+ * @returns {{ lines: string[], member: string, file: string, store: string, declined?: string }}
  */
-export function entryFor({ result, lead, helper, framework, conventions, typescript = false, url, id }) {
+export function entryFor({ result, lead, helper, framework, conventions, typescript = false, url, id, declined = null }) {
   const store = conventions.store.value;
   const ext = typescript ? 'ts' : 'js';
   const file = `${conventions.storeDir.value}/${STORE_FILE[store](pageName(url), ext)}`;
@@ -61,6 +68,13 @@ export function entryFor({ result, lead, helper, framework, conventions, typescr
   const p = lead?.param;
   const pTyped = p ? `${p}${typescript ? ': string' : ''}` : '';
   const head = `Entry — place in ${file}, member ${member} (cor_check reads the cor: id; keep the comment):`;
+  if (declined) {
+    return {
+      lines: [`Entry — declined: ${declined}. COR issues no locator for this element. If the test must use it, put this line above the locator you write; cor_check then reports it as declined, cited (the app needs a test attribute):`,
+        `  ${store === 'yaml' ? '#' : '//'} COR cor:${id} · declined — ${declined}`, ''],
+      member, file, store, declined,
+    };
+  }
 
   if (store === 'json' || store === 'yaml') {
     const value = lead
@@ -77,16 +91,23 @@ export function entryFor({ result, lead, helper, framework, conventions, typescr
   const comment = `  // ${tag}`;
   let body;
   let preamble = [];
-  if (framework === 'playwright') {
+  if (framework === 'playwright' && lead?.kind === 'cell') {
+    // P1: the cell code is already a function of (row, column) — the member is that function, not one returning it.
+    body = store === 'page-object-class'
+      ? `  ${member} = ${indent(lead.code.replace(/\bpage\./g, 'this.page.'))};`
+      : `  ${member}: ${indent(lead.code.replace(/^\(/, '(page, '))},`;
+  } else if (framework === 'playwright') {
     const code = lead ? lead.code : (best.code || best.value);
     body = store === 'page-object-class'
       ? `  ${member} = (${pTyped}) => ${code.replace(/\bpage\./g, 'this.page.')};`
       : `  ${member}: (page${p ? `, ${pTyped}` : ''}) => ${code},`;
   } else {
-    const helperLines = helper?.code ? helper.code.split('\n') : null;
-    const use = helperLines ? helperLines.at(-1).trim() : (best.code || best.value).replace(/^await\s+/, '');
-    if (helperLines) preamble = [`  // ${tag} · helper, once per file (module scope)`, ...helperLines.slice(0, -1).map((l) => `  ${l}`)];
-    body = store === 'page-object-class' ? `  ${member} = (${pTyped}) => ${use};` : `  ${member}: (${pTyped}) => ${use},`;
+    // P1: the helper is defined once at module scope; the member returns its call (the leaf, when it reaches one).
+    // A cell helper takes (row, column), so the member passes both.
+    const args = lead?.kind === 'cell' ? lead.vars.map((v) => `${v}${typescript ? ': string' : ''}`).join(', ') : pTyped;
+    const use = helper ? helperUse(helper) : (best.code || best.value).replace(/^await\s+/, '');
+    if (helper) preamble = [`  // ${tag} · helper, once per file (module scope)`, ...helper.define.split('\n').map((l) => `  ${l}`)];
+    body = store === 'page-object-class' ? `  ${member} = (${args}) => ${indent(use)};` : `  ${member}: (${args}) => ${indent(use)},`;
   }
   return { lines: [head, ...preamble, comment, body, ''], member, file, store };
 }

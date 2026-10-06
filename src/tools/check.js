@@ -10,6 +10,7 @@ import { walkFiles } from '../walk.js';
 import { parseGradable } from '../grade-parse.js';
 import { callPage } from '../page-runtime.js';
 import { ID_PATTERN, pathOf, recordPage } from '../records.js';
+import { bannedSelector, isIndexReason } from '../positional.js';
 
 const text = (value) => ({ content: [{ type: 'text', text: value }] });
 const CODE = /\.[cm]?[jt]sx?$/;
@@ -72,8 +73,10 @@ export function checkTools(session, inspector, records = null) {
       let sidecar = {};
       try { sidecar = JSON.parse(readFileSync(join(root, '.cor', 'ids.json'), 'utf8')); } catch { /* none */ }
       const page = session.isOpen ? await session.getPage() : null;
+      const framework = session.resolveFramework() ?? null;
 
       const findings = [];
+      const cited = []; // P1: a decline id — COR recorded that no durable locator exists here; reported, not failed
       let fixes = 0;
       let count = 0;
       let filesWithLocators = 0;
@@ -84,12 +87,12 @@ export function checkTools(session, inspector, records = null) {
         let src;
         try { src = readFileSync(file, 'utf8'); } catch { continue; }
         let sites = [];
-        if (CODE.test(rel)) sites = scanLocators(src);
-        else if (inStore && /\.ya?ml$/.test(rel)) sites = scanYaml(src);
+        if (CODE.test(rel)) sites = scanLocators(src, framework);
+        else if (inStore && /\.ya?ml$/.test(rel)) sites = scanYaml(src, framework);
         else if (inStore && rel.endsWith('.json')) {
           let map = null;
           try { map = JSON.parse(src); } catch { /* not ours */ }
-          if (map && typeof map === 'object') sites = Object.keys(map).map((key) => ({ line: 1, key, id: sidecar[`${rel}#${key}`] ?? null, statement: `${key}: ${JSON.stringify(map[key])}`, positional: />>\s*nth=/.test(String(map[key])) }));
+          if (map && typeof map === 'object') sites = Object.keys(map).map((key) => ({ line: 1, key, id: sidecar[`${rel}#${key}`] ?? null, statement: `${key}: ${JSON.stringify(map[key])}`, positional: bannedSelector(String(map[key]).replace(/^(?:css|xpath)=/, ''), framework) }));
         }
         if (!sites.length) continue;
         filesWithLocators++;
@@ -98,8 +101,12 @@ export function checkTools(session, inspector, records = null) {
           const where = `${rel}:${site.line}`;
           const shown = site.statement.split('\n')[0].slice(0, 100);
           if (site.positional) {
-            findings.push({ where, what: `${shown} — picks by position (.first/.nth/.eq/[n]): a reorder silently changes the element.`, fix: await fixFor(site) });
+            const declined = site.id && known.has(site.id) ? records?.read(site.id)?.declined : null;
+            if (declined) { cited.push({ where, id: site.id, why: declined }); continue; }
+            findings.push({ where, what: `${shown} — ${site.positional}${isIndexReason(site.positional) ? '' : ' (COR never issues this shape)'}.`, fix: await fixFor(site) });
           } else if (site.id && (known.has(site.id) || !recordsOn)) {
+            const declined = recordsOn ? records?.read(site.id)?.declined : null;
+            if (declined) { cited.push({ where, id: site.id, why: declined }); continue; }
             // Review fix: an id copied onto another locator, or an entry extended with a typed step, finds a different
             // element than its record — checked by element on the record's page (R46: never by comparing text).
             const drift = recordsOn ? await elementDrift(site) : null;
@@ -141,21 +148,25 @@ export function checkTools(session, inspector, records = null) {
         if (!handle) return ['It finds no single element on the open page — open the page it targets, or cor_inspect the element and place its entry.'];
         const before = new Set(known);
         let entry = null;
-        try { ({ entry } = await inspector({ element: handle, quiet: true })); } catch { /* page changed under us */ } finally { await handle.dispose().catch(() => {}); }
+        let declined = null;
+        try { ({ entry, declined } = await inspector({ element: handle, quiet: true })); } catch { /* page changed under us */ } finally { await handle.dispose().catch(() => {}); }
         if (!entry) return ['COR has no durable locator for this element — cor_inspect it for the recommendation.'];
         const id = ID_PATTERN.exec(entry.join('\n'))?.[1];
         if (id) known.add(id);
         // Review fix: the fix is for the element this locator finds on the OPEN page — say which page, in case it targets another.
         const on = `On ${pathOf(page.url())} (if this locator targets another page, cor_open it and run cor_check again):`;
+        if (declined) return [on, ...entry.filter(Boolean).map((l) => `  ${l}`)];
         if (!site.positional && id && before.has(id)) return [on, `COR already has a record of this element: add \`// COR cor:${id}\` on the line above it (keep the locator).`];
         return [on, 'Replace it with COR\'s entry:', ...entry.filter(Boolean).map((l) => `  ${l}`)];
       }
 
       const cut = listed.truncated ? ` Scanned the first ${MAX_FILES} files only — pass files to check the rest.` : '';
-      const head = `cor_check: ${count} locator${count === 1 ? '' : 's'} in ${filesWithLocators} file${filesWithLocators === 1 ? '' : 's'} (${scope}) — ${count - findings.length} carry a COR id, ${findings.length} to fix.${cut}`;
-      if (listed.truncated && !findings.length) return text(head, true);
-      if (!findings.length) return text(`${head}${recordsOn ? '' : '\nNo .cor/records/ in this project (records off): ids were checked for presence only.'}`);
-      const lines = [head, ''];
+      const declinedNote = cited.length ? `, ${cited.length} declined (cited)` : '';
+      const head = `cor_check: ${count} locator${count === 1 ? '' : 's'} in ${filesWithLocators} file${filesWithLocators === 1 ? '' : 's'} (${scope}) — ${count - findings.length - cited.length} carry a COR id${declinedNote}, ${findings.length} to fix.${cut}`;
+      const citedLines = cited.length ? ['', 'Declined, cited — COR found no durable locator; each needs a test attribute in the app:', ...cited.map((c) => `  ${c.where} cor:${c.id} — ${c.why}`)] : [];
+      if (listed.truncated && !findings.length) return text([head, ...citedLines].join('\n'), true);
+      if (!findings.length) return text(`${[head, ...citedLines].join('\n')}${recordsOn ? '' : '\nNo .cor/records/ in this project (records off): ids were checked for presence only.'}`);
+      const lines = [head, ...citedLines, ''];
       for (const f of findings.slice(0, MAX_FINDINGS)) lines.push(`✗ ${f.where} — ${f.what}`, ...f.fix.map((l) => `  ${l}`), '');
       if (findings.length > MAX_FINDINGS) lines.push(`… ${findings.length - MAX_FINDINGS} more — fix these and run cor_check again.`);
       return { content: [{ type: 'text', text: lines.join('\n').trimEnd() }], isError: true };

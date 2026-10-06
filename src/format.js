@@ -3,6 +3,7 @@
 
 import { ambiguityConsequence, factsLines } from './facts.js';
 import { everyItem, renderHelper } from './idioms/index.js';
+import { bannedIn } from './positional.js';
 
 const RUNNER_NAMES = { webdriverio: 'WebdriverIO', cypress: 'Cypress', playwright: 'Playwright' };
 
@@ -331,8 +332,10 @@ const usableTemplate = (params, framework, helper) =>
 
 /**
  * What an inspect's answer rests on, before rendering: the framework helper (WebdriverIO/Cypress), the usable template
- * (the lead), and whether an entry can be issued — a template, or a single locator that resolves and is durable.
- * Refactor (review): inspect.js builds the entry from these and passes it in; renderInspect no longer calls back.
+ * (the lead), and what the entry rests on. Refactor (review): inspect.js builds the entry from these and passes it in.
+ * P1: the entry's template (`entryLead`) is the lead only when its own code is what gets placed — Playwright's template, or
+ * the framework's helper — and that code passes the shared check; the proof then describes exactly that code. Otherwise the
+ * entry is the single best locator, or `declined` says why there is none (no locator that resolves, is durable and passes).
  */
 export function inspectParts(result, { framework = result.framework, typescript = false, major = null, testingLibrary = false } = {}) {
   // P3a: WebdriverIO (and, in P3b, Cypress) get idiomatic helper code rendered from the checked template.
@@ -341,9 +344,19 @@ export function inspectParts(result, { framework = result.framework, typescript 
   const helper = rendered?.code ? rendered : null;
   const lead = usableTemplate(result.params, framework, helper);
   const [best] = result.locators;
-  const entryOk = Boolean(lead || (best && best.resolution?.usable !== false && !SUB_FLOOR.has(best.tier)));
-  return { helper, lead, entryOk };
+  let entryLead = framework === 'playwright' || helper ? lead : null;
+  if (entryLead && bannedIn(helper ? helperUse(helper) : lead.code, framework)) entryLead = null;
+  const bestBanned = best ? bannedIn(best.code || best.value, framework) : null;
+  const declined = entryLead ? null
+    : !best ? 'no locator could be generated for this element'
+      : best.resolution?.usable === false ? 'no locator found resolves to exactly this element'
+        : SUB_FLOOR.has(best.tier) ? `no durable locator — the best is ${best.tierLabel}`
+          : bestBanned ? `every locator found ${bestBanned}` : null;
+  return { helper, lead, entryLead, bestBanned, declined };
 }
+
+/** The helper call an entry's member returns: the leaf when the helper reaches one, else the helper itself. */
+export const helperUse = (helper) => (helper.idioms.some((i) => i.startsWith('leaf.')) ? helper.uses[0] : helper.call);
 
 export function renderInspect(result, { refsLive = false, framework = result.framework, all = false, dataCyNote = false, typescript = false, major = null, testingLibrary = false, entry = null, parts = inspectParts(result, { framework, typescript, major, testingLibrary }) } = {}) {
   const { helper, lead } = parts;
@@ -373,13 +386,15 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
         `  or set includeShadowDom: true once in the Cypress config and use cy.get('${sel}').`);
     } else if (fix) out.push('Add a test attribute (this requires an application change):', `  ${fix.snippet}`);
     else out.push('Scope a locator to the element\'s container by hand and grade it with cor_grade.');
-  } else if (SUB_FLOOR.has(best.tier)) {
+  } else if (SUB_FLOOR.has(best.tier) || parts.bestBanned) {
     const fix = addTestId(result);
+    // P1: a locator failing the shared check is declined like a sub-floor one, whatever it scores.
+    const weak = SUB_FLOOR.has(best.tier) ? `best is ${best.tierLabel}` : `every locator found ${parts.bestBanned}`;
     if (lead) {
-      out.push(`For this one item alone there is no durable locator (best is ${best.tierLabel})${fix ? ` — a test attribute would fix that: ${fix.snippet}` : ''}.`);
+      out.push(`For this one item alone there is no durable locator (${weak})${fix ? ` — a test attribute would fix that: ${fix.snippet}` : ''}.`);
       out.push('Declined as the answer — the most durable single-item locator today:', locatorBlock(best, 1));
     } else {
-      out.push(`Recommendation: change the application — no durable locator exists for this element (best is ${best.tierLabel}).`);
+      out.push(`Recommendation: change the application — no durable locator exists for this element (${weak}).`);
       if (fix) {
         out.push(`Add a test attribute (this requires an application change):`, `  ${fix.snippet}`);
       } else {
@@ -419,7 +434,7 @@ export function renderInspect(result, { refsLive = false, framework = result.fra
 
   // U11 (D5): for an item, "not parameterised" only matters when the element has lookalikes — a unique field (saucedemo's
   // username) does not need it. Groups and cells keep it: it says why a framework gets no helper.
-  if (!lead && (['group', 'cell'].includes(result.params?.kind) || result.lookalikes || unusable || SUB_FLOOR.has(best.tier))) out.push(...paramNote(result.params, framework));
+  if (!lead && (['group', 'cell'].includes(result.params?.kind) || result.lookalikes || unusable || SUB_FLOOR.has(best.tier) || parts.bestBanned)) out.push(...paramNote(result.params, framework));
   out.push(...stateBoundNote(result.stateBound));
 
   // U11: with an entry, the runner-up is the alternative the final summary names; all: true still lists every one.
