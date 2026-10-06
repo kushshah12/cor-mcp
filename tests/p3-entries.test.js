@@ -74,12 +74,35 @@ for (const [fw, show] of [
   });
 }
 
-test('P3 an item that starts open is noted — by class, or by aria-expanded — and only when the items differ', async (t) => {
+test('P3 an item that is open now is noted — by class, or by aria-expanded — and only when the items differ', async (t) => {
   const { call } = await connect(t);
   await call('cor_open', { url: `${base}/p3-accordion-open` });
-  assert.match((await call('cor_inspect', { selector: '.qa:nth-child(2) .qa__q' })).text, /^note: "Do you offer refunds\?" starts open — clicking it closes it; check its state before clicking$/m);
-  assert.match((await call('cor_inspect', { selector: '.acc__item:nth-child(1) .acc__btn' })).text, /^note: "Returns" starts open/m);
-  assert.doesNotMatch((await call('cor_inspect', { selector: '.tip:nth-child(2) .tip__t' })).text, /starts? open/, 'every item open: nothing to note');
+  assert.match((await call('cor_inspect', { selector: '.qa:nth-child(2) .qa__q' })).text, /^note: "Do you offer refunds\?" is open now — clicking it closes it; check its state before clicking$/m);
+  assert.match((await call('cor_inspect', { selector: '.acc__item:nth-child(1) .acc__btn' })).text, /^note: "Returns" is open now/m);
+  assert.doesNotMatch((await call('cor_inspect', { selector: '.tip:nth-child(2) .tip__t' })).text, /(is|are) open now/, 'every item open: nothing to note');
   await call('cor_open', { url: `${base}/faq` }); // every item closed: nothing to note
-  assert.doesNotMatch((await call('cor_inspect', { selector: '.faq-item:nth-child(2) .faq-item__question' })).text, /starts? open/);
+  assert.doesNotMatch((await call('cor_inspect', { selector: '.faq-item:nth-child(2) .faq-item__question' })).text, /(is|are) open now/);
+});
+
+for (const [fw, check] of [['playwright', 'toBeVisible\\(\\)'], ['cypress', "should\\('be\\.visible'\\)"], ['webdriverio', 'isDisplayed\\(\\)']]) {
+  test(`P3 an element a closed item clips to 0 height (not hidden) is noted, with ${fw}'s own visibility check named`, async (t) => {
+    const { call } = await connect(t, fw);
+    await call('cor_open', { url: `${base}/p3-accordion-open` });
+    await call('cor_click', { target: '.bs:nth-child(1) .bs__q' });
+    const out = (await call('cor_inspect', { selector: '.bs:nth-child(1) .bs__a' })).text;
+    assert.match(out, new RegExp(`^note: when its item is closed, bsA is clipped to 0 height, not hidden — ${check} still passes; assert the item's open state or bsA's height instead$`, 'm'), out);
+  });
+}
+
+test('P3 a 0-height wrapper that does not clip (its text spills and is seen) gets no note', async (t) => {
+  const { call } = await connect(t);
+  await call('cor_open', { url: `${base}/p3-accordion-open` });
+  assert.doesNotMatch((await call('cor_inspect', { selector: '.sp:nth-child(2) .sp__a' })).text, /clipped to 0 height/);
+});
+
+test('P3 a closed item that hides its content (display: none) gets no 0-height note', async (t) => {
+  const { call } = await connect(t);
+  await call('cor_open', { url: `${base}/faq` });
+  await call('cor_click', { target: '.faq-item:nth-child(3) .faq-item__question' });
+  assert.doesNotMatch((await call('cor_inspect', { selector: '.faq-item:nth-child(3) .faq-item__answer' })).text, /clipped to 0 height/);
 });

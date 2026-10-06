@@ -196,14 +196,24 @@ async function noteStartsOpen(page, params) {
     if (!handle) return null;
     return handle.evaluate((el, itemCss) => {
       const item = el.closest(itemCss) ?? el;
+      // P3: clipped by an ancestor collapsed to 0 height (overflow hidden) while keeping a box of its own — what
+      // BrowserStack's closed FAQ answers are. toBeVisible / be.visible / isDisplayed() all still report it visible.
+      let collapsed = false;
+      const own = el.getBoundingClientRect();
+      for (let a = el.parentElement; a && a !== item.parentElement && own.height > 0; a = a.parentElement) {
+        const box = a.getBoundingClientRect();
+        if ((box.height === 0 || box.width === 0) && /hidden|clip/.test(getComputedStyle(a).overflow)) { collapsed = true; break; }
+      }
       const exp = item.matches('[aria-expanded]') ? item : item.querySelector('[aria-expanded]');
-      if (exp) return exp.getAttribute('aria-expanded') === 'true';
-      if (item.matches('details')) return item.open;
-      return /(^|[\s_-])(open|is-open|active|is-active|expanded|show)(\s|$)/.test(item.className) || item.hasAttribute('open');
+      const open = exp ? exp.getAttribute('aria-expanded') === 'true'
+        : item.matches('details') ? item.open
+          : /(^|[\s_-])(open|is-open|active|is-active|expanded|show)(\s|$)/.test(item.className) || item.hasAttribute('open');
+      return { open, collapsed };
     }, css).catch(() => null).finally(() => handle.dispose());
   }));
-  const open = params.values.filter((_, i) => states[i] === true);
-  if (open.length && states.some((s) => s === false)) params.startsOpen = open;
+  const open = params.values.filter((_, i) => states[i]?.open === true);
+  if (open.length && states.some((s) => s?.open === false)) params.startsOpen = open;
+  if (states.some((s) => s?.collapsed)) params.collapsedWhenClosed = true;
 }
 
 /**
@@ -313,7 +323,7 @@ export async function compactEntries(inspector, targets, { max = Infinity, frame
     const helper = (info.preamble ?? []).join('\n');
     if (helper && !helpers.has(helper)) { helpers.add(helper); out.push(...info.preamble); } else if (helper) out.push('  (helper above)');
     out.push(...(info.comment ? [info.comment, info.body, ...(info.click ?? [])] : info.lines.slice(1, -1))); // a JSON / YAML map entry
-    if (info.note) out.push(`  ${info.note}`);
+    for (const n of info.notes ?? []) out.push(`  ${n}`);
   }
   if (rest.length) out.push(`… ${rest.length} more: cor_inspect targets: [${rest.map((l) => JSON.stringify(l)).join(', ')}]`);
   return [...out, ...failed];

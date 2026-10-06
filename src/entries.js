@@ -46,6 +46,9 @@ export function memberName(result, lead) {
   return (el.id && !/\d/.test(el.id) && camel(el.id)) || camel(result.capture?.fingerprint?.text?.slice(0, 40)) || 'element';
 }
 
+// P3: each framework's visibility assertion, named in the collapsed-content note.
+const VISIBLE_CHECK = { playwright: 'toBeVisible()', cypress: "should('be.visible')", webdriverio: 'isDisplayed()' };
+
 const STORE_FILE = {
   'page-object-class': (name, ext) => `${name}.page.${ext}`,
   constants: (name, ext) => `${name}.locators.${ext}`,
@@ -168,6 +171,9 @@ export function entryFor({ result, lead, helper, framework, conventions, typescr
   ] : [];
   const extra = [...click, ...show, ...every];
   // P3: a state the test must check before acting — an item that starts open closes on the first click.
-  const note = lead?.startsOpen ? `note: ${lead.startsOpen.map((v) => `"${v}"`).join(', ')} start${lead.startsOpen.length === 1 ? 's' : ''} open — clicking it closes it; check its state before clicking` : null;
-  return { lines: [head, ...preamble, comment, body, ...extra, ...(note ? [`  ${note}`] : []), ''], member, file, store, preamble, comment, body, click: extra, proof: grade, itemOnly, everyMember, note, showVariant: show.length > 0 };
+  const notes = [];
+  if (lead?.startsOpen) notes.push(`note: ${lead.startsOpen.map((v) => `"${v}"`).join(', ')} ${lead.startsOpen.length === 1 ? 'is' : 'are'} open now — clicking it closes it; check its state before clicking`);
+  // P3: a closed item clips this element to 0 height instead of hiding it, so the framework's visibility check passes anyway.
+  if (lead?.collapsedWhenClosed) notes.push(`note: when its item is closed, ${member} is clipped to 0 height, not hidden — ${VISIBLE_CHECK[framework] ?? 'a visibility check'} still passes; assert the item's open state or ${member}'s height instead`);
+  return { lines: [head, ...preamble, comment, body, ...extra, ...notes.map((n) => `  ${n}`), ''], member, file, store, preamble, comment, body, click: extra, proof: grade, itemOnly, everyMember, notes, showVariant: show.length > 0 };
 }
