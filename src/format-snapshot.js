@@ -207,7 +207,7 @@ function namedLine(leaves) {
     else seen.set(key, { leaf, n: 1 });
   }
   const ranked = [...seen.values()].sort((a, b) => ROLE_RANK(a.leaf.role) - ROLE_RANK(b.leaf.role));
-  const shown = ranked.slice(0, INDEX_NAMED).map(({ leaf, n }) => `${controlText(leaf)} [ref=${leaf.ref}]${n > 1 ? ` ×${n}` : ''}${leaf.states.length ? ` [${leaf.states.join('] [')}]` : ''}`);
+  const shown = ranked.slice(0, INDEX_NAMED).map(({ leaf, n }) => `${controlText(leaf)} [ref=${leaf.ref}]${n > 1 ? ` ×${n}` : ''}${leaf.states.length ? ` [${leaf.states.join('] [')}]` : ''}${leaf.viaLabel ? ' [via label]' : ''}`);
   return `${shown.join(', ')}${ranked.length > INDEX_NAMED ? `, … ${ranked.length - INDEX_NAMED} more` : ''}`;
 }
 

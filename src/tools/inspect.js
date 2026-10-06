@@ -130,6 +130,23 @@ export async function verifyTemplate(page, params) {
   }
 }
 
+const escapeRe = (s) => s.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&');
+const quote = (s) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
+
+/**
+ * P2a fix: the visible label a user clicks to change a hidden input — in the framework's own form, and only when it finds
+ * exactly that one label (the page counts it), else null.
+ */
+async function labelLocator(page, text, framework) {
+  const labels = await page.locator('label').filter({ hasText: new RegExp(`^\\s*${escapeRe(text)}\\s*$`) }).count().catch(() => 0);
+  if (labels !== 1) return null;
+  if (framework === 'cypress') return `cy.contains('label', /^\\s*${escapeRe(text)}\\s*$/)`;
+  if (framework === 'webdriverio') return `$(${quote(`label=${text}`)})`;
+  if (framework !== 'playwright') return null;
+  const byText = await page.getByText(text, { exact: true }).count().catch(() => 0);
+  return byText === 1 ? `page.getByText(${quote(text)}, { exact: true })` : null;
+}
+
 // P2a: a page outline longer than this is answered with the region index; the full outline goes to a file.
 const INDEX_OVER = 3000;
 
@@ -165,7 +182,10 @@ export async function pageOutline(session, page, { idCache = new Map(), records 
  * exists — so a text or role anchor outranks an anonymous `div div div h3` chain whatever the engine scored.
  */
 function sinkBanned(result, framework) {
-  const banned = (l) => bannedIn(l.code || l.value, framework);
+  // P2a fix: WebdriverIO's aria/ lookup on a hidden input hung a whole session (2026-10-06, d50c4b2a): for an element
+  // operated through its label, aria/ goes last like a banned form.
+  const banned = (l) => bannedIn(l.code || l.value, framework)
+    ?? (framework === 'webdriverio' && result.viaLabel && /aria\//.test(l.code || l.value) ? 'is an aria/ lookup on a hidden input, which WebdriverIO waits on' : null);
   const [first] = result.locators;
   if (!first || !banned(first)) return;
   const ok = result.locators.filter((l) => l.resolution?.usable !== false && !banned(l));
@@ -231,7 +251,8 @@ export function createInspector(session, idCache = new Map(), records = null) {
     ];
     const member = memberName(result, entryLead);
     const id = reuseId ?? (records ? records.issue({ url: page.url(), fingerprint: result.capture.fingerprint, elementKey: result.capture.elementKey, member, strategies, declined }) : newId());
-    const entry = entryFor({ result, lead: entryLead, helper, framework, conventions: session.conventions, typescript, url: page.url(), id, declined });
+    const labelCode = !entryLead && !declined && result.viaLabel ? await labelLocator(page, result.viaLabel, framework) : null;
+    const entry = entryFor({ result, lead: entryLead, helper, framework, conventions: session.conventions, typescript, url: page.url(), id, declined, labelCode });
     if (records && !reuseId && entry.store === 'json') records.link(`${entry.file}#${entry.member}`, id);
     // Review fix: a record that could not be written does not fail the inspect — the reply says heal has nothing for it.
     const entryLines = records?.lastError && !reuseId ? [...entry.lines.slice(0, -1), `  (record not saved: ${records.lastError} — cor_heal will have no record for this id)`, ''] : entry.lines;
@@ -239,7 +260,7 @@ export function createInspector(session, idCache = new Map(), records = null) {
     return { reply, entry: entryLines, declined, info: entry };
   };
 }
-const renamed = (info, member) => ({ ...info, member, body: info.body?.replace(info.member, member) });
+const renamed = (info, member) => ({ ...info, member, body: info.body?.replace(info.member, member), click: info.click?.map((l) => l.split(info.member).join(member)) });
 
 /**
  * P2a: entries for many elements in one reply — the file once, then each element's comment and code, without the
@@ -275,7 +296,7 @@ export async function compactEntries(inspector, targets, { max = Infinity, frame
     out.push(`${labels.join(', ')} → ${info.member}${info.file === blocks[0].info.file ? '' : ` (in ${info.file})`}`);
     const helper = (info.preamble ?? []).join('\n');
     if (helper && !helpers.has(helper)) { helpers.add(helper); out.push(...info.preamble); } else if (helper) out.push('  (helper above)');
-    out.push(...(info.comment ? [info.comment, info.body] : info.lines.slice(1, -1))); // a JSON / YAML map entry
+    out.push(...(info.comment ? [info.comment, info.body, ...(info.click ?? [])] : info.lines.slice(1, -1))); // a JSON / YAML map entry
   }
   if (rest.length) out.push(`… ${rest.length} more: cor_inspect targets: [${rest.map((l) => JSON.stringify(l)).join(', ')}]`);
   return [...out, ...failed];

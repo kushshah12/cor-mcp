@@ -2,7 +2,7 @@
 export class InventoryPage {
   constructor(page) { this.page = page; }
   // COR cor:000001 · 79 Good · 1 match
-  sort = () => this.page.getByLabel('Sort');
+  sort = () => this.page.getByRole('combobox', { name: 'Sort' });
   // COR cor:000001 · copied onto another locator
   cartLink = () => this.page.locator('#cart-link');
 }

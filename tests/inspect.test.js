@@ -107,7 +107,8 @@ test('AE1: an ambiguous element gets a uniquely-resolving top pick and says what
   const call = await connect(t);
   const { refOf } = await openAndSnapshot(call, 'shapes.html');
   const out = await call('cor_inspect', { ref: refOf(/item "Blue Cap" › button "Remove"/) });
-  assert.match(out.text, /Point-in-time — true on this page now: \d+ \w+ · 1 match\n/);
+  // P2a fix: the single-item form here is a partial-text filter, so the template is the answer (each item counted).
+  assert.match(out.text, /\/\/ COR cor:[0-9a-f]{6} · 3\/3 items checked\n  remove = \(value\) =>/);
   assert.match(out.text, /Why this order: Demoted .*Matches 3 elements/);
 });
 

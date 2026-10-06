@@ -10,10 +10,10 @@ const CALL = /(?:\b(?:this\.)?page\s*\.\s*(?:locator|getBy[A-Z]\w*)\s*\(|\.\s*(?
 // Testing Library's screen.getBy* in a component test queries a rendered component, not the app page: not COR's.
 const COMPONENT_QUERY = /\bscreen\s*\.\s*(?:get|query|find)(?:All)?By/;
 const COMMENT = /^\s*(\/\/|\/\*|\*|#)/;
-const CONTINUES = /^\s*[.)]/; // a line that continues the statement above (a chain step, a closing paren)
+const CONTINUES = /^\s*(?:[.)]|\|\||&&|\?\?)/; // a line that continues the statement above (a chain step, a closing paren, || / &&)
 // A line that leaves its statement open: ends in `(`, `=>` or `=`. Not `,` or `{` — those end one member and start the
 // next, and merging two members would let one's id cover the other.
-const OPENS = /(?:\(|=>|[^=!<>]=)\s*$/;
+const OPENS = /(?:\(|=>|[^=!<>]=|\|\||&&|\?\?)\s*$/; // P2a fix: `||` / `&&` too — WebdriverIO's either-name helper breaks there
 // What starts a gradable expression on a line: a page / this.page / cy / $ receiver.
 const ROOTED = /(?:this\.)?page\s*\.\s*(?:locator|getBy[A-Z]\w*)\s*\(|\bcy\s*\.\s*(?:get|contains)\s*\(|\$\$?\s*\(/;
 const STEP = /^\s*\.\s*(locator|getBy[A-Z]\w*|filter|first|last|nth|or|and|find|eq)\s*\(/;
@@ -71,12 +71,13 @@ export function scanLocators(text, framework = null) {
     const statement = lines.slice(start, end + 1).join('\n');
     // The id: in the statement itself, or in the comment block right above it.
     let id = ID_PATTERN.exec(statement)?.[1] ?? null;
+    let label = false; // P2a fix: an entry's `· label` member finds the hidden input's label, not the recorded input
     let helper = false; // an entry's helper (Cypress/WebdriverIO) carries its member's id: `// COR cor:… · helper, once per file`
     for (let k = start - 1; !id && k >= 0 && COMMENT.test(lines[k]); k--) {
       id = ID_PATTERN.exec(lines[k])?.[1] ?? null;
-      if (id) helper = /\bhelper\b/.test(lines[k]);
+      if (id) { helper = /\bhelper\b/.test(lines[k]); label = /· label\b/.test(lines[k]); }
     }
-    out.push({ line: start + 1, statement: statement.trim(), id, helper, positional: bannedIn(statement, framework), expression: rootedExpression(statement) });
+    out.push({ line: start + 1, statement: statement.trim(), id, helper, label, positional: bannedIn(statement, framework), expression: rootedExpression(statement) });
   }
   return out;
 }

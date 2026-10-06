@@ -55,7 +55,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
 - link "Read More" [ref=e70]
 - textbox "Email" [ref=e71]
 - button "Subscribe to Newsletter" [ref=e72]
---- cor_inspect {"selector":"[id=\"2\"] .shelf-item__buy-btn"} (2763 chars)
+--- cor_inspect {"selector":"[id=\"2\"] .shelf-item__buy-btn"} (2879 chars)
 Recommended — parameterised: 25 items share this shape; every value checked, each finds exactly its own item (25/25).
   Proof: counted by Playwright, every value.
   title = "iPhone 12 Mini"   (also: "iPhone 12", "iPhone 12 Pro Max", "iPhone 12 Pro", "iPhone 11", … 20 more)
@@ -65,12 +65,12 @@ Recommended — parameterised: 25 items share this shape; every value checked, e
   When the test touches more than one item, write one function taking title instead of a locator per item.
   The 24 lookalike clickable "Add to cart" elements are the other items — pass their title instead.
 
-For this one item alone there is no durable locator (best is Fair) — a test attribute would fix that: <div data-testid="add-to-cart">.
+For this one item alone there is no durable locator (best is Risky) — a test attribute would fix that: <div data-testid="add-to-cart">.
 Declined as the answer — the most durable single-item locator today:
-1. page.locator('[id="2"]').getByText('Add to cart')
-   36 Fair · 1 match
+1. page.locator('[id="2"] div.shelf-item__buy-btn')
+   40 Risky · 1 match
    ! Generated id value — not stable across sessions or deploys (id="2")
-   ! Coupled to display copy — breaks on wording changes and localization (Add to cart)
+   ! Anchored on a class name — breaks whenever a redesign renames it (shelf-item__buy-btn)
 
 Entry — place in tests/pages/bstackdemo.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
   // COR cor:{id} · 25/25 items checked
@@ -79,15 +79,16 @@ Facts:
   • a locator matching 25 elements: the test fails at once
   • 24 other visible clickable "Add to cart"s look the same
 
-Why this order: Demoted div.shelf-item__buy-btn (score 65) — Matches 25 elements — Playwright throws a strict-mode error — the test fails immediately. Ranked [id="2"] >> Add to cart first because it resolves to exactly one element.
+Why this order: Ranked [id="2"] div.shelf-item__buy-btn first — [id="2"] >> Add to cart (score 36) matches by partial text: it also finds any element whose text merely contains this, and COR never issues that.
 Framework convention applied: playwright (published guidance).
 
 Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
-// COR: anchored on visible text; risk: generated id value; chosen over page.locator('div.shelf-item__buy-btn') because it matches more than one element
+// COR: anchored on a human-named, hand-written class; risk: generated id value; chosen over page.locator('div.shelf-item__buy-btn') because it matches more than one element
 
 Alternatives:
-2. page.locator('[id="2"] div.shelf-item__buy-btn')
+2. page.locator('div[data-sku="iPhone12-device-info.png"][id="2"] div.shelf-item__buy-btn')
    40 Risky · 1 match
    ! Generated id value — not stable across sessions or deploys (id="2")
    ! Anchored on a class name — breaks whenever a redesign renames it (shelf-item__buy-btn)
+   ! Long selector (72 chars) — hard to read and usually over-specified
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)

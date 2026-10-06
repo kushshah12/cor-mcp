@@ -123,7 +123,7 @@ export function checkTools(session, inspector, records = null) {
       /** Review fix: an id on a locator that, on the record's own page, finds a different element than the one recorded. */
       async function elementDrift(site) {
         const record = records?.read(site.id);
-        if (!page || !site.expression || !record || pathOf(record.page) !== pathOf(recordPage(page.url()))) return null;
+        if (site.label || !page || !site.expression || !record || pathOf(record.page) !== pathOf(recordPage(page.url()))) return null;
         try {
           const loc = parseGradable(site.expression).build(page);
           if (await loc.count() !== 1) return null; // broken or ambiguous here: cor_grade / cor_heal territory, not identity

@@ -14,6 +14,11 @@ const SELECTOR_ARG = /(?:locator|get|find|closest|\$\$?)\(\s*(['"`])((?:\\.|(?!\
 const TEXT_ANCHOR = /\.contains\(|findBy|getBy|filter\(\s*\{\s*has/;
 
 const INDEX = 'picks by position (.first/.nth/.eq/[n]): a reorder silently changes the element';
+const PARTIAL = 'matches by partial text: it also finds any element whose text merely contains this';
+// P2a fix: partial text. Playwright: a `hasText` string, getByText / getByLabel without `exact: true`. WebdriverIO: `*=`.
+// (Cypress's cy.contains with a string is a substring match too; not banned yet — the engine's Cypress text candidates use it.)
+const PARTIAL_PW = /hasText:\s*['"`]|getBy(?:Text|Label)\(\s*[^,()]+\)|getBy(?:Text|Label)\([^()]*\{(?![^}]*exact:\s*true)[^}]*\}\s*\)/;
+const PARTIAL_WDIO = /\$\$?\(\s*['"`][\w-]*\*=/;
 
 /** Why a raw selector string (CSS or XPath) is banned for `framework`, or null. */
 export function bannedSelector(selector, framework = null, { anchored = false } = {}) {
@@ -39,6 +44,8 @@ export function bannedIn(code, framework = null) {
   const src = String(code ?? '');
   if (POSITIONAL_TEXT.test(src)) return INDEX;
   if (framework === 'cypress' && /\bcy\s*\.\s*xpath\s*\(/.test(src)) return 'cy.xpath needs the cypress-xpath plugin, which this project does not declare';
+  if ((framework === 'playwright' || framework === null) && PARTIAL_PW.test(src)) return PARTIAL;
+  if ((framework === 'webdriverio' || framework === null) && PARTIAL_WDIO.test(src)) return PARTIAL;
   const anchored = TEXT_ANCHOR.test(src);
   for (const m of src.matchAll(SELECTOR_ARG)) {
     const why = bannedSelector(m[2].replace(/^(?:css|xpath)=/, ''), framework, { anchored });

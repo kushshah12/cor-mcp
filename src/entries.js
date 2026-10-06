@@ -63,7 +63,7 @@ const indent = (code) => code.split('\n').map((l, i) => (i ? `  ${l}` : l)).join
  * locator passes — the entry is a decline id to cite, and no code.
  * @returns {{ lines: string[], member: string, file: string, store: string, declined?: string }}
  */
-export function entryFor({ result, lead, helper, framework, conventions, typescript = false, url, id, declined = null }) {
+export function entryFor({ result, lead, helper, framework, conventions, typescript = false, url, id, declined = null, labelCode = null }) {
   const store = conventions.store.value;
   const ext = typescript ? 'ts' : 'js';
   const file = `${conventions.storeDir.value}/${STORE_FILE[store](pageName(url), ext)}`;
@@ -117,5 +117,17 @@ export function entryFor({ result, lead, helper, framework, conventions, typescr
     if (helper) preamble = [`  // ${tag} · helper, once per file (module scope)`, ...helper.define.split('\n').map((l) => `  ${l}`)];
     body = store === 'page-object-class' ? `  ${member} = (${args}) => ${indent(use)};` : `  ${member}: (${args}) => ${indent(use)},`;
   }
-  return { lines: [head, ...preamble, comment, body, ''], member, file, store, preamble, comment, body };
+  // P2a fix: a hidden input is changed by clicking its label — the entry carries that member too, under the same id. The
+  // `· label` marker tells cor_check this member finds the label, not the recorded input.
+  const labelUse = lead?.kind === 'group' && framework === 'playwright' ? lead.act
+    : lead?.kind === 'group' && helper?.idioms.includes('group.label-click')
+      ? helper.uses.find((u) => /\.click\(\)\s*$/.test(u))?.replace(/\s*\.click\(\)\s*$/, '')
+      : lead ? null : labelCode;
+  const click = labelUse ? [
+    `  // COR cor:${id} · label — the input is hidden: click this, assert ${member}'s checked state`,
+    framework === 'playwright' && store !== 'page-object-class'
+      ? `  ${member}Label: (page${p ? `, ${pTyped}` : ''}) => ${labelUse},`
+      : `  ${member}Label${store === 'page-object-class' ? ' =' : ':'} (${p ? pTyped : ''}) => ${indent(framework === 'playwright' ? labelUse.replace(/\bpage\./g, 'this.page.') : labelUse)}${store === 'page-object-class' ? ';' : ','}`,
+  ] : [];
+  return { lines: [head, ...preamble, comment, body, ...click, ''], member, file, store, preamble, comment, body, click };
 }
