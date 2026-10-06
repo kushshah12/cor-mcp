@@ -2,6 +2,10 @@ import { frameHint } from '../frames.js';
 import { z } from 'zod';
 import { callPage, handleFromPage } from '../page-runtime.js';
 import { renderActResult } from '../format-act.js';
+import { compactEntries } from './inspect.js';
+
+// P2a: entry blocks an act reply carries; the rest are counted with their refs.
+const ACT_ENTRIES = 6;
 import { checkRef, goneError } from './refs.js';
 
 // Act tools only reach a page state so an element can be inspected; nothing
@@ -141,7 +145,7 @@ function focus(el) {
 }
 
 /** @param {ReturnType<import('../session.js').createSession>} session */
-export function sessionTools(session) {
+export function sessionTools(session, inspector = null) {
   // Act tools never launch a browser onto about:blank — that only hides the missing step.
   const openPage = () => {
     if (!session.isOpen) throw new Error('No page is open — call cor_open with a URL first.');
@@ -150,12 +154,23 @@ export function sessionTools(session) {
 
   // U22: said once per session, the first time an act changes something.
   let hinted = false;
-  const actReply = (result, options) => {
-    const body = renderActResult(result, options);
+  const actReply = async (result, options) => {
+    const body = [renderActResult(result, options), ...await actEntries(result)].join('\n');
     const changed = result.navigated || result.changes?.length || result.texts?.length || result.shownGroups?.length;
     if (!changed || hinted) return body;
     hinted = true;
     return `${body}\nAssert what this changed — the new or changed text, the URL, that gone items are no longer displayed (hidden or removed: "not displayed" holds for both) — not only that an element exists.`;
+  };
+  // P2a: the reply carries the entries for what the act changed or showed — new and changed text, new controls, the new
+  // page's headings — so act → snapshot → inspect is one call. Elements sharing a template share one entry.
+  const actEntries = async (result) => {
+    if (!inspector) return [];
+    const refs = result.navigated
+      ? (result.headings ?? []).map((h) => h.ref)
+      : [...(result.texts ?? []).map((t) => t.ref), ...(result.shownGroups ?? []).flatMap((g) => g.examples.map((e) => e.ref)),
+        ...(result.changes ?? []).filter((c) => c.kind === 'appeared').flatMap((c) => c.leaves.map((l) => l.ref))];
+    const targets = [...new Set(refs.filter(Boolean))].map((ref) => ({ label: ref, args: { ref } }));
+    return targets.length ? ['', ...await compactEntries(inspector, targets, { max: ACT_ENTRIES })] : [];
   };
 
   return [
@@ -199,7 +214,7 @@ export function sessionTools(session) {
         const page = await openPage();
         const handle = await resolveElement(session, page, args);
         const result = await act(session, page, () => onHandle(handle, click), { expectNavigation: await expectsNavigation(handle) });
-        return text(`Clicked ${args.ref ?? args.target}. ${await pageState(page)}\n${actReply(result)}`);
+        return text(`Clicked ${args.ref ?? args.target}. ${await pageState(page)}\n${await actReply(result)}`);
       },
     },
     {
@@ -213,7 +228,7 @@ export function sessionTools(session) {
         const page = await openPage();
         const handle = await resolveElement(session, page, args);
         const result = await act(session, page, () => onHandle(handle, fill, args.value));
-        return text(`Filled ${args.ref ?? args.target}.\n${actReply(result, { quietIfUnchanged: true })}`);
+        return text(`Filled ${args.ref ?? args.target}.\n${await actReply(result, { quietIfUnchanged: true })}`);
       },
     },
     {
@@ -235,7 +250,7 @@ export function sessionTools(session) {
           // A real key event, so Enter submits a form and Escape closes a dialog.
           await page.keyboard.press(key);
         });
-        return text(`Pressed ${key}. ${await pageState(page)}\n${actReply(result)}`);
+        return text(`Pressed ${key}. ${await pageState(page)}\n${await actReply(result)}`);
       },
     },
     {

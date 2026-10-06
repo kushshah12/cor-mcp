@@ -30,11 +30,16 @@ Refs: 0 still valid.
 --- cor_fill {"target":"[data-test=\"password\"]","value":"wrong"} (51 chars)
 Filled [data-test="password"].
 Refs: 0 still valid.
---- cor_click {"target":"[data-test=\"login-button\"]"} (352 chars)
+--- cor_click {"target":"[data-test=\"login-button\"]"} (546 chars)
 Clicked [data-test="login-button"]. Now at {base}/app/login.html — "COR Shop â€” Sign in"
 Text:
 + "Username and password do not match" [ref=e1]
 Refs: 0 still valid.
+
+Entries — place in tests/pages/login.page.js (keep each // COR comment: cor_check reads the ids):
+e1 → error
+  // COR cor:{id} · 79 Good · 1 match
+  error = () => this.page.getByRole('alert');
 Assert what this changed — the new or changed text, the URL, that gone items are no longer displayed (hidden or removed: "not displayed" holds for both) — not only that an element exists.
 --- cor_inspect {"selector":"[data-test=\"error\"]"} (1077 chars)
 Best locator (playwright):
@@ -60,7 +65,7 @@ Alternatives:
 --- cor_fill {"target":"[data-test=\"password\"]","value":"secret"} (51 chars)
 Filled [data-test="password"].
 Refs: 1 still valid.
---- cor_click {"target":"[data-test=\"login-button\"]"} (367 chars)
+--- cor_click {"target":"[data-test=\"login-button\"]"} (851 chars)
 Clicked [data-test="login-button"]. Now at {base}/app/inventory.html — "COR Shop â€” Products"
 The page navigated. Headings on the new page (cor_inspect one for the exact locator of text you assert on; cor_snapshot for its controls):
   h1 "Products" [ref=e2]
@@ -68,3 +73,11 @@ The page navigated. Headings on the new page (cor_inspect one for the exact loca
   h3 "Gel Pen" [ref=e4]
   h3 "Baseball Cap" [ref=e5]
   h3 "Logo T-Shirt" [ref=e6]
+
+Entries — place in tests/pages/inventory.page.js (keep each // COR comment: cor_check reads the ids):
+e2 → productsHeading
+  // COR cor:{id} · 79 Good · 1 match
+  productsHeading = () => this.page.getByRole('heading', { name: 'Products' });
+e3, e4, e5, e6 → cardName
+  // COR cor:{id} · 4/4 items checked
+  cardName = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).locator('h3.card__name');

@@ -2,13 +2,24 @@
 Now at {base}/app/inventory.html — "COR Shop â€” Products" (HTTP 200). Browser: {browser}.
 Framework: Playwright — from cor.config.js.
 Locators: page objects in tests/pages/ (cor.config.js).
---- cor_snapshot {"within":"A-1002"} (319 chars)
+--- cor_snapshot {"within":"A-1002"} (886 chars)
 "COR Shop â€” Products" {base}/app/inventory.html — row "A-1002" in full (within: A-1002)
 All text in this region, in page order. Its refs are added to the current snapshot's; refs expire on navigation and any act.
 
 - cell "Order" [ref=e1]: "A-1002"
 - cell "Status" [ref=e2]: "Processing"
 - cell "Total" [ref=e3]: "$40"
+
+Entries — place in tests/pages/inventory.page.js (keep each // COR comment: cor_check reads the ids):
+e1, e2, e3 → cellAt
+  // COR cor:{id} · 6/6 items checked
+  cellAt = (order, column) => {
+    const tables = "//table[contains(concat(' ', normalize-space(@class), ' '), ' orders ')]";
+    const header = `(${tables}//tr[th])[1]`;
+    const row = `${tables}//tr[*[1][normalize-space()="${order}"]]`;
+    const columnNo = `count(${header}/*[normalize-space()="${column}"]/preceding-sibling::*) + 1`;
+    return this.page.locator(`xpath=${row}/*[${columnNo}]`);
+  };
 --- cor_inspect {"selector":"table.orders tbody tr:nth-child(2) td:nth-child(2)"} (2345 chars)
 Recommended — parameterised by row and column: 3 rows × 3 columns; every row and column checked (6/6).
   Proof: counted by Playwright, every value.

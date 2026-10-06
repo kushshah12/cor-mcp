@@ -49,7 +49,7 @@ test('a control in a heading-less card scopes to that card: its price, not the n
   assert.match(out, /radio "Team" \[ref=e\d+\] \[checked\] \[via label\]/, 'the card\'s hidden toggles are listed with refs');
   assert.match(out, /radio "Team Pro" \[ref=e\d+\] \[via label\]/);
   assert.match(out, /checkbox "Annual billing" \[ref=e\d+\] \[via label\]/, 'a label that wraps its hidden input stands in for it');
-  assert.equal((out.match(/Annual billing/g) ?? []).length, 1, 'the label text is not repeated as a text line');
+  assert.equal((out.split('\nEntries —')[0].match(/Annual billing/g) ?? []).length, 1, 'the label text is not repeated as a text line'); // P2a: entries follow the region
   assert.match(out, /\$150/);
   assert.match(out, /Test on real devices/);
   assert.match(out, /button "Choose" \[ref=e\d+\]/);

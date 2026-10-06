@@ -24,9 +24,14 @@ Alternatives:
 2. page.getByTestId('postal-code')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_click {"target":"[data-test=\"continue\"]"} (347 chars)
+--- cor_click {"target":"[data-test=\"continue\"]"} (544 chars)
 Clicked [data-test="continue"]. Now at {base}/app/checkout.html — "COR Shop â€” Checkout"
 Text:
 + "Error: first name is required" [ref=e1]
 Refs: 0 still valid.
+
+Entries — place in tests/pages/checkout.page.js (keep each // COR comment: cor_check reads the ids):
+e1 → error
+  // COR cor:{id} · 79 Good · 1 match
+  error = () => this.page.getByRole('alert');
 Assert what this changed — the new or changed text, the URL, that gone items are no longer displayed (hidden or removed: "not displayed" holds for both) — not only that an element exists.

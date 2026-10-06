@@ -25,7 +25,13 @@ export function pageName(url) {
 export function memberName(result, lead) {
   if (lead?.kind === 'cell') return 'cellAt'; // P1: not `cell` — the Cypress / WebdriverIO helper already has that name
   if (lead) {
-    const leafName = result.params?.model?.leaf?.name ?? result.lookalikes?.name;
+    const leaf = result.params?.model?.leaf;
+    // P2a: a leaf whose name differs per item (an item's own title, one FAQ answer's words) is named by its class instead
+    // (`faq-item__answer` → faqItemAnswer), else by the parameter (`titleText`).
+    const varies = leaf?.name && leaf.css && !lead.code?.includes(leaf.name)
+      && (result.params?.values?.includes(leaf.name) || (!leaf.role && !IMPLICIT_ROLE[result.element?.tag]));
+    if (varies) return camel(/\.([\w-]+)[^.]*$/.exec(leaf.css)?.[1]) ?? `${camel(lead.param) ?? 'item'}Text`;
+    const leafName = leaf?.name ?? result.lookalikes?.name;
     return camel(leafName) ?? camel(lead.param) ?? 'item';
   }
   const el = result.element ?? {};
@@ -34,7 +40,9 @@ export function memberName(result, lead) {
   const named = camel(el.accessibleName ?? el.text);
   const role = el.role ?? IMPLICIT_ROLE[el.tag];
   const suffix = ROLE_SUFFIX[role];
-  return named ? `${named}${suffix && !named.toLowerCase().endsWith(suffix.toLowerCase()) ? suffix : ''}` : 'element';
+  if (named) return `${named}${suffix && !named.toLowerCase().endsWith(suffix.toLowerCase()) ? suffix : ''}`;
+  // P2a: an element with no name (a plain <span id="plan">) is named by its id — not one with digits, which may be generated.
+  return (el.id && !/\d/.test(el.id) && camel(el.id)) || camel(result.capture?.fingerprint?.text?.slice(0, 40)) || 'element';
 }
 
 const STORE_FILE = {
@@ -109,5 +117,5 @@ export function entryFor({ result, lead, helper, framework, conventions, typescr
     if (helper) preamble = [`  // ${tag} · helper, once per file (module scope)`, ...helper.define.split('\n').map((l) => `  ${l}`)];
     body = store === 'page-object-class' ? `  ${member} = (${args}) => ${indent(use)};` : `  ${member}: (${args}) => ${indent(use)},`;
   }
-  return { lines: [head, ...preamble, comment, body, ''], member, file, store };
+  return { lines: [head, ...preamble, comment, body, ''], member, file, store, preamble, comment, body };
 }

@@ -31,6 +31,8 @@ const PLACEHOLDER = /__\w+__/g;
 // ponytail: a list longer than this is counted on its first 100 values; the
 // in-page check has already covered every one.
 const COUNT_MAX = 100;
+// P2a: entry blocks a cor_snapshot within reply carries; the rest are counted with their refs.
+const WITHIN_ENTRIES = 8;
 
 /**
  * U18. The page proposed a template after checking every value against the
@@ -201,9 +203,51 @@ export function createInspector(session, idCache = new Map(), records = null) {
     // Review fix: a record that could not be written does not fail the inspect — the reply says heal has nothing for it.
     const entryLines = records?.lastError && !reuseId ? [...entry.lines.slice(0, -1), `  (record not saved: ${records.lastError} — cor_heal will have no record for this id)`, ''] : entry.lines;
     const reply = renderInspect(result, { refsLive, framework, all, dataCyNote, typescript, major: detected?.version ?? null, testingLibrary: Boolean(detected?.testingLibrary), entry: entryLines, parts });
-    return { reply, entry: entryLines, declined };
+    return { reply, entry: entryLines, declined, info: entry };
   };
 }
+const renamed = (info, member) => ({ ...info, member, body: info.body?.replace(info.member, member) });
+
+/**
+ * P2a: entries for many elements in one reply — the file once, then each element's comment and code, without the
+ * single-element detail (alternatives, why, durable). Elements whose code is the same (a template's items) share one
+ * block; a helper is defined once. Past `max` blocks the rest are counted, with their refs for cor_inspect targets.
+ * @param {{ label: string, args: object }[]} targets  `args` is what the inspector takes (ref / selector / element)
+ * @returns {Promise<string[]>}
+ */
+export async function compactEntries(inspector, targets, { max = Infinity, framework } = {}) {
+  const blocks = [];
+  const byBody = new Map();
+  const rest = [];
+  const failed = [];
+  for (const t of targets) {
+    if (blocks.length >= max) { rest.push(t.label); continue; }
+    let r;
+    try { r = await inspector({ ...t.args, framework, quiet: true }); } catch (error) { failed.push(`${t.label} ✗ ${error.message.split('\n')[0]}`); continue; }
+    const { info, declined } = r;
+    const key = declined ? null : info.body ?? info.lines.join('\n');
+    if (key && byBody.has(key)) { byBody.get(key).labels.push(t.label); continue; }
+    // Two elements named alike (two "Add" buttons) would be two members of one name: the later one is numbered.
+    const taken = blocks.filter((b) => b.info.member === info.member || b.info.member.startsWith(`${info.member}`) && /^\d+$/.test(b.info.member.slice(info.member.length))).length;
+    const named = taken ? renamed(info, `${info.member}${taken + 1}`) : info;
+    const block = { labels: [t.label], info: named, declined };
+    blocks.push(block);
+    if (key) byBody.set(key, block);
+  }
+  if (!blocks.length) return failed;
+  const out = [`Entries — place in ${blocks[0].info.file} (keep each // COR comment: cor_check reads the ids):`];
+  const helpers = new Set();
+  for (const { labels, info, declined } of blocks) {
+    if (declined) { out.push(`${labels.join(', ')} ✗ ${info.member}: declined — ${declined}`, info.lines[1]); continue; }
+    out.push(`${labels.join(', ')} → ${info.member}${info.file === blocks[0].info.file ? '' : ` (in ${info.file})`}`);
+    const helper = (info.preamble ?? []).join('\n');
+    if (helper && !helpers.has(helper)) { helpers.add(helper); out.push(...info.preamble); } else if (helper) out.push('  (helper above)');
+    out.push(...(info.comment ? [info.comment, info.body] : info.lines.slice(1, -1))); // a JSON / YAML map entry
+  }
+  if (rest.length) out.push(`… ${rest.length} more: cor_inspect targets: [${rest.map((l) => JSON.stringify(l)).join(', ')}]`);
+  return [...out, ...failed];
+}
+
 /** @param {ReturnType<import('../session.js').createSession>} session */
 export function inspectTools(session, idCache = new Map(), inspector = createInspector(session, idCache)) {
   const openPage = () => {
@@ -259,7 +303,10 @@ export function inspectTools(session, idCache = new Map(), inspector = createIns
           );
         }
         if (scoped.error === 'ambiguous') return text(renderAmbiguousScope(scoped, within));
-        return text(renderScoped(scoped, within, { unstableIds }));
+        // P2a: the region's entries come with it — its controls and texts, a template's items sharing one entry.
+        const targets = scoped.lines.filter((l) => l.ref).map((l) => ({ label: l.ref, args: { ref: l.ref } }));
+        const entries = targets.length ? await compactEntries(inspector, targets, { max: WITHIN_ENTRIES }) : [];
+        return text([renderScoped(scoped, within, { unstableIds }), ...(entries.length ? ['', ...entries] : [])].join('\n'));
       },
     },
     {
@@ -268,18 +315,27 @@ export function inspectTools(session, idCache = new Map(), inspector = createIns
         title: 'Get ranked locators for an element',
         description:
           'Rank, score and match-count locators for one element, rendered for the chosen test framework. ' +
-          'Pass a ref from cor_snapshot, or a CSS selector that matches exactly one element. ' +
+          'Pass a ref from cor_snapshot, or a CSS selector that matches exactly one element — or targets: many of them in one call, one entry each. ' +
           'The response leads with the recommendation; below the quality floor it recommends an application change ' +
           '(a test attribute) instead of a fragile locator. Use the locator as given; write the surrounding test code yourself.',
         inputSchema: {
           ref: z.string().optional().describe('Element ref from the latest cor_snapshot, e.g. "e4".'),
           selector: z.string().optional().describe('CSS or Playwright selector (:text-is, >>, text=) matching exactly one element — alternative to ref.'),
+          targets: z.array(z.string()).min(1).max(30).optional().describe('P2a: several refs or selectors at once — every element you need from this page in one call. Each gets its entry only (no alternatives); inspect one ref alone for the detail.'),
           framework: z.enum(FRAMEWORKS).optional().describe('Test framework to render and rank for. Default: the project\'s framework as cor_open reported it, else playwright.'),
           all: z.boolean().optional().describe('List every alternative. By default: the runner-up and the best of each other locator kind, up to 3.'),
         },
       },
-      handler: async ({ ref, selector, framework: asked, all = false }) => {
-        if (Boolean(ref) === Boolean(selector)) throw new Error('Pass exactly one of ref (from cor_snapshot) or selector.');
+      handler: async ({ ref, selector, targets, framework: asked, all = false }) => {
+        if ([ref, selector, targets].filter(Boolean).length !== 1) throw new Error('Pass exactly one of ref (from cor_snapshot), selector, or targets.');
+        if (targets) {
+          await openPage();
+          const list = targets.map((t) => (REF.test(t.trim()) ? { label: t.trim(), args: { ref: t.trim() }, ref: true } : { label: t, args: { selector: t } }));
+          for (const t of list) if (t.ref) { try { checkRef(session, t.label); } catch (error) { t.args = null; t.error = error; } }
+          const usable = list.filter((t) => t.args);
+          const lines = await compactEntries(inspector, usable, { framework: asked });
+          return text([...lines, ...list.filter((t) => t.error).map((t) => `${t.label} ✗ ${t.error.message.split('\n')[0]}`)].join('\n'));
+        }
         if (ref) checkRef(session, ref);
         return text((await inspector({ ref, selector, framework: asked, all })).reply);
       },

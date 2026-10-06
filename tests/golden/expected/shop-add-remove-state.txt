@@ -32,13 +32,18 @@ Alternatives:
 2. page.locator('button[data-test="add-to-cart-pen"][name="add-to-cart-pen"]')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_click {"target":"[data-test=\"add-to-cart-pen\"]"} (435 chars)
+--- cor_click {"target":"[data-test=\"add-to-cart-pen\"]"} (761 chars)
 Clicked [data-test="add-to-cart-pen"]. Now at {base}/app/inventory.html — "COR Shop â€” Products"
 Changes:
 + item "Gel Pen": button "Remove" [ref=e1]
 ~ link "Cart, 1 item": "Cart, empty" → "Cart, 1 item"
 - button "Add to cart"
 Refs: 0 still valid.
+
+Entries — place in tests/pages/inventory.page.js (keep each // COR comment: cor_check reads the ids):
+e1 → remove
+  // COR cor:{id} · 4/4 items checked
+  remove = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).locator('button.btn');
 Assert what this changed — the new or changed text, the URL, that gone items are no longer displayed (hidden or removed: "not displayed" holds for both) — not only that an element exists.
 --- cor_inspect {"selector":"[data-test=\"remove-pen\"]"} (2150 chars)
 Recommended — parameterised: 4 items share this shape; every value checked, each finds exactly its own item (4/4).

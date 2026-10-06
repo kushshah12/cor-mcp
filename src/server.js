@@ -15,7 +15,7 @@ const { name, version } = JSON.parse(readFileSync(new URL('../package.json', imp
 export function defaultTools(session, records = null) {
   const idCache = new Map(); // id-stability verdicts, shared by inspect and grade
   const inspector = createInspector(session, idCache, records); // shared: cor_check and cor_heal issue entries too
-  return [...sessionTools(session), ...inspectTools(session, idCache, inspector), ...gradeTools(session, idCache), ...checkTools(session, inspector, records), ...healTools(session, inspector, records)];
+  return [...sessionTools(session, inspector), ...inspectTools(session, idCache, inspector), ...gradeTools(session, idCache), ...checkTools(session, inspector, records), ...healTools(session, inspector, records)];
 }
 
 // Sent once at connect. The user asks the agent for tests, not for locators,
@@ -35,10 +35,10 @@ export const INSTRUCTIONS = [
     'Every locator comes from cor_inspect or is graded — including elements you only assert on (a heading, a total, a message): a navigation reply lists the new page\'s headings with refs. ' +
     'Never match by partial text (*=, a substring cy.contains, getByText without exact): use the exact text on the element itself, or an attribute.',
   'To see what an action changes — a new price, an answer that opens, the page a link leads to — act with it and read the reply of cor_click, cor_fill or cor_press: ' +
-    'it lists changed and new text with refs (cor_inspect them) and the new page\'s headings with refs. Do not write scripts to read the page. ' +
+    'it lists changed and new text and the new page\'s headings with refs, and gives their entries — no cor_snapshot or cor_inspect needed for them. Do not write scripts to read the page. ' +
     'Assert what an action changed — the new or changed text, the URL, that gone items are no longer displayed — not only that an element exists, ' +
     'and wait for that state with a retrying assertion, not a fixed sleep.',
-  'Put independent calls in one turn — the elements you need to inspect, the locators you need to grade — rather than one call per turn: each turn re-reads the whole conversation.',
+  'Put independent calls in one turn — the elements you need to inspect (cor_inspect targets: [...] takes them all in one call), the locators you need to grade — rather than one call per turn: each turn re-reads the whole conversation.',
   // U11: the Entry names the file, member and style (U7/U8), so the page-object and convention paragraphs went.
   'A Variants line becomes an action method that clicks the toggle first. Write the test against the entries\' members. ' +
     'An existing method for the element: cor_check gives it COR\'s id or the entry to replace it — fix it in place rather than adding a second one.',

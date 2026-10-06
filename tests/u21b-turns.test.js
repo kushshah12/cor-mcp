@@ -78,7 +78,7 @@ test('2. within takes the name of a control: the region around it', async () => 
   assert.match(byName, /All payments are processed over HTTPS\./, byName);
   // The same region its ref gives.
   const byRef = await raw('cor_snapshot', { within: refOf(snap, /How secure is my payment\?/) });
-  const body = (t) => t.split('\n').slice(3).map((l) => l.replace(/ \[ref=e\d+\]/, '')).join('\n');
+  const body = (t) => t.split('\n').slice(3).map((l) => l.replace(/ \[ref=e\d+\]/, '').replace(/cor:[0-9a-f]{6}/, 'cor:{id}').replace(/^e[\d, e]+ (→|✗)/, '$1')).join('\n'); // P2a: entries carry fresh ids and refs
   assert.equal(body(byName), body(byRef));
 });
 
