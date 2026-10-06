@@ -3,9 +3,6 @@ import { z } from 'zod';
 import { callPage } from '../page-runtime.js';
 import { inspectParts, renderBrief, renderInspect } from '../format.js';
 import { renderAmbiguousScope, renderIndex, renderScoped, renderSnapshot } from '../format-snapshot.js';
-import { mkdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
-import { pageName } from '../entries.js';
 import { REF, checkRef, goneError } from './refs.js';
 import { applyIdVerdicts, checkIds, numberedIds } from '../id-stability.js';
 import { parseGradable } from '../grade-parse.js';
@@ -147,15 +144,16 @@ async function labelLocator(page, text, framework) {
   return byText === 1 ? `page.getByText(${quote(text)}, { exact: true })` : null;
 }
 
-// P2a: a page outline longer than this is answered with the region index; the full outline goes to a file.
+// P2a: a page outline longer than this is answered with the region index.
 const INDEX_OVER = 3000;
 
 /**
- * P2a: the page outline as cor_open and cor_snapshot give it — in full on a small page, else the region index, with the
- * full outline written to .cor/snapshots/<page>.txt when records are on (that folder ignores itself in git: COR never
- * edits the team's .gitignore). Issues the refs either way.
+ * P2a: the page outline as cor_open and cor_snapshot give it — in full on a small page, else the region index. Issues the
+ * refs either way. P2a fix (2026-10-06 runs 2f6029eb, 90838245, c3a5447f): the full outline is no longer written to
+ * .cor/snapshots/ — every agent read the whole file with Bash (~8.7k characters, 1–2 turns); a region is one
+ * cor_snapshot within away.
  */
-export async function pageOutline(session, page, { idCache = new Map(), records = null, full = false } = {}) {
+export async function pageOutline(session, page, { idCache = new Map(), full = false } = {}) {
   // U14: mark ids U7's reload check already found regenerated — cached verdicts only; a snapshot never reloads.
   const unstableIds = new Set(
     [...idCache].filter(([key, v]) => v.status === 'regenerated' && key.startsWith(`${page.url()}#`)).map(([key]) => key.slice(page.url().length + 1)),
@@ -163,18 +161,7 @@ export async function pageOutline(session, page, { idCache = new Map(), records 
   const snapshot = await callPage(page, 'snapshot', { start: session.highestRef + 1 });
   session.issueRefs(snapshot.live);
   const outline = renderSnapshot(snapshot, { unstableIds });
-  if (full || outline.length <= INDEX_OVER) return outline;
-  let file = null;
-  if (records?.enabled !== false && records?.dir) {
-    try {
-      const dir = join(records.dir(), '..', 'snapshots');
-      mkdirSync(dir, { recursive: true });
-      writeFileSync(join(dir, '.gitignore'), '*\n');
-      writeFileSync(join(dir, `${pageName(page.url())}.txt`), `${outline}\n`);
-      file = `.cor/snapshots/${pageName(page.url())}.txt`;
-    } catch { /* the index says to ask for full: true instead */ }
-  }
-  return renderIndex(snapshot, { file });
+  return full || outline.length <= INDEX_OVER ? outline : renderIndex(snapshot);
 }
 
 /**
@@ -362,7 +349,7 @@ export function inspectTools(session, idCache = new Map(), inspector = createIns
       },
       handler: async ({ within, full = false }) => {
         const page = await openPage();
-        if (!within) return text(await pageOutline(session, page, { idCache, records, full }));
+        if (!within) return text(await pageOutline(session, page, { idCache, full }));
         const unstableIds = new Set(
           [...idCache].filter(([key, v]) => v.status === 'regenerated' && key.startsWith(`${page.url()}#`)).map(([key]) => key.slice(page.url().length + 1)),
         );

@@ -5,7 +5,7 @@ import { helperName, js, plainValue, withinBar } from './shared.js';
 
 /** Idioms this renderer can emit (each has a conformance fixture, §10). */
 export const IDIOMS = ['item.attribute', 'item.label', 'item.label.attr', 'item.either', 'leaf.aria', 'leaf.aria.shown', 'leaf.css', 'every', 'variant.click',
-  'group.aria', 'group.label-click', 'cell.xpath'];
+  'group.aria', 'group.label-input', 'group.label-click', 'cell.xpath'];
 
 function item(model, values, ts) {
   const { param, item: it, slot } = model;
@@ -52,7 +52,23 @@ function group(params, ts) {
   if (!model.aria) return { none: 'aria/ would not find exactly one element for every option name (a name is shared, partial or also names another element)' };
   if (!values.every(plainValue)) return { none: 'an option name has a quote or backtick in it' };
   const name = `${p}Option`;
-  const define = `const ${name} = (${ts ? `${p}: string` : p}) => $(\`aria/\${${p}}\`);`;
+  const arg = ts ? `${p}: string` : p;
+  // P2a fix: a hidden input may be display: none (BrowserStack's plan toggle), which takes it out of the accessibility
+  // tree — aria/ then never resolves and WebdriverIO waits until it times out (2026-10-06 run c3a5447f). A hidden option
+  // is found through its label instead: the input the label's `for` names, or the one it wraps. The label text names
+  // exactly one label on the page (model.labelUnique), so this names exactly one input.
+  if (model.hidden && model.label && model.labelUnique) {
+    const define = [
+      `const ${name} = (${arg}) => {`,
+      `  const label = \`//label[normalize-space()="\${${p}}"]\`;`,
+      '  return $(`//input[@id=${label}/@for] | ${label}//input`);',
+      '};',
+    ].join('\n');
+    const uses = [`$(\`label=\${${p}}\`).click()`];
+    if (!withinBar(define.split('\n'), uses)) return { none: 'the helper does not fit the readability bar (8 lines, 120 characters)' };
+    return { define, uses, idioms: ['group.label-input', 'group.label-click'], code: [define, ...uses].join('\n'), kind: 'group', call: `${name}(${p})` };
+  }
+  const define = `const ${name} = (${arg}) => $(\`aria/\${${p}}\`);`;
   const idioms = ['group.aria'];
   const uses = [];
   if (model.hidden) {

@@ -213,13 +213,11 @@ function namedLine(leaves) {
 
 /**
  * @param {{ url: string, title: string, count: number, tree: object[] }} snapshot
- * @param {{ file?: string|null }} [options]  where the full outline was written, if it was
  */
-export function renderIndex(snapshot, { file = null } = {}) {
+export function renderIndex(snapshot) {
   const loose = [];
   const regions = regionsOf(snapshot.tree, [], loose);
   const head = `${snapshot.title ? `"${snapshot.title}" ` : ''}${snapshot.url} — ${snapshot.count} interactive elements in ${regions.length} region${regions.length === 1 ? '' : 's'} (index)`;
-  const where = file ? `the full outline is in ${file} (refs and text only)` : 'cor_snapshot full: true lists every control';
   const lines = [];
   for (let i = 0; i < regions.length && lines.length < INDEX_LINES; i++) {
     // A run of link lists (footer columns, menus) is one line: tests rarely act there.
@@ -243,7 +241,7 @@ export function renderIndex(snapshot, { file = null } = {}) {
   const unshown = regions.filter((x) => !x.shown && !linkList(x));
   if (lines.length >= INDEX_LINES && unshown.length) lines.push(`… ${unshown.length} more regions: ${unshown.slice(0, 12).map((x) => `"${foldName(x)}"`).join(', ')}`);
   return [head,
-    `One line per region: its controls, the named ones first. Refs are live. Pass a region's name to cor_snapshot within for its controls, text and entries; ${where}.`,
+    `One line per region: its controls, the named ones first. Refs are live. For a region\'s controls, text and entries, call cor_snapshot within: "<region name>" — every region you need in one turn.`,
     ...framesNote(snapshot.frames), '', ...lines].join('\n');
 }
 

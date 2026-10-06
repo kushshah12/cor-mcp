@@ -15,7 +15,7 @@ const { name, version } = JSON.parse(readFileSync(new URL('../package.json', imp
 export function defaultTools(session, records = null) {
   const idCache = new Map(); // id-stability verdicts, shared by inspect and grade
   const inspector = createInspector(session, idCache, records); // shared: cor_check and cor_heal issue entries too
-  const outline = (page) => pageOutline(session, page, { idCache, records });
+  const outline = (page) => pageOutline(session, page, { idCache });
   return [...sessionTools(session, inspector, outline), ...inspectTools(session, idCache, inspector, records), ...gradeTools(session, idCache), ...checkTools(session, inspector, records), ...healTools(session, inspector, records)];
 }
 

@@ -249,8 +249,9 @@ test('P3a group: cor_inspect renders the hidden-toggle helper with its label cli
   const call = await connect(t, { deps: { webdriverio: '^9.32.0' } });
   await call('cor_open', { url: `${base}/p3a-groups.html` });
   const out = await call('cor_inspect', { selector: 'input[value="individuals"]' });
-  assert.match(out, /^ {2}const planTypeSelectorOption = \(planTypeSelector\) => \$\(`aria\/\$\{planTypeSelector\}`\);$/m);
-  assert.match(out, /^ {2}\$\('div\.toggle'\)\.\$\(`label=\$\{planTypeSelector\}`\)\.click\(\)$/m);
+  // P2a fix: the hidden input is found through its label (aria/ misses a display: none input), not by aria/.
+  assert.match(out, /^ {2}const planTypeSelectorOption = \(planTypeSelector\) => \{\n {4}const label = `\/\/label\[normalize-space\(\)="\$\{planTypeSelector\}"\]`;\n {4}return \$\(`\/\/input\[@id=\$\{label\}\/@for\] \| \$\{label\}\/\/input`\);\n {2}\};$/m);
+  assert.match(out, /^ {2}\$\(`label=\$\{planTypeSelector\}`\)\.click\(\)$/m);
   assert.match(out, /^ {2}The inputs are hidden: the last line clicks their label, as a user does/m);
   assert.match(out, /Proof: rendered from a checked template/);
   assert.doesNotMatch(out, /Every item/, 'a group has no item list');

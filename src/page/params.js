@@ -408,6 +408,9 @@ function groupTemplate(target) {
     const root = scope && document.querySelectorAll(scope).length === 1 ? document.querySelector(scope) : document.body;
     const clickable = exact && labels.every((l, i) => { const hit = [...root.querySelectorAll('label')].filter((x) => text(x) === values[i]); return hit.length === 1 && hit[0] === l; });
     model.label = clickable ? { scope: root === document.body ? null : scope } : null;
+    // P2a fix: each option's label text names exactly one label on the whole page — WebdriverIO then finds the hidden
+    // input through its label by XPath (aria/ misses a display: none input).
+    model.labelUnique = exact && labels.every((l, i) => { const hit = [...document.querySelectorAll('label')].filter((x) => text(x) === values[i]); return hit.length === 1 && hit[0] === l; });
   }
   return out;
 }

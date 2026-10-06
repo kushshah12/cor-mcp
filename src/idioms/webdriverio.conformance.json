@@ -4,7 +4,7 @@
     {
       "major": 9,
       "version": "9.32.0",
-      "date": "2026-10-05",
+      "date": "2026-10-06",
       "idioms": {
         "item.attribute": {
           "ok": true,
@@ -46,14 +46,19 @@
           "checks": 2,
           "failures": []
         },
-        "group.aria": {
+        "group.label-input": {
           "ok": true,
-          "checks": 16,
+          "checks": 8,
           "failures": []
         },
         "group.label-click": {
           "ok": true,
-          "checks": 4,
+          "checks": 8,
+          "failures": []
+        },
+        "group.aria": {
+          "ok": true,
+          "checks": 12,
           "failures": []
         },
         "cell.xpath": {

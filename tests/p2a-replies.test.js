@@ -102,7 +102,7 @@ test('P2a cor_open on a small page lists its controls with live refs — no cor_
   assert.match((await call('cor_click', { ref })).text, /Yes, from the billing page\./, 'the ref from cor_open acts');
 });
 
-test('P2a a large page: cor_open gives the region index (~1k), the full outline goes to .cor/snapshots/ (refs and text only)', async (t) => {
+test('P2a a large page: cor_open gives the region index (~1k) and points at cor_snapshot within — no outline file (P2a fix)', async (t) => {
   const dir = mkdtempSync(join(tmpdir(), 'cor-p2a-'));
   t.after(() => rmSync(dir, { recursive: true, force: true }));
   writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'x', devDependencies: { '@playwright/test': '1' } }));
@@ -114,13 +114,10 @@ test('P2a a large page: cor_open gives the region index (~1k), the full outline 
   assert.match(index, /^- section "Plans" \(16\): radio "Monthly" \[ref=e\d+\] \[checked\], radio "Annual"/m, 'toggles first');
   assert.match(index, /items: .*"Team Pro"/, 'the cards are named');
   assert.match(index, /^- 5 link lists \(60 links\)/m, 'footer columns fold to one line');
-  assert.match(index, /full outline is in \.cor\/snapshots\/p2aLarge\.txt/);
-  const file = readFileSync(join(dir, '.cor/snapshots/p2aLarge.txt'), 'utf8');
-  assert.match(file, /link "Link 5\.12" \[ref=e\d+\]/, 'every control is in the file');
-  assert.doesNotMatch(file.split('\n').slice(1).join('\n'), /\[(data-|aria-)|#\w|:nth-|\/\//, 'no selector to copy (the head line holds the URL)');
-  assert.equal(readFileSync(join(dir, '.cor/snapshots/.gitignore'), 'utf8'), '*\n', 'the folder ignores itself; the team\'s .gitignore is untouched');
-  assert.equal(existsSync(join(dir, '.gitignore')), false);
+  assert.match(index, /call cor_snapshot within: "<region name>" — every region you need in one turn/);
+  assert.doesNotMatch(index, /\.cor\/snapshots|full: true/, 'nothing invites reading the whole outline');
+  assert.equal(existsSync(join(dir, '.cor/snapshots')), false, 'every agent read the file whole with Bash: it is not written');
   const q = refOf(index, /button "Question 2\?" \[ref=(e\d+)\]/);
   assert.match((await call('cor_click', { ref: q })).text, /Answer 2\./, 'index refs are live');
-  assert.match((await call('cor_snapshot', { full: true })).text, /link "Link 5\.12" \[ref=e\d+\]/, 'full: true lists every control');
+  assert.match((await call('cor_snapshot', { full: true })).text, /link "Link 5\.12" \[ref=e\d+\]/, 'full: true still lists every control');
 });

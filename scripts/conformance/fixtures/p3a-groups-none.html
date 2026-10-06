@@ -1,0 +1,13 @@
+<!doctype html>
+<title>Hidden groups, display none</title>
+<!-- BrowserStack's plan toggle: the radios are display: none (out of the accessibility tree, so aria/ never finds them);
+     each label names its input with for=. -->
+<style>.selector input { display: none; } .selector label { padding: 4px 10px; border: 1px solid #ccc; cursor: pointer; }</style>
+<div class="selector">
+  <input type="radio" id="selector-toggle-1" name="plan_type_selector" value="teams" aria-label="For Teams" checked><label for="selector-toggle-1">For Teams</label>
+  <input type="radio" id="selector-toggle-2" name="plan_type_selector" value="individuals" aria-label="For Individuals"><label for="selector-toggle-2">For Individuals</label>
+</div>
+<p id="state">plan_type_selector=teams</p>
+<script>
+  for (const r of document.querySelectorAll('input[type=radio]')) r.addEventListener('change', () => (document.getElementById('state').textContent = r.name + '=' + r.value));
+</script>
