@@ -39,8 +39,10 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
   - link "X" [ref=e28] ✓id
   - link "Facebook" [ref=e29] ✓id
   - link "LinkedIn" [ref=e30] ✓id
---- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]","detail":false} (451 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]","detail":false} (541 chars)
 ✓ addToCart(name) → tests/pages/saucedemoInventory.page.js — 6/6 items checked
   // COR cor:{id} · addToCart
   addToCart = (name) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.locator('[data-test="inventory-item-name"]').getByText(name, { exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true });
-every item: page.locator('[data-test="inventory-item"]') — loop over it when the test covers every item.
+  // COR cor:{id} · items
+  items = () => this.page.locator('[data-test="inventory-item"]');
+every item: items() — loop over it when the test covers every item, so one added later is tested too.

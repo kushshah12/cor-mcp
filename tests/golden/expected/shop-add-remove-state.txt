@@ -22,7 +22,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
     - "Water Bottle": e10
 - textbox "Email" [ref=e11]
 - button "Subscribe" [ref=e12]
---- cor_inspect {"selector":"[data-test=\"add-to-cart-pen\"]"} (2041 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-pen\"]"} (2134 chars)
 Recommended — parameterised: 4 items share this shape; every value checked, each finds exactly its own item (4/4).
   Proof: counted by Playwright, every value.
   title = "Gel Pen"   (also: "Coffee Mug", "Baseball Cap", "Logo T-Shirt")
@@ -41,6 +41,8 @@ For this one item alone (playwright):
 Entry — place in tests/pages/inventory.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
   // COR cor:{id} · addToCart
   addToCart = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true });
+  // COR cor:{id} · items
+  items = () => this.page.locator('[data-test="inventory-item"]');
 Facts:
   • 3 other visible button "Add to cart"s look the same
 Framework convention applied: playwright (published guidance).
@@ -52,7 +54,7 @@ Alternatives:
 2. page.locator('button[data-test="add-to-cart-pen"][name="add-to-cart-pen"]')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_click {"target":"[data-test=\"add-to-cart-pen\"]"} (890 chars)
+--- cor_click {"target":"[data-test=\"add-to-cart-pen\"]"} (983 chars)
 Clicked [data-test="add-to-cart-pen"]. Now at {base}/app/inventory.html — "COR Shop â€” Products"
 Changes:
 + item "Gel Pen": button "Remove" [ref=e13]
@@ -64,8 +66,10 @@ Entries — place in tests/pages/inventory.page.js (keep each // COR comment: co
 e13 → remove — 4/4 items checked
   // COR cor:{id} · remove
   remove = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).locator('button.btn');
+  // COR cor:{id} · items
+  items = () => this.page.locator('[data-test="inventory-item"]');
 Assert what this changed — the new or changed text, the URL, that gone items are no longer displayed (hidden or removed: "not displayed" holds for both) — not only that an element exists.
---- cor_inspect {"selector":"[data-test=\"remove-pen\"]"} (2139 chars)
+--- cor_inspect {"selector":"[data-test=\"remove-pen\"]"} (2232 chars)
 Recommended — parameterised: 4 items share this shape; every value checked, each finds exactly its own item (4/4).
   Proof: counted by Playwright, every value.
   title = "Gel Pen"   (also: "Coffee Mug", "Baseball Cap", "Logo T-Shirt")
@@ -84,6 +88,8 @@ For this one item alone (playwright):
 Entry — place in tests/pages/inventory.page.js, member remove (cor_check reads the cor: id; keep the comment):
   // COR cor:{id} · remove
   remove = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).locator('button.btn');
+  // COR cor:{id} · items
+  items = () => this.page.locator('[data-test="inventory-item"]');
 
 Why this order: Ranked role=button, name=Remove (score 79) above [data-test="remove-pen"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
 Framework convention applied: playwright (published guidance).

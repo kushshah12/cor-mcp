@@ -9,7 +9,7 @@ import { pageName } from '../entries.js';
 import { REF, checkRef, goneError } from './refs.js';
 import { applyIdVerdicts, checkIds, numberedIds } from '../id-stability.js';
 import { parseGradable } from '../grade-parse.js';
-import { entryFor, memberName } from '../entries.js';
+import { entryFor, everyName, everyOf, memberName } from '../entries.js';
 import { bannedIn, bannedSelector } from '../positional.js';
 
 export const FRAMEWORKS = ['playwright', 'cypress', 'selenium', 'webdriverio', 'nightwatch', 'testcafe', 'puppeteer'];
@@ -195,6 +195,31 @@ function sinkBanned(result, framework) {
 }
 
 /**
+ * P3: which items of a template start open (an accordion's first answer, a disclosure) — clicking one closes it. Read per
+ * value on the page: aria-expanded in the item, <details open>, or an open / active class on the item. Noted only when the
+ * items differ.
+ */
+async function noteStartsOpen(page, params) {
+  const css = params?.model?.item?.css;
+  if (!params?.template || !css || !params.code || ['group', 'cell'].includes(params.kind)) return;
+  let parsed;
+  try { parsed = parseGradable(params.code, { param: params.param }); } catch { return; }
+  const states = await Promise.all(params.values.slice(0, 30).map(async (v) => {
+    const handle = await parsed.build(page, v).elementHandle({ timeout: 1000 }).catch(() => null);
+    if (!handle) return null;
+    return handle.evaluate((el, itemCss) => {
+      const item = el.closest(itemCss) ?? el;
+      const exp = item.matches('[aria-expanded]') ? item : item.querySelector('[aria-expanded]');
+      if (exp) return exp.getAttribute('aria-expanded') === 'true';
+      if (item.matches('details')) return item.open;
+      return /(^|[\s_-])(open|is-open|active|is-active|expanded|show)(\s|$)/.test(item.className) || item.hasAttribute('open');
+    }, css).catch(() => null).finally(() => handle.dispose());
+  }));
+  const open = params.values.filter((_, i) => states[i] === true);
+  if (open.length && states.some((s) => s === false)) params.startsOpen = open;
+}
+
+/**
  * U9: the inspect pipeline, shared by cor_inspect and cor_check (which issues an entry for a typed locator's element).
  * @returns {(args: object) => Promise<{ reply: string, entry: string[]|null }>}
  */
@@ -229,6 +254,7 @@ export function createInspector(session, idCache = new Map(), records = null) {
     }
     await verifyNumberedIds(page, result.locators, idCache);
     await verifyTemplate(page, result.params);
+    await noteStartsOpen(page, result.params);
     const top = result.locators.reduce((a, b) => (b.score > a.score ? b : a), result.locators[0]);
     if (top?.volatileId && top !== result.locators[0]) {
       const [best] = result.locators;
@@ -252,7 +278,10 @@ export function createInspector(session, idCache = new Map(), records = null) {
     const member = memberName(result, entryLead);
     const id = reuseId ?? (records ? records.issue({ url: page.url(), fingerprint: result.capture.fingerprint, elementKey: result.capture.elementKey, member, strategies, declined }) : newId());
     const labelCode = !entryLead && !declined && result.viaLabel ? await labelLocator(page, result.viaLabel, framework) : null;
-    const entry = entryFor({ result, lead: entryLead, helper, framework, conventions: session.conventions, typescript, url: page.url(), id, declined, labelCode });
+    // P3: the every-item locator gets its own record and id (its strategy is the items' locator).
+    const everyCode = !declined && !reuseId ? everyOf(entryLead, framework, helper) : null;
+    const everyId = everyCode ? (records ? records.issue({ url: page.url(), fingerprint: { tag: 'every', attrs: {}, text: everyCode }, elementKey: `every:${everyCode}`, member: everyName(everyCode), strategies: [{ kind: 'every', value: everyCode }] }) /* keyed by the locator: every item of the template shares it */ : newId()) : null;
+    const entry = entryFor({ result, lead: entryLead, helper, framework, conventions: session.conventions, typescript, url: page.url(), id, declined, labelCode, everyId });
     if (records && !reuseId && entry.store === 'json') records.link(`${entry.file}#${entry.member}`, id);
     // Review fix: a record that could not be written does not fail the inspect — the reply says heal has nothing for it.
     const entryLines = records?.lastError && !reuseId ? [...entry.lines.slice(0, -1), `  (record not saved: ${records.lastError} — cor_heal will have no record for this id)`, ''] : entry.lines;
@@ -297,6 +326,7 @@ export async function compactEntries(inspector, targets, { max = Infinity, frame
     const helper = (info.preamble ?? []).join('\n');
     if (helper && !helpers.has(helper)) { helpers.add(helper); out.push(...info.preamble); } else if (helper) out.push('  (helper above)');
     out.push(...(info.comment ? [info.comment, info.body, ...(info.click ?? [])] : info.lines.slice(1, -1))); // a JSON / YAML map entry
+    if (info.note) out.push(`  ${info.note}`);
   }
   if (rest.length) out.push(`… ${rest.length} more: cor_inspect targets: [${rest.map((l) => JSON.stringify(l)).join(', ')}]`);
   return [...out, ...failed];

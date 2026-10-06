@@ -50,6 +50,9 @@ export function strategyLocator(page, { kind, value }) {
   return page.locator(value);
 }
 
+/** P3: the record of an every-item locator (a template's items), not of one element. */
+const isEvery = (record) => record.strategies.some((s) => s.kind === 'every');
+
 export function healTools(session, inspector, records = null) {
   async function propose(page, record) {
     // 1. A stored strategy that still finds exactly one element that still looks like the recorded one.
@@ -124,7 +127,7 @@ export function healTools(session, inspector, records = null) {
         const lost = [];
         for (const rid of records.list()) {
           const r = records.read(rid);
-          if (!r || pathOf(r.page) !== here) continue;
+          if (!r || pathOf(r.page) !== here || isEvery(r)) continue; // P3: an every-item locator finds many by design
           let works = false;
           for (const s of r.strategies) {
             const loc = strategyLocator(page, s);
@@ -143,6 +146,7 @@ export function healTools(session, inspector, records = null) {
       const record = records?.read(id);
       if (!record) return text(`No record for cor:${id} in .cor/records/ — the id was not issued in this project, or records are off. cor_inspect the element for a new entry.`, true);
       // Review fix: by path, so a record made on localhost heals on staging too.
+      if (isEvery(record)) return text(`cor:${id} is an every-item locator — it finds every item, not one element, so there is nothing to heal to. cor_inspect one item for its entry; the entry carries the every-item locator again.`, true);
       if (pathOf(record.page) !== pathOf(recordPage(page.url()))) return text(`cor:${id} was recorded on the page ${pathOf(record.page)}; this page is ${pathOf(page.url())}. cor_open that page and run cor_heal again.`, true);
       const { ok, lines } = await proposalLines(page, record);
       return text([`Heal for cor:${id} (recorded ${record.created}).`, ...lines].join('\n'), !ok); // a decline is not a success

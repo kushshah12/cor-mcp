@@ -22,7 +22,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
     - "Water Bottle": e10
 - textbox "Email" [ref=e11]
 - button "Subscribe" [ref=e12]
---- cor_inspect {"selector":".tile:nth-child(2) .tile__go"} (1903 chars)
+--- cor_inspect {"selector":".tile:nth-child(2) .tile__go"} (1976 chars)
 Recommended — parameterised: 3 items share this shape; every value checked, each finds exactly its own item (3/3).
   Proof: counted by Playwright, every value.
   title = "Tote Bag"   (also: "Sticker Pack", "Water Bottle")
@@ -41,6 +41,8 @@ For this one item alone (playwright):
 Entry — place in tests/pages/inventory.page.js, member details (cor_check reads the cor: id; keep the comment):
   // COR cor:{id} · details
   details = (title) => this.page.locator('div.tile').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).getByRole('link', { name: 'Details', exact: true });
+  // COR cor:{id} · tiles
+  tiles = () => this.page.locator('div.tile');
 Facts:
   • a locator matching 3 elements: the test fails at once
   • 2 other visible link "Details"s look the same

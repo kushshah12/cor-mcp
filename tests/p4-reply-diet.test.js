@@ -54,7 +54,8 @@ test('P4 notes ride along: the every-item loop for a template; a declined elemen
   const opened = await call('cor_open', { url: `${base}/cards` });
   const choose = await call('cor_inspect', { ref: refOf(opened, /button "Choose" \[ref=(e\d+)\] in "Team"/) });
   assert.match(choose, /^✓ choose\(value\) → tests\/pages\/cards\.page\.js — 2\/2 items checked$/m);
-  assert.match(choose, /^every item: page\.locator\('div\.card'\) — loop over it/m);
+  assert.match(choose, /^ {2}cards = \(\) => this\.page\.locator\('div\.card'\);$/m); // P3: the every-item locator is a member with its own id
+  assert.match(choose, /^every item: cards\(\) — loop over it/m);
   assert.ok(choose.split('\n').length <= 6, choose);
   await call('cor_open', { url: `${base}/p1-no-durable` });
   const declined = await call('cor_inspect', { selector: '.list > div:nth-child(2) .dot' });
@@ -69,7 +70,7 @@ test('P4 a helper that reaches only the item is named for the item and says so (
   assert.match(out, /^✓ card\(value\) → /);
   assert.match(out, /^ {2}card = \(value\) => card\(value\);$/m);
   assert.match(out, /^note: card\(…\) finds the item, not the element you inspected/m);
-  assert.match(out, /^every item: cy\.get\('div\.card'\) — loop over it/m, 'the helper\'s every-item form');
+  assert.match(out, /^ {2}cards = \(\) => cy\.get\('div\.card'\);$/m, 'the helper\'s every-item form, as a member');
 });
 
 test('P4 one comment format: // COR cor:<id> · <member> — no grade or count in it', async (t) => {

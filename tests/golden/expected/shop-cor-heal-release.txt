@@ -44,7 +44,7 @@ Alternatives:
 2. page.getByTestId('sort')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_inspect {"selector":"[data-test=\"add-to-cart-pen\"]"} (2043 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-pen\"]"} (2138 chars)
 Recommended — parameterised: 4 items share this shape; every value checked, each finds exactly its own item (4/4).
   Proof: counted by Playwright, every value.
   title = "Gel Pen"   (also: "Coffee Mug", "Baseball Cap", "Logo T-Shirt")
@@ -63,6 +63,8 @@ For this one item alone (playwright):
 Entry — place in tests/pages/inventory.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
   // COR cor:000002 · addToCart
   addToCart = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true });
+  // COR cor:000003 · items
+  items = () => this.page.locator('[data-test="inventory-item"]');
 Facts:
   • 3 other visible button "Add to cart"s look the same
 Framework convention applied: playwright (published guidance).
@@ -74,7 +76,7 @@ Alternatives:
 2. page.locator('button[data-test="add-to-cart-pen"][name="add-to-cart-pen"]')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_inspect {"selector":"[data-test=\"add-to-cart-cap\"]"} (2043 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-cap\"]"} (2138 chars)
 Recommended — parameterised: 4 items share this shape; every value checked, each finds exactly its own item (4/4).
   Proof: counted by Playwright, every value.
   title = "Baseball Cap"   (also: "Coffee Mug", "Gel Pen", "Logo T-Shirt")
@@ -91,8 +93,10 @@ For this one item alone (playwright):
   + Short and shallow
 
 Entry — place in tests/pages/inventory.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
-  // COR cor:000003 · addToCart
+  // COR cor:000004 · addToCart
   addToCart = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true });
+  // COR cor:000003 · items
+  items = () => this.page.locator('[data-test="inventory-item"]');
 Facts:
   • 3 other visible button "Add to cart"s look the same
 Framework convention applied: playwright (published guidance).
@@ -137,6 +141,8 @@ Proposed — not applied. Replace the entry with (same id):
 --- cor_heal {"id":"000002"} (306 chars)
 [error] Heal for cor:000002 (recorded {date}).
 Declined — no stored locator finds it, and no element is close enough — best similarity 0.42, next 0.42; a heal needs ≥ 0.7 and a lead of 0.15. The element may be gone or changed beyond recognition: cor_snapshot the page and cor_inspect it if it still exists.
---- cor_heal {"id":"000003"} (306 chars)
-[error] Heal for cor:000003 (recorded {date}).
+--- cor_heal {"id":"000004"} (306 chars)
+[error] Heal for cor:000004 (recorded {date}).
 Declined — no stored locator finds it, and no element is close enough — best similarity 0.42, next 0.42; a heal needs ≥ 0.7 and a lead of 0.15. The element may be gone or changed beyond recognition: cor_snapshot the page and cor_inspect it if it still exists.
+--- cor_heal {"id":"000003"} (199 chars)
+[error] cor:000003 is an every-item locator — it finds every item, not one element, so there is nothing to heal to. cor_inspect one item for its entry; the entry carries the every-item locator again.

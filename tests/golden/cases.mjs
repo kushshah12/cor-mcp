@@ -119,6 +119,7 @@ export const CASES = [
       ['cor_open', { url: '{base}/app/inventory.html?release=2' }],
       ['cor_heal', { id: '000001' }],
       ['cor_heal', { id: '000002' }],
+      ['cor_heal', { id: '000004' }], // P3: 000003 is the items' every-item locator, shared by the Pen and the Cap
       ['cor_heal', { id: '000003' }],
     ],
   },

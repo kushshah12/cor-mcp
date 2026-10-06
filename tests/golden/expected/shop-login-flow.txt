@@ -72,7 +72,7 @@ Alternatives:
 --- cor_fill {"target":"[data-test=\"password\"]","value":"secret"} (51 chars)
 Filled [data-test="password"].
 Refs: 4 still valid.
---- cor_click {"target":"[data-test=\"login-button\"]"} (880 chars)
+--- cor_click {"target":"[data-test=\"login-button\"]"} (973 chars)
 Clicked [data-test="login-button"]. Now at {base}/app/inventory.html — "COR Shop â€” Products"
 The page navigated. Headings on the new page (cor_inspect one for the exact locator of text you assert on; cor_snapshot for its controls):
   h1 "Products" [ref=e5]
@@ -88,3 +88,5 @@ e5 → productsHeading — 79 Good · 1 match
 e6, e7, e8, e9 → cardName — 4/4 items checked
   // COR cor:{id} · cardName
   cardName = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).locator('h3.card__name');
+  // COR cor:{id} · items
+  items = () => this.page.locator('[data-test="inventory-item"]');

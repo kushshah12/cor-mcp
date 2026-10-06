@@ -3,6 +3,7 @@
 // tools; COR never edits the team's files. cor_check (U9) finds entries again by that id, never by their text.
 
 import { helperUse } from './format.js';
+import { everyItem } from './idioms/index.js';
 
 const camel = (s) => {
   const words = String(s ?? '').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
@@ -63,7 +64,22 @@ const indent = (code) => code.split('\n').map((l, i) => (i ? `  ${l}` : l)).join
  * locator passes — the entry is a decline id to cite, and no code.
  * @returns {{ lines: string[], member: string, file: string, store: string, declined?: string }}
  */
-export function entryFor({ result, lead, helper, framework, conventions, typescript = false, url, id, declined = null, labelCode = null }) {
+/** P3: the every-item locator for a template: Playwright's `every`, or the framework's form of the item helper's model. */
+export function everyOf(lead, framework, helper) {
+  if (!lead || ['group', 'cell'].includes(lead.kind)) return null;
+  if (framework === 'playwright') return lead.every ?? null;
+  return helper && lead.model?.item ? everyItem(framework, lead.model) : null;
+}
+
+/** P3: the every-item member's name — the items, plural, from the item's class or test id (`div.faq-item` → faqItems). */
+export function everyName(code) {
+  const css = /\(\s*['"`]([^'"`]+)['"`]/.exec(code ?? '')?.[1] ?? '';
+  const word = /\[[\w-]+=["']?([\w-]+)["']?\]\s*$/.exec(css)?.[1] ?? /\.([\w-]+)[^.]*$/.exec(css)?.[1] ?? /([a-z][\w-]*)\s*$/i.exec(css)?.[1];
+  const name = camel(word) ?? 'item';
+  return /s$/.test(name) ? `${name}List` : `${name}s`;
+}
+
+export function entryFor({ result, lead, helper, framework, conventions, typescript = false, url, id, declined = null, labelCode = null, everyId = null }) {
   const store = conventions.store.value;
   const ext = typescript ? 'ts' : 'js';
   const file = `${conventions.storeDir.value}/${STORE_FILE[store](pageName(url), ext)}`;
@@ -133,5 +149,25 @@ export function entryFor({ result, lead, helper, framework, conventions, typescr
       ? `  ${member}Label: (page${p ? `, ${pTyped}` : ''}) => ${labelUse},`
       : `  ${member}Label${store === 'page-object-class' ? ' =' : ':'} (${p ? pTyped : ''}) => ${indent(framework === 'playwright' ? labelUse.replace(/\bpage\./g, 'this.page.') : labelUse)}${store === 'page-object-class' ? ';' : ','}`,
   ] : [];
-  return { lines: [head, ...preamble, comment, body, ...click, ''], member, file, store, preamble, comment, body, click, proof: grade, itemOnly };
+  // P3: a variant sits behind its item's toggle — the action that shows it is part of the entry (P1 had dropped it).
+  const variantUse = framework === 'playwright' ? lead?.variantAct : helper?.idioms.includes('variant.click') ? helper.uses.at(-1) : null;
+  const show = variantUse ? [
+    `  // COR cor:${id} · showVariant · variant — click it first when the ${p} is a variant: it sits behind its item's toggle`,
+    framework === 'playwright' && store !== 'page-object-class'
+      ? `  showVariant: (page, ${pTyped}) => ${variantUse},`
+      : `  showVariant${store === 'page-object-class' ? ' =' : ':'} (${pTyped}) => ${indent(framework === 'playwright' ? variantUse.replace(/\bpage\./g, 'this.page.') : variantUse)}${store === 'page-object-class' ? ';' : ','}`,
+  ] : [];
+  // P3: the every-item locator, with its own id — a loop the agent writes as instructed passes cor_check.
+  const everyCode = everyId ? everyOf(lead, framework, helper) : null;
+  const everyMember = everyCode ? everyName(everyCode) : null;
+  const every = everyCode ? [
+    `  // COR cor:${everyId} · ${everyMember}`,
+    framework === 'playwright' && store !== 'page-object-class'
+      ? `  ${everyMember}: (page) => ${everyCode},`
+      : `  ${everyMember}${store === 'page-object-class' ? ' =' : ':'} () => ${framework === 'playwright' ? everyCode.replace(/\bpage\./g, 'this.page.') : everyCode}${store === 'page-object-class' ? ';' : ','}`,
+  ] : [];
+  const extra = [...click, ...show, ...every];
+  // P3: a state the test must check before acting — an item that starts open closes on the first click.
+  const note = lead?.startsOpen ? `note: ${lead.startsOpen.map((v) => `"${v}"`).join(', ')} start${lead.startsOpen.length === 1 ? 's' : ''} open — clicking it closes it; check its state before clicking` : null;
+  return { lines: [head, ...preamble, comment, body, ...extra, ...(note ? [`  ${note}`] : []), ''], member, file, store, preamble, comment, body, click: extra, proof: grade, itemOnly, everyMember, note, showVariant: show.length > 0 };
 }

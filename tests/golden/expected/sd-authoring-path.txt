@@ -76,7 +76,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
   - link "X" [ref=e28] ✓id
   - link "Facebook" [ref=e29] ✓id
   - link "LinkedIn" [ref=e30] ✓id
---- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]"} (2165 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]"} (2258 chars)
 Recommended — parameterised: 6 items share this shape; every value checked, each finds exactly its own item (6/6).
   Proof: counted by Playwright, every value.
   name = "Sauce Labs Backpack"   (also: "Sauce Labs Bike Light", "Sauce Labs Bolt T-Shirt", "Sauce Labs Fleece Jacket", "Sauce Labs Onesie", … 1 more)
@@ -95,6 +95,8 @@ For this one item alone (playwright):
 Entry — place in tests/pages/saucedemoInventory.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
   // COR cor:{id} · addToCart
   addToCart = (name) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.locator('[data-test="inventory-item-name"]').getByText(name, { exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true });
+  // COR cor:{id} · items
+  items = () => this.page.locator('[data-test="inventory-item"]');
 Facts:
   • 5 other visible button "Add to cart"s look the same
 Framework convention applied: playwright (published guidance).
