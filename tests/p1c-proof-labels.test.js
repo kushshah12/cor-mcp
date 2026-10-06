@@ -40,7 +40,7 @@ async function connect(t) {
   server.server.onclose = null;
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
   t.after(() => client.close());
-  clientOf = async (name, args = {}) => (await client.callTool({ name, arguments: args })).content.map((c) => c.text).join('\n');
+  clientOf = async (name, args = {}) => (await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args })).content.map((c) => c.text).join('\n');
   return { call: clientOf, session };
 }
 const CARD = '.grid .card:nth-child(2) button';

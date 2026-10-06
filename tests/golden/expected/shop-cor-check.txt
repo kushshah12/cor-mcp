@@ -22,7 +22,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
     - "Water Bottle": e10
 - textbox "Email" [ref=e11]
 - button "Subscribe" [ref=e12]
---- cor_inspect {"selector":"[data-test=\"sort\"]"} (1207 chars)
+--- cor_inspect {"selector":"[data-test=\"sort\"]"} (1194 chars)
 Best locator (playwright):
   page.getByRole('combobox', { name: 'Sort' })
   Point-in-time — true on this page now: 79 Good · 1 match
@@ -31,7 +31,7 @@ Best locator (playwright):
   - Coupled to a label / accessible name
 
 Entry — place in tests/pages/inventory.page.js, member sort (cor_check reads the cor: id; keep the comment):
-  // COR cor:000001 · 79 Good · 1 match
+  // COR cor:000001 · sort
   sort = () => this.page.getByRole('combobox', { name: 'Sort' });
 
 Why this order: Ranked role=combobox, name=Sort (score 79) above [data-test="sort"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
@@ -44,26 +44,26 @@ Alternatives:
 2. page.getByTestId('sort')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_check {"all":true} (1759 chars)
+--- cor_check {"all":true} (1734 chars)
 [error] cor_check: 4 locators in 2 files (all project files) — 1 carry a COR id, 3 to fix.
 
 ✗ tests/cart.spec.js:6 — await page.locator('.card button').first().click(); — picks by position (.first/.nth/.eq/[n]): a reorder silently changes the element.
   On /app/inventory.html (if this locator targets another page, cor_open it and run cor_check again):
   Replace it with COR's entry:
     Entry — place in tests/pages/inventory.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
-      // COR cor:000002 · 4/4 items checked
+      // COR cor:000002 · addToCart
       addToCart = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true });
 
 ✗ tests/cart.spec.js:8 — cor:abcdef is not a record COR issued in this project (copied from elsewhere, or edited?).
   On /app/inventory.html (if this locator targets another page, cor_open it and run cor_check again):
   Replace it with COR's entry:
     Entry — place in tests/pages/inventory.page.js, member cartBadge (cor_check reads the cor: id; keep the comment):
-      // COR cor:000003 · 99 Excellent · 1 match
+      // COR cor:000003 · cartBadge
       cartBadge = () => this.page.getByTestId('cart-badge');
 
 ✗ tests/pages/inventory.page.js:7 — cor:000001 was issued for another element on this page — the locator was edited after COR issued it.
   On /app/inventory.html (if this locator targets another page, cor_open it and run cor_check again):
   Replace it with COR's entry:
     Entry — place in tests/pages/inventory.page.js, member cartEmptyLink (cor_check reads the cor: id; keep the comment):
-      // COR cor:000004 · 79 Good · 1 match
+      // COR cor:000004 · cartEmptyLink
       cartEmptyLink = () => this.page.getByRole('link', { name: 'Cart, empty' });

@@ -59,6 +59,12 @@ export const CASES = [
   { id: 'fx-faq-snapshot', open: 'fixture/faq', calls: [['cor_snapshot', {}]] },
   { id: 'fx-traps-snapshot', open: 'fixture/traps', calls: [['cor_snapshot', {}]] },
 
+  // ── P4: the default cor_inspect reply — the answer and its code, about 6 lines ──
+  { id: 'p4-brief-template-pw', open: 'site/saucedemo-inventory', calls: [['cor_inspect', { selector: ADD_BACKPACK, detail: false }]] },
+  { id: 'p4-brief-single-cy', project: 'cy16', open: 'site/saucedemo-login', calls: [['cor_inspect', { selector: '[data-test="login-button"]', detail: false }]] },
+  { id: 'p4-brief-hidden-wdio', project: 'wdio9', open: 'fixture/toggles', calls: [['cor_inspect', { selector: '#annual', detail: false }]] },
+  { id: 'p4-brief-declined-pw', open: 'fixture/p1-no-durable', calls: [['cor_inspect', { selector: '.list > div:nth-child(2) .dot', detail: false }]] },
+
   // ── P1 class pages: one per bug class, each entry must pass the shared positional / structural check ──
   { id: 'p1-split-header-cy', project: 'cy16', open: 'fixture/p1-split-header', calls: [['cor_inspect', { selector: 'table.body tr:nth-child(2) td:nth-child(3)' }]] },
   { id: 'p1-split-header-pw', open: 'fixture/p1-split-header', calls: [['cor_inspect', { selector: 'table.body tr:nth-child(2) td:nth-child(3)' }]] },

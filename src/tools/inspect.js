@@ -1,7 +1,7 @@
 import { frameHint } from '../frames.js';
 import { z } from 'zod';
 import { callPage } from '../page-runtime.js';
-import { inspectParts, renderInspect } from '../format.js';
+import { inspectParts, renderBrief, renderInspect } from '../format.js';
 import { renderAmbiguousScope, renderIndex, renderScoped, renderSnapshot } from '../format-snapshot.js';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -35,7 +35,7 @@ const PLACEHOLDER = /__\w+__/g;
 // in-page check has already covered every one.
 const COUNT_MAX = 100;
 // P2a: entry blocks a cor_snapshot within reply carries; the rest are counted with their refs.
-const WITHIN_ENTRIES = 8;
+const WITHIN_ENTRIES = 5; // P4: was 8
 
 /**
  * U18. The page proposed a template after checking every value against the
@@ -257,10 +257,10 @@ export function createInspector(session, idCache = new Map(), records = null) {
     // Review fix: a record that could not be written does not fail the inspect — the reply says heal has nothing for it.
     const entryLines = records?.lastError && !reuseId ? [...entry.lines.slice(0, -1), `  (record not saved: ${records.lastError} — cor_heal will have no record for this id)`, ''] : entry.lines;
     const reply = renderInspect(result, { refsLive, framework, all, dataCyNote, typescript, major: detected?.version ?? null, testingLibrary: Boolean(detected?.testingLibrary), entry: entryLines, parts });
-    return { reply, entry: entryLines, declined, info: entry };
+    return { reply, entry: entryLines, declined, info: entry, brief: renderBrief(result, parts, entry, { framework, refsLive }) };
   };
 }
-const renamed = (info, member) => ({ ...info, member, body: info.body?.replace(info.member, member), click: info.click?.map((l) => l.split(info.member).join(member)) });
+const renamed = (info, member) => ({ ...info, member, body: info.body?.replace(info.member, member), comment: info.comment?.replace(`· ${info.member}`, `· ${member}`), click: info.click?.map((l) => l.split(info.member).join(member)) });
 
 /**
  * P2a: entries for many elements in one reply — the file once, then each element's comment and code, without the
@@ -293,7 +293,7 @@ export async function compactEntries(inspector, targets, { max = Infinity, frame
   const helpers = new Set();
   for (const { labels, info, declined } of blocks) {
     if (declined) { out.push(`${labels.join(', ')} ✗ ${info.member}: declined — ${declined}`, info.lines[1]); continue; }
-    out.push(`${labels.join(', ')} → ${info.member}${info.file === blocks[0].info.file ? '' : ` (in ${info.file})`}`);
+    out.push(`${labels.join(', ')} → ${info.member}${info.file === blocks[0].info.file ? '' : ` (in ${info.file})`}${info.proof ? ` — ${info.proof}` : ''}`);
     const helper = (info.preamble ?? []).join('\n');
     if (helper && !helpers.has(helper)) { helpers.add(helper); out.push(...info.preamble); } else if (helper) out.push('  (helper above)');
     out.push(...(info.comment ? [info.comment, info.body, ...(info.click ?? [])] : info.lines.slice(1, -1))); // a JSON / YAML map entry
@@ -373,10 +373,11 @@ export function inspectTools(session, idCache = new Map(), inspector = createIns
           selector: z.string().optional().describe('CSS or Playwright selector (:text-is, >>, text=) matching exactly one element — alternative to ref.'),
           targets: z.array(z.string()).min(1).max(30).optional().describe('P2a: several refs or selectors at once — every element you need from this page in one call. Each gets its entry only (no alternatives); inspect one ref alone for the detail.'),
           framework: z.enum(FRAMEWORKS).optional().describe('Test framework to render and rank for. Default: the project\'s framework as cor_open reported it, else playwright.'),
+          detail: z.boolean().optional().describe('P4: the full reply — alternatives, facts, why this order, the durable annotation. By default: the answer and its code, about 6 lines.'),
           all: z.boolean().optional().describe('List every alternative. By default: the runner-up and the best of each other locator kind, up to 3.'),
         },
       },
-      handler: async ({ ref, selector, targets, framework: asked, all = false }) => {
+      handler: async ({ ref, selector, targets, framework: asked, all = false, detail = false }) => {
         if ([ref, selector, targets].filter(Boolean).length !== 1) throw new Error('Pass exactly one of ref (from cor_snapshot), selector, or targets.');
         if (targets) {
           await openPage();
@@ -387,7 +388,8 @@ export function inspectTools(session, idCache = new Map(), inspector = createIns
           return text([...lines, ...list.filter((t) => t.error).map((t) => `${t.label} ✗ ${t.error.message.split('\n')[0]}`)].join('\n'));
         }
         if (ref) checkRef(session, ref);
-        return text((await inspector({ ref, selector, framework: asked, all })).reply);
+        const done = await inspector({ ref, selector, framework: asked, all });
+        return text(detail || all ? done.reply : done.brief);
       },
     },
   ];

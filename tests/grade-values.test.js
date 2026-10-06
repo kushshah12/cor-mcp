@@ -37,7 +37,7 @@ before(async () => {
   server.server.onclose = null;
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
   call = async (name, args = {}) => {
-    const r = await client.callTool({ name, arguments: args });
+    const r = await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args });
     return { isError: r.isError === true, text: r.content.map((c) => c.text).join('\n') };
   };
   await call('cor_open', { url: `${base}/` });

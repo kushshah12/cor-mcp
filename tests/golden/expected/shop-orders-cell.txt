@@ -22,7 +22,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
     - "Water Bottle": e10
 - textbox "Email" [ref=e11]
 - button "Subscribe" [ref=e12]
---- cor_snapshot {"within":"A-1002"} (892 chars)
+--- cor_snapshot {"within":"A-1002"} (901 chars)
 "COR Shop â€” Products" {base}/app/inventory.html — row "A-1002" in full (within: A-1002)
 All text in this region, in page order. Its refs are added to the current snapshot's; refs expire on navigation and any act.
 
@@ -31,8 +31,8 @@ All text in this region, in page order. Its refs are added to the current snapsh
 - cell "Total" [ref=e15]: "$40"
 
 Entries — place in tests/pages/inventory.page.js (keep each // COR comment: cor_check reads the ids):
-e13, e14, e15 → cellAt
-  // COR cor:{id} · 6/6 items checked
+e13, e14, e15 → cellAt — 6/6 items checked
+  // COR cor:{id} · cellAt
   cellAt = (order, column) => {
     const tables = "//table[contains(concat(' ', normalize-space(@class), ' '), ' orders ')]";
     const header = `(${tables}//tr[th])[1]`;
@@ -40,7 +40,7 @@ e13, e14, e15 → cellAt
     const columnNo = `count(${header}/*[normalize-space()="${column}"]/preceding-sibling::*) + 1`;
     return this.page.locator(`xpath=${row}/*[${columnNo}]`);
   };
---- cor_inspect {"selector":"table.orders tbody tr:nth-child(2) td:nth-child(2)"} (2547 chars)
+--- cor_inspect {"selector":"table.orders tbody tr:nth-child(2) td:nth-child(2)"} (2536 chars)
 Recommended — parameterised by row and column: 3 rows × 3 columns; every row and column checked (6/6).
   Proof: counted by Playwright, every value.
   order = "A-1002"   (also: "A-1001", "A-1003")
@@ -62,7 +62,7 @@ For this one item alone (playwright):
   + Anchored on visible text
 
 Entry — place in tests/pages/inventory.page.js, member cellAt (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 6/6 items checked
+  // COR cor:{id} · cellAt
   cellAt = (order, column) => {
     const tables = "//table[contains(concat(' ', normalize-space(@class), ' '), ' orders ')]";
     const header = `(${tables}//tr[th])[1]`;

@@ -83,24 +83,24 @@ test('the client receives instructions: parameterised functions and a locator su
   const client = await connect(t, createServer());
   const text = client.getInstructions();
   assert.match(text, /write one function that takes the parameter/);
-  assert.match(text, /final summary, list each locator you used .* COR score, and the runner-up/);
+  assert.match(text, /final summary, list each locator you used with its COR score and the runner-up/); // P4 wording
 });
 
 test('U9: the instructions say to place entries with their cor: comment and run cor_check before the tests; self-written locators are graded', async (t) => {
   const client = await connect(t, createServer());
   const text = client.getInstructions();
-  assert.match(text, /Place it as given, comment included/);
+  assert.match(text, /Place each entry as given, its \/\/ COR cor:… comment included/); // P4 wording
   assert.match(text, /Before running the tests, run cor_check: it fails on any locator without a COR id and returns the entry to paste/);
   assert.match(text, /Pass a locator you wrote or extended yourself to cor_grade, with param when it takes one/);
-  assert.match(text, /Adding a step to a template .* can match several elements inside an item/);
+  assert.match(text, /a step added to a template can match several elements inside an item/);
 });
 
 test('the instructions cover page-object projects: templates become methods, existing methods are graded and reused (POM)', async (t) => {
   const client = await connect(t, createServer());
   const text = client.getInstructions();
   // U11: the Entry carries the file, member and style; the instructions keep only what it cannot say.
-  assert.match(text, /A Variants line becomes an action method that clicks the toggle first/);
-  assert.match(text, /An existing method for the element: cor_check gives it COR's id or the entry to replace it — fix it in place rather than adding a second one/);
+  // P4: a variant's toggle is a note on its entry now, not an instruction.
+  assert.match(text, /An existing method for the element: fix it in place rather than adding a second one/);
   assert.doesNotMatch(text, /check whether the project has page objects/);
   assert.doesNotMatch(text, /literal arguments/);
 });

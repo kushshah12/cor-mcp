@@ -358,6 +358,34 @@ export function inspectParts(result, { framework = result.framework, typescript 
 /** The helper call an entry's member returns: the leaf when the helper reaches one, else the helper itself. */
 export const helperUse = (helper) => (helper.idioms.some((i) => i.startsWith('leaf.')) ? helper.uses[0] : helper.call);
 
+/**
+ * P4: the default cor_inspect reply — the answer and the code, about 6 lines: a status line with the proof, the entry's
+ * comment and code (a helper and a label member when there are), and at most a few notes (another element that looks the
+ * same, a variant behind a toggle, the every-item loop, the fix for a declined element). `detail: true` gives renderInspect.
+ */
+export function renderBrief(result, parts, info, { framework = result.framework, refsLive = false } = {}) {
+  const { lead } = parts;
+  const covered = lead && result.lookalikes && result.lookalikes.items.length === lead.count;
+  const args = parts.entryLead ? `(${parts.entryLead.kind === 'cell' ? parts.entryLead.vars.join(', ') : parts.entryLead.param ?? ''})` : '';
+  const out = info.declined
+    ? [`✗ ${info.member} — declined: ${info.declined}`, info.lines[1]]
+    : [`✓ ${info.member}${args} → ${info.file} — ${info.proof}`, ...(info.comment ? [...(info.preamble ?? []), info.comment, info.body, ...(info.click ?? [])] : info.lines.slice(1, -1))];
+  const notes = [];
+  if (result.lookalikes && !covered) {
+    const [warn, here] = lookalikeWarning(result.lookalikes, refsLive);
+    notes.push(`note: ${warn.replace(/^⚠ /, '')} ${here.trim()}.`);
+  }
+  for (const v of parts.entryLead?.variants ?? []) notes.push(`note: ${v.values.map((x) => `"${x}"`).join(', ')} sit${v.values.length === 1 ? 's' : ''} behind the "${v.of}" item's toggle — click it first.`);
+  if (parts.entryLead?.every && framework === 'playwright') notes.push(`every item: ${parts.entryLead.every} — loop over it when the test covers every item.`);
+  else if (parts.entryLead && parts.helper && parts.entryLead.model?.item) notes.push(`every item: ${everyItem(framework, parts.entryLead.model)} — loop over it when the test covers every item.`);
+  if (info.itemOnly) notes.push(`note: ${info.member}(…) finds the item, not the element you inspected — no form for it held in every item; cor_inspect detail: true shows its single-item locator.`);
+  if (info.declined) {
+    const fix = addTestId(result);
+    if (fix) notes.push(`fix: add a test attribute — ${fix.snippet}`);
+  }
+  return [...out, ...notes].join('\n');
+}
+
 export function renderInspect(result, { refsLive = false, framework = result.framework, all = false, dataCyNote = false, typescript = false, major = null, testingLibrary = false, entry = null, parts = inspectParts(result, { framework, typescript, major, testingLibrary }) } = {}) {
   const { helper, lead } = parts;
   // The template covers the lookalikes only when they are all its items.

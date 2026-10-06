@@ -6,7 +6,7 @@ Locators: page objects in tests/pages/ (default — no specs found).
 "Split header" {base}/fixture/p1-split-header — 0 interactive elements
 Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
 
---- cor_inspect {"selector":"table.body tr:nth-child(2) td:nth-child(3)"} (3378 chars)
+--- cor_inspect {"selector":"table.body tr:nth-child(2) td:nth-child(3)"} (3367 chars)
 Recommended — parameterised by row and column: 3 rows × 4 columns; every row and column checked (7/7).
   Proof: counted by Playwright, every value.
   feature = "Bug capture"   (also: "Parallel tests", "Screenshots")
@@ -29,7 +29,7 @@ Declined as the answer — the most durable single-item locator today:
    ! Depends on element position — silently picks a different element when order changes
 
 Entry — place in tests/pages/p1SplitHeader.page.js, member cellAt (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 7/7 items checked
+  // COR cor:{id} · cellAt
   cellAt = (feature, column) => {
     const tables = "//table[contains(concat(' ', normalize-space(@class), ' '), ' body ')]";
     const header = "(//table[contains(concat(' ', normalize-space(@class), ' '), ' head ')]//tr[count(th)>1])[1]";

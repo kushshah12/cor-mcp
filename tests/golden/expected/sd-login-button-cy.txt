@@ -10,7 +10,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
   - textbox "Username" [ref=e1] ✓id
   - textbox "Password" [ref=e2] ✓id
   - button "Login" [ref=e3] ✓id
---- cor_inspect {"selector":"[data-test=\"login-button\"]","framework":"cypress"} (817 chars)
+--- cor_inspect {"selector":"[data-test=\"login-button\"]","framework":"cypress"} (806 chars)
 Best locator (cypress):
   cy.get('[data-test="login-button"]')
   Point-in-time — true on this page now: 99 Excellent · 1 match
@@ -18,7 +18,7 @@ Best locator (cypress):
   + Short and shallow
 
 Entry — place in tests/pages/saucedemoLogin.page.js, member loginButton (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 99 Excellent · 1 match
+  // COR cor:{id} · loginButton
   loginButton = () => cy.get('[data-test="login-button"]');
 Framework convention applied: cypress (published guidance).
 

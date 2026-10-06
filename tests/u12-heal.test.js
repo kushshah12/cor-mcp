@@ -53,7 +53,7 @@ async function connect(t, dir) {
   await Promise.all([server.connect(s), client.connect(c)]);
   t.after(() => client.close());
   const call = async (name, args = {}) => {
-    const r = await client.callTool({ name, arguments: args });
+    const r = await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args });
     return { isError: r.isError === true, text: r.content.map((x) => x.text).join('\n') };
   };
   return { call, session, records };

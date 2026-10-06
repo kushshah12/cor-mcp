@@ -76,7 +76,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
   - link "X" [ref=e28] ✓id
   - link "Facebook" [ref=e29] ✓id
   - link "LinkedIn" [ref=e30] ✓id
---- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]"} (2173 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]"} (2165 chars)
 Recommended — parameterised: 6 items share this shape; every value checked, each finds exactly its own item (6/6).
   Proof: counted by Playwright, every value.
   name = "Sauce Labs Backpack"   (also: "Sauce Labs Bike Light", "Sauce Labs Bolt T-Shirt", "Sauce Labs Fleece Jacket", "Sauce Labs Onesie", … 1 more)
@@ -93,7 +93,7 @@ For this one item alone (playwright):
   + Short and shallow
 
 Entry — place in tests/pages/saucedemoInventory.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 6/6 items checked
+  // COR cor:{id} · addToCart
   addToCart = (name) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.locator('[data-test="inventory-item-name"]').getByText(name, { exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true });
 Facts:
   • 5 other visible button "Add to cart"s look the same
@@ -106,7 +106,7 @@ Alternatives:
 2. page.locator('#add-to-cart-sauce-labs-backpack')
    93 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_inspect {"selector":"[data-test=\"shopping-cart-link\"]"} (1295 chars)
+--- cor_inspect {"selector":"[data-test=\"shopping-cart-link\"]"} (1294 chars)
 Best locator (playwright):
   page.getByRole('button', { name: 'Cart, empty' })
   Point-in-time — true on this page now: 79 Good · 1 match
@@ -115,7 +115,7 @@ Best locator (playwright):
   - Coupled to a label / accessible name
 
 Entry — place in tests/pages/saucedemoInventory.page.js, member shoppingCartLink (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 79 Good · 1 match
+  // COR cor:{id} · shoppingCartLink
   shoppingCartLink = () => this.page.getByRole('button', { name: 'Cart, empty' });
 
 Why this order: Ranked role=button, name=Cart, empty (score 79) above [data-test="shopping-cart-link"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.

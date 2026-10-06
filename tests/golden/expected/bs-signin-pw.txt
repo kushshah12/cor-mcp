@@ -55,7 +55,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
 - link "Read More" [ref=e70]
 - textbox "Email" [ref=e71]
 - button "Subscribe to Newsletter" [ref=e72]
---- cor_inspect {"selector":"#signin"} (1275 chars)
+--- cor_inspect {"selector":"#signin"} (1268 chars)
 Best locator (playwright):
   page.getByRole('link', { name: 'Sign In' })
   Point-in-time — true on this page now: 79 Good · 1 match
@@ -64,7 +64,7 @@ Best locator (playwright):
   - Coupled to a label / accessible name
 
 Entry — place in tests/pages/bstackdemo.page.js, member signInLink (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 79 Good · 1 match
+  // COR cor:{id} · signInLink
   signInLink = () => this.page.getByRole('link', { name: 'Sign In' });
 
 Why this order: Ranked role=link, name=Sign In (score 79) above #signin (score 93) — playwright guidance prefers role over id. Both resolve to exactly one element.

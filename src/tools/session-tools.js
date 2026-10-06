@@ -5,7 +5,7 @@ import { renderActResult } from '../format-act.js';
 import { compactEntries } from './inspect.js';
 
 // P2a: entry blocks an act reply carries; the rest are counted with their refs.
-const ACT_ENTRIES = 6;
+export const ACT_ENTRIES = 4; // P4: was 6
 import { checkRef, goneError } from './refs.js';
 
 // Act tools only reach a page state so an element can be inspected; nothing

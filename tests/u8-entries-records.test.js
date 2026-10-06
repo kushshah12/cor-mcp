@@ -49,7 +49,7 @@ async function connect(t, cwd, { enabled = true, ids = null } = {}) {
   server.server.onclose = null;
   await Promise.all([server.connect(s), client.connect(c)]);
   t.after(() => client.close());
-  const call = async (name, args = {}) => (await client.callTool({ name, arguments: args })).content.map((x) => x.text).join('\n');
+  const call = async (name, args = {}) => (await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args })).content.map((x) => x.text).join('\n');
   return { call, records };
 }
 const idOf = (text) => /cor:([0-9a-f]{6})/.exec(text)?.[1];
@@ -69,7 +69,7 @@ test('U8 page objects (TypeScript): the entry leads cor_inspect, and its record 
   const out = await call('cor_inspect', { selector: '[data-test="add-to-cart-onesie"]' });
   const lines = out.split('\n').slice(out.split('\n').findIndex((l) => l.startsWith('Entry — ')));
   assert.equal(lines[0], 'Entry — place in tests/pages/inventory.page.ts, member addToCart (cor_check reads the cor: id; keep the comment):', out);
-  assert.match(lines[1], /^ {2}\/\/ COR cor:[0-9a-f]{6} · 3\/3 items checked$/);
+  assert.match(lines[1], /^ {2}\/\/ COR cor:[0-9a-f]{6} · addToCart$/); // P4: the comment names the member
   assert.match(lines[2], /^ {2}addToCart = \(name: string\) => this\.page\.locator\('\[data-test="inventory-item"\]'\)\.filter\(/);
   const record = records.read(idOf(out));
   assert.equal(record.page, `${base}/inventory.html`);
@@ -108,7 +108,7 @@ test('U8 YAML store: a # comment carries the id', async (t) => {
   const { call } = await connect(t, dir);
   await call('cor_open', { url: `${base}/inventory.html` });
   const out = await call('cor_inspect', { selector: '[data-test="shopping-cart-badge"]' });
-  assert.match(out, /\nEntry — place in locators\/inventory\.yml, member shoppingCartBadge.*\n {2}# COR cor:[0-9a-f]{6} · \d+ \w+ · 1 match\n {2}shoppingCartBadge: "\[data-test=\\"shopping-cart-badge\\"\]"/);
+  assert.match(out, /\nEntry — place in locators\/inventory\.yml, member shoppingCartBadge.*\n {2}# COR cor:[0-9a-f]{6} · shoppingCartBadge\n {2}shoppingCartBadge: "\[data-test=\\"shopping-cart-badge\\"\]"/);
 });
 
 test('U8 an id that already has a record file is issued again', async (t) => {

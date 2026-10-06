@@ -1,0 +1,16 @@
+# p4-brief-single-cy
+Now at {base}/site/saucedemo-login — "Swag Labs" (HTTP 200). Browser: {browser}.
+Framework: Cypress v16 — from ./package.json (cypress). Override with framework: "…".
+Locators: page objects in cypress/pages/ (default — no specs found).
+
+"Swag Labs" {base}/site/saucedemo-login — 3 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
+
+- form "Login"
+  - textbox "Username" [ref=e1] ✓id
+  - textbox "Password" [ref=e2] ✓id
+  - button "Login" [ref=e3] ✓id
+--- cor_inspect {"selector":"[data-test=\"login-button\"]","detail":false} (169 chars)
+✓ loginButton → cypress/pages/saucedemoLogin.page.js — 99 Excellent · 1 match
+  // COR cor:{id} · loginButton
+  loginButton = () => cy.get('[data-test="login-button"]');

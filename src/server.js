@@ -21,31 +21,19 @@ export function defaultTools(session, records = null) {
 
 // Sent once at connect. The user asks the agent for tests, not for locators,
 // so COR's scores and alternatives only reach them if the agent reports them.
+// P4: a short workflow, under 2k characters. What an entry or reply already says (file, member, style, variants, the
+// every-item loop) is not repeated here; the P0 compliance metrics measure whether agents follow it.
 export const INSTRUCTIONS = [
-  'COR finds, scores and match-counts locators on a live page. Use cor_snapshot to pick an element and cor_inspect to get its locator.',
-  'When cor_inspect returns a Parameterised block and the test touches more than one of those items, or the codebase uses page objects, ' +
-    'write one function that takes the parameter (e.g. addToCart(title)) instead of a locator per item. ' +
-    'When the test covers every item ("every FAQ question", "all plans"), loop over the Every item locator instead of typing the values, so an item added later is tested too; use the listed values only for items the test names.',
-  'To read a table value, cor_snapshot within the row\'s name — it lists the row\'s cells by column with refs — then cor_inspect the cell for a row × column template.',
-  'cor_inspect gives an Entry for each element: the code to place, the file and member it belongs in, and a // COR cor:… comment. Place it as given, comment included — ' +
-    'the id is how COR tells its locators from typed ones. Before running the tests, run cor_check: it fails on any locator without a COR id and returns the entry to paste. ' +
-    'If the entry\'s file does not exist, create it in the project\'s style (a class wrapping the page for page objects). ' +
-    'Pass a locator you wrote or extended yourself to cor_grade, with param when it takes one — graded is not accepted: cor_check still needs its COR id, so replace it with the entry cor_check returns. ' +
-    'Adding a step to a template (card.locator(\'.price\')) makes a new locator: the step can match several elements inside an item. ' +
-    'Keep the page open — no cor_close — until you have graded them: grading needs it. ' +
-    'Every locator comes from cor_inspect or is graded — including elements you only assert on (a heading, a total, a message): a navigation reply lists the new page\'s headings with refs. ' +
-    'Never match by partial text (*=, a substring cy.contains, getByText without exact): use the exact text on the element itself, or an attribute.',
-  'To see what an action changes — a new price, an answer that opens, the page a link leads to — act with it and read the reply of cor_click, cor_fill or cor_press: ' +
-    'it lists changed and new text and the new page\'s headings with refs, and gives their entries — no cor_snapshot or cor_inspect needed for them. Do not write scripts to read the page. ' +
-    'Assert what an action changed — the new or changed text, the URL, that gone items are no longer displayed — not only that an element exists, ' +
-    'and wait for that state with a retrying assertion, not a fixed sleep.',
-  'Put independent calls in one turn — the elements you need to inspect (cor_inspect targets: [...] takes them all in one call), the locators you need to grade — rather than one call per turn: each turn re-reads the whole conversation.',
-  // U11: the Entry names the file, member and style (U7/U8), so the page-object and convention paragraphs went.
-  'A Variants line becomes an action method that clicks the toggle first. Write the test against the entries\' members. ' +
-    'An existing method for the element: cor_check gives it COR\'s id or the entry to replace it — fix it in place rather than adding a second one.',
-  'When a test fails on a locator: cor_grade it. Broken → cor_heal with the locator line, its cor: comment included — it proposes a replacement from the committed record, or declines; apply it only if it is the same element.',
-  'In your final summary, list each locator you used on one line: the locator, its COR score, and the runner-up with its score — ' +
-    'so the user can ask for a different choice.',
+  'COR finds, checks and grades locators on a live page and gives you entries to place. Workflow:',
+  '1. cor_open the page: the reply lists its controls with refs (a region index on a large page — cor_snapshot within a region for its text, controls and entries).',
+  '2. Get every element you need in one call: cor_inspect targets: [refs]. To see what an action changes, act with cor_click, cor_fill or cor_press and read the reply: it lists changed and new text, and the new page\'s headings, with their entries. Do not write scripts to read the page.',
+  '3. Place each entry as given, its // COR cor:… comment included, in the file it names. An entry taking a parameter (title, question) is one function for every item: write one function that takes the parameter, not a locator per item; when the test covers every item, loop over the every-item locator instead of typing the values. A · label member is what you click for a hidden input; assert the input\'s checked state.',
+  '4. Every locator comes from COR, including elements you only assert on. Never match by partial text (*=, a substring cy.contains, getByText without exact). Pass a locator you wrote or extended yourself to cor_grade, with param when it takes one (a step added to a template can match several elements inside an item); keep the page open — no cor_close — until you have graded them.',
+  '5. Before running the tests, run cor_check: it fails on any locator without a COR id and returns the entry to paste. An existing method for the element: fix it in place rather than adding a second one.',
+  '6. Assert what an action changed — the new text, the URL, that gone items are not displayed — with a retrying assertion, not a fixed sleep.',
+  '7. A test failing on a locator: cor_grade it; broken → cor_heal with its cor: line, and apply the proposal only if it is the same element.',
+  'Put independent calls in one turn: each turn re-reads the whole conversation.',
+  'In your final summary, list each locator you used with its COR score and the runner-up.',
 ].join('\n');
 
 /**

@@ -22,7 +22,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
     - "Water Bottle": e10
 - textbox "Email" [ref=e11]
 - button "Subscribe" [ref=e12]
---- cor_inspect {"selector":"[data-test=\"add-to-cart-pen\"]"} (2049 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-pen\"]"} (2041 chars)
 Recommended — parameterised: 4 items share this shape; every value checked, each finds exactly its own item (4/4).
   Proof: counted by Playwright, every value.
   title = "Gel Pen"   (also: "Coffee Mug", "Baseball Cap", "Logo T-Shirt")
@@ -39,7 +39,7 @@ For this one item alone (playwright):
   + Short and shallow
 
 Entry — place in tests/pages/inventory.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 4/4 items checked
+  // COR cor:{id} · addToCart
   addToCart = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true });
 Facts:
   • 3 other visible button "Add to cart"s look the same
@@ -52,7 +52,7 @@ Alternatives:
 2. page.locator('button[data-test="add-to-cart-pen"][name="add-to-cart-pen"]')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_click {"target":"[data-test=\"add-to-cart-pen\"]"} (881 chars)
+--- cor_click {"target":"[data-test=\"add-to-cart-pen\"]"} (890 chars)
 Clicked [data-test="add-to-cart-pen"]. Now at {base}/app/inventory.html — "COR Shop â€” Products"
 Changes:
 + item "Gel Pen": button "Remove" [ref=e13]
@@ -61,11 +61,11 @@ Changes:
 Refs: 7 still valid; e4, e6, e7 re-bound to the re-rendered element; stale: e2 (changed what it shows or where it sits); e5 (was removed).
 
 Entries — place in tests/pages/inventory.page.js (keep each // COR comment: cor_check reads the ids):
-e13 → remove
-  // COR cor:{id} · 4/4 items checked
+e13 → remove — 4/4 items checked
+  // COR cor:{id} · remove
   remove = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).locator('button.btn');
 Assert what this changed — the new or changed text, the URL, that gone items are no longer displayed (hidden or removed: "not displayed" holds for both) — not only that an element exists.
---- cor_inspect {"selector":"[data-test=\"remove-pen\"]"} (2150 chars)
+--- cor_inspect {"selector":"[data-test=\"remove-pen\"]"} (2139 chars)
 Recommended — parameterised: 4 items share this shape; every value checked, each finds exactly its own item (4/4).
   Proof: counted by Playwright, every value.
   title = "Gel Pen"   (also: "Coffee Mug", "Baseball Cap", "Logo T-Shirt")
@@ -82,7 +82,7 @@ For this one item alone (playwright):
   - Coupled to a label / accessible name
 
 Entry — place in tests/pages/inventory.page.js, member remove (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 4/4 items checked
+  // COR cor:{id} · remove
   remove = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).locator('button.btn');
 
 Why this order: Ranked role=button, name=Remove (score 79) above [data-test="remove-pen"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
@@ -95,7 +95,7 @@ Alternatives:
 2. page.getByTestId('remove-pen')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_inspect {"selector":"#cart-link"} (1313 chars)
+--- cor_inspect {"selector":"#cart-link"} (1309 chars)
 Best locator (playwright):
   page.getByRole('link', { name: 'Cart, 1 item' })
   Point-in-time — true on this page now: 79 Good · 1 match
@@ -104,7 +104,7 @@ Best locator (playwright):
   - Coupled to a label / accessible name
 
 Entry — place in tests/pages/inventory.page.js, member cart1ItemLink (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 79 Good · 1 match
+  // COR cor:{id} · cart1ItemLink
   cart1ItemLink = () => this.page.getByRole('link', { name: 'Cart, 1 item' });
 
 Why this order: Ranked role=link, name=Cart, 1 item (score 79) above #cart-link (score 93) — playwright guidance prefers role over id. Both resolve to exactly one element.

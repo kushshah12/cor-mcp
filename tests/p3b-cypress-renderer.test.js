@@ -36,7 +36,7 @@ async function connect(t, { deps } = {}) {
   server.server.onclose = null;
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
   t.after(() => client.close());
-  return async (name, args = {}) => (await client.callTool({ name, arguments: args })).content.map((c) => c.text).join('\n');
+  return async (name, args = {}) => (await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args })).content.map((c) => c.text).join('\n');
 }
 
 const model = (over = {}) => ({

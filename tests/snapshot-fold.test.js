@@ -31,7 +31,7 @@ before(async () => {
   const server = createServer({ session });
   server.server.onclose = null;
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
-  raw = async (name, args = {}) => (await client.callTool({ name, arguments: args })).content.map((c) => c.text).join('\n');
+  raw = async (name, args = {}) => (await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args })).content.map((c) => c.text).join('\n');
   await raw('cor_open', { url: `${base}/` });
   page = await session.getPage();
 });

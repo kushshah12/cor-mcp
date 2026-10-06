@@ -38,7 +38,7 @@ after(async () => {
 });
 
 async function call(name, args = {}) {
-  const result = await client.callTool({ name, arguments: args });
+  const result = await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args });
   return { isError: result.isError === true, text: expandGroups(result.content.map((c) => c.text).join('\n')) };
 }
 const open = (page) => call('cor_open', { url: `${base}/${page}` });

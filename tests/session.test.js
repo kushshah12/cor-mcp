@@ -74,7 +74,7 @@ async function connect(t, options = {}) {
     await session.close();
   });
   const call = async (name, args = {}) => {
-    const result = await client.callTool({ name, arguments: args });
+    const result = await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args });
     return { ...result, text: expandGroups(result.content.map((c) => c.text).join('\n')) };
   };
   return { session, call };

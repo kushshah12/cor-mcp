@@ -34,7 +34,7 @@ before(async () => {
   const server = createServer({ session });
   server.server.onclose = null;
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
-  raw = async (name, args = {}) => (await client.callTool({ name, arguments: args })).content.map((c) => c.text).join('\n');
+  raw = async (name, args = {}) => (await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args })).content.map((c) => c.text).join('\n');
 });
 
 test('a row\'s scoped snapshot lists its cells by column, each with a ref', async () => {
@@ -76,6 +76,6 @@ test('a template names the every-item locator, to loop over when the test covers
 test('the instructions: loop for "every" scenarios; listed values only for named items; tables via the row', async () => {
   const text = client.getInstructions();
   assert.doesNotMatch(text, /use the listed values as test data when a data-driven test fits/);
-  assert.match(text, /When the test covers every item .* loop over the Every item locator instead of typing the values/);
-  assert.match(text, /To read a table value, cor_snapshot within the row's name — it lists the row's cells by column with refs — then cor_inspect the cell/);
+  assert.match(text, /when the test covers every item, loop over the every-item locator instead of typing the values/); // P4 wording
+  assert.match(text, /cor_snapshot within a region for its text, controls and entries/); // P4: a row's within reply carries its cells' entry
 });

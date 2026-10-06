@@ -22,7 +22,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
     - "Water Bottle": e10
 - textbox "Email" [ref=e11]
 - button "Subscribe" [ref=e12]
---- cor_inspect {"selector":"[data-test=\"sort\"]"} (1207 chars)
+--- cor_inspect {"selector":"[data-test=\"sort\"]"} (1194 chars)
 Best locator (playwright):
   page.getByRole('combobox', { name: 'Sort' })
   Point-in-time — true on this page now: 79 Good · 1 match
@@ -31,7 +31,7 @@ Best locator (playwright):
   - Coupled to a label / accessible name
 
 Entry — place in tests/pages/inventory.page.js, member sort (cor_check reads the cor: id; keep the comment):
-  // COR cor:000001 · 79 Good · 1 match
+  // COR cor:000001 · sort
   sort = () => this.page.getByRole('combobox', { name: 'Sort' });
 
 Why this order: Ranked role=combobox, name=Sort (score 79) above [data-test="sort"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
@@ -44,7 +44,7 @@ Alternatives:
 2. page.getByTestId('sort')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_inspect {"selector":"[data-test=\"add-to-cart-pen\"]"} (2051 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-pen\"]"} (2043 chars)
 Recommended — parameterised: 4 items share this shape; every value checked, each finds exactly its own item (4/4).
   Proof: counted by Playwright, every value.
   title = "Gel Pen"   (also: "Coffee Mug", "Baseball Cap", "Logo T-Shirt")
@@ -61,7 +61,7 @@ For this one item alone (playwright):
   + Short and shallow
 
 Entry — place in tests/pages/inventory.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
-  // COR cor:000002 · 4/4 items checked
+  // COR cor:000002 · addToCart
   addToCart = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true });
 Facts:
   • 3 other visible button "Add to cart"s look the same
@@ -74,7 +74,7 @@ Alternatives:
 2. page.locator('button[data-test="add-to-cart-pen"][name="add-to-cart-pen"]')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_inspect {"selector":"[data-test=\"add-to-cart-cap\"]"} (2051 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-cap\"]"} (2043 chars)
 Recommended — parameterised: 4 items share this shape; every value checked, each finds exactly its own item (4/4).
   Proof: counted by Playwright, every value.
   title = "Baseball Cap"   (also: "Coffee Mug", "Gel Pen", "Logo T-Shirt")
@@ -91,7 +91,7 @@ For this one item alone (playwright):
   + Short and shallow
 
 Entry — place in tests/pages/inventory.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
-  // COR cor:000003 · 4/4 items checked
+  // COR cor:000003 · addToCart
   addToCart = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true });
 Facts:
   • 3 other visible button "Add to cart"s look the same
@@ -127,12 +127,12 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
     - "Water Bottle": e21
 - textbox "Email" [ref=e22]
 - button "Subscribe" [ref=e23]
---- cor_heal {"id":"000001"} (473 chars)
+--- cor_heal {"id":"000001"} (462 chars)
 Heal for cor:000001 (recorded {date}).
 Evidence: stored role locator role=combobox, name=Sort still finds exactly one element, and it matches the recorded fingerprint (100% of a full match).
 Proposed — not applied. Replace the entry with (same id):
   Entry — place in tests/pages/inventory.page.js, member sortBy (cor_check reads the cor: id; keep the comment):
-    // COR cor:000001 · 79 Good · 1 match
+    // COR cor:000001 · sortBy
     sortBy = () => this.page.getByRole('combobox', { name: 'Sort' });
 --- cor_heal {"id":"000002"} (306 chars)
 [error] Heal for cor:000002 (recorded {date}).

@@ -9,7 +9,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
 - textbox "Username" [ref=e1] ✓id
 - textbox "Password" [ref=e2] ✓id
 - button "Login" [ref=e3] ✓id
---- cor_inspect {"selector":"[data-test=\"login-button\"]"} (1236 chars)
+--- cor_inspect {"selector":"[data-test=\"login-button\"]"} (1230 chars)
 Best locator (playwright):
   page.getByRole('button', { name: 'Login' })
   Point-in-time — true on this page now: 79 Good · 1 match
@@ -18,7 +18,7 @@ Best locator (playwright):
   - Coupled to a label / accessible name
 
 Entry — place in tests/pages/login.page.js, member loginButton (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 79 Good · 1 match
+  // COR cor:{id} · loginButton
   loginButton = () => this.page.getByRole('button', { name: 'Login' });
 
 Why this order: Ranked role=button, name=Login (score 79) above [data-test="login-button"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
@@ -37,18 +37,18 @@ Refs: 3 still valid.
 --- cor_fill {"target":"[data-test=\"password\"]","value":"wrong"} (51 chars)
 Filled [data-test="password"].
 Refs: 3 still valid.
---- cor_click {"target":"[data-test=\"login-button\"]"} (546 chars)
+--- cor_click {"target":"[data-test=\"login-button\"]"} (554 chars)
 Clicked [data-test="login-button"]. Now at {base}/app/login.html — "COR Shop â€” Sign in"
 Text:
 + "Username and password do not match" [ref=e4]
 Refs: 3 still valid.
 
 Entries — place in tests/pages/login.page.js (keep each // COR comment: cor_check reads the ids):
-e4 → error
-  // COR cor:{id} · 79 Good · 1 match
+e4 → error — 79 Good · 1 match
+  // COR cor:{id} · error
   error = () => this.page.getByRole('alert');
 Assert what this changed — the new or changed text, the URL, that gone items are no longer displayed (hidden or removed: "not displayed" holds for both) — not only that an element exists.
---- cor_inspect {"selector":"[data-test=\"error\"]"} (1077 chars)
+--- cor_inspect {"selector":"[data-test=\"error\"]"} (1065 chars)
 Best locator (playwright):
   page.getByRole('alert')
   Point-in-time — true on this page now: 79 Good · 1 match
@@ -56,7 +56,7 @@ Best locator (playwright):
   + Short and shallow
 
 Entry — place in tests/pages/login.page.js, member error (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 79 Good · 1 match
+  // COR cor:{id} · error
   error = () => this.page.getByRole('alert');
 
 Why this order: Ranked role=alert (score 79) above [data-test="error"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
@@ -72,7 +72,7 @@ Alternatives:
 --- cor_fill {"target":"[data-test=\"password\"]","value":"secret"} (51 chars)
 Filled [data-test="password"].
 Refs: 4 still valid.
---- cor_click {"target":"[data-test=\"login-button\"]"} (851 chars)
+--- cor_click {"target":"[data-test=\"login-button\"]"} (880 chars)
 Clicked [data-test="login-button"]. Now at {base}/app/inventory.html — "COR Shop â€” Products"
 The page navigated. Headings on the new page (cor_inspect one for the exact locator of text you assert on; cor_snapshot for its controls):
   h1 "Products" [ref=e5]
@@ -82,9 +82,9 @@ The page navigated. Headings on the new page (cor_inspect one for the exact loca
   h3 "Logo T-Shirt" [ref=e9]
 
 Entries — place in tests/pages/inventory.page.js (keep each // COR comment: cor_check reads the ids):
-e5 → productsHeading
-  // COR cor:{id} · 79 Good · 1 match
+e5 → productsHeading — 79 Good · 1 match
+  // COR cor:{id} · productsHeading
   productsHeading = () => this.page.getByRole('heading', { name: 'Products' });
-e6, e7, e8, e9 → cardName
-  // COR cor:{id} · 4/4 items checked
+e6, e7, e8, e9 → cardName — 4/4 items checked
+  // COR cor:{id} · cardName
   cardName = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).locator('h3.card__name');

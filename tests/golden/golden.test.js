@@ -63,7 +63,9 @@ async function connect(project, { records = false } = {}) {
   server.server.onclose = null;
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
   const call = async (name, args) => {
-    const r = await client.callTool({ name, arguments: args });
+    // P4: the cases record cor_inspect's full reply (detail) unless a case asks for the default with detail: false.
+    const full = name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args;
+    const r = await client.callTool({ name, arguments: full });
     return `${r.isError ? '[error] ' : ''}${r.content.map((c) => c.text).join('\n')}`;
   };
   return { call, close: () => { if (store) rmSync(cwd, { recursive: true, force: true }); return session.close(); } };

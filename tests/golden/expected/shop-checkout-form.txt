@@ -13,7 +13,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
 - textbox "Last name" [ref=e4] ✓id
 - textbox "Postal code" [ref=e5] ✓id
 - button "Continue" [ref=e6] ✓id
---- cor_inspect {"selector":"[data-test=\"postal-code\"]"} (1255 chars)
+--- cor_inspect {"selector":"[data-test=\"postal-code\"]"} (1248 chars)
 Best locator (playwright):
   page.getByRole('textbox', { name: 'Postal code' })
   Point-in-time — true on this page now: 79 Good · 1 match
@@ -22,7 +22,7 @@ Best locator (playwright):
   - Coupled to a label / accessible name
 
 Entry — place in tests/pages/checkout.page.js, member postalCode (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 79 Good · 1 match
+  // COR cor:{id} · postalCode
   postalCode = () => this.page.getByRole('textbox', { name: 'Postal code' });
 
 Why this order: Ranked role=textbox, name=Postal code (score 79) above [data-test="postal-code"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
@@ -35,14 +35,14 @@ Alternatives:
 2. page.getByTestId('postal-code')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_click {"target":"[data-test=\"continue\"]"} (544 chars)
+--- cor_click {"target":"[data-test=\"continue\"]"} (552 chars)
 Clicked [data-test="continue"]. Now at {base}/app/checkout.html — "COR Shop â€” Checkout"
 Text:
 + "Error: first name is required" [ref=e7]
 Refs: 6 still valid.
 
 Entries — place in tests/pages/checkout.page.js (keep each // COR comment: cor_check reads the ids):
-e7 → error
-  // COR cor:{id} · 79 Good · 1 match
+e7 → error — 79 Good · 1 match
+  // COR cor:{id} · error
   error = () => this.page.getByRole('alert');
 Assert what this changed — the new or changed text, the URL, that gone items are no longer displayed (hidden or removed: "not displayed" holds for both) — not only that an element exists.

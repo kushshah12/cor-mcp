@@ -39,7 +39,7 @@ async function connect(t, framework) {
   server.server.onclose = null;
   await Promise.all([server.connect(s), client.connect(c)]);
   t.after(() => client.close());
-  return { dir, call: async (name, args = {}) => { const r = await client.callTool({ name, arguments: args }); return { isError: r.isError === true, text: r.content.map((x) => x.text).join('\n') }; } };
+  return { dir, call: async (name, args = {}) => { const r = await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args }); return { isError: r.isError === true, text: r.content.map((x) => x.text).join('\n') }; } };
 }
 const refOf = (text, re) => re.exec(text)?.[1];
 
@@ -58,7 +58,7 @@ for (const fw of ['playwright', 'cypress', 'webdriverio']) {
     const out = (await call('cor_inspect', { targets: [teams, individuals, annual] })).text;
     assert.match(out, LABEL[fw].group, out);
     assert.match(out, LABEL[fw].single, out);
-    const ids = [...out.matchAll(/cor:([0-9a-f]{6}) · label — the input is hidden: click this, assert (\w+)'s checked state/g)];
+    const ids = [...out.matchAll(/cor:([0-9a-f]{6}) · \w+Label · label — the input is hidden: click this, assert (\w+)'s checked state/g)];
     assert.equal(ids.length, 2, out);
     for (const [, id, member] of ids) assert.match(out, new RegExp(`cor:${id} · [^\\n]*\\n {2}(?:const \\w+ = [^\\n]*\\n(?: {4}[^\\n]*\\n)* {2}// COR cor:${id}[^\\n]*\\n {2})?${member} =`), `the label member shares ${member}'s id`);
     if (fw === 'webdriverio') assert.doesNotMatch(out, /billAnnuallyInput = \(\) => \$\('aria\//, 'aria/ never leads for a hidden input');

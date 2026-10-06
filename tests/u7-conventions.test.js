@@ -98,7 +98,7 @@ async function connect(t, cwd) {
   server.server.onclose = null;
   await Promise.all([server.connect(s), client.connect(c)]);
   t.after(() => client.close());
-  return async (name, args = {}) => (await client.callTool({ name, arguments: args })).content.map((x) => x.text).join('\n');
+  return async (name, args = {}) => (await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args })).content.map((x) => x.text).join('\n');
 }
 
 test('U7 (R18) order: testid-first in cor.config.js makes the test id lead under Playwright; cor_open says so', async (t) => {

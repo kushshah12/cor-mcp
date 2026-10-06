@@ -39,7 +39,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
   - link "X" [ref=e28] ✓id
   - link "Facebook" [ref=e29] ✓id
   - link "LinkedIn" [ref=e30] ✓id
---- cor_inspect {"selector":"[data-test=\"product-sort-container\"]","framework":"cypress"} (888 chars)
+--- cor_inspect {"selector":"[data-test=\"product-sort-container\"]","framework":"cypress"} (886 chars)
 Best locator (cypress):
   cy.get('[data-test="product-sort-container"]')
   Point-in-time — true on this page now: 99 Excellent · 1 match
@@ -47,7 +47,7 @@ Best locator (cypress):
   + Short and shallow
 
 Entry — place in tests/pages/saucedemoInventory.page.js, member productSortContainer (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 99 Excellent · 1 match
+  // COR cor:{id} · productSortContainer
   productSortContainer = () => cy.get('[data-test="product-sort-container"]');
 Framework convention applied: cypress (published guidance).
 
@@ -58,7 +58,7 @@ Alternatives:
 2. cy.get('select[data-test="product-sort-container"]')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_inspect {"selector":"[data-test=\"product-sort-container\"]"} (1347 chars)
+--- cor_inspect {"selector":"[data-test=\"product-sort-container\"]"} (1350 chars)
 Best locator (playwright):
   page.getByRole('combobox', { name: 'Sort products' })
   Point-in-time — true on this page now: 79 Good · 1 match
@@ -67,7 +67,7 @@ Best locator (playwright):
   - Coupled to a label / accessible name
 
 Entry — place in tests/pages/saucedemoInventory.page.js, member productSortContainer (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 79 Good · 1 match
+  // COR cor:{id} · productSortContainer
   productSortContainer = () => this.page.getByRole('combobox', { name: 'Sort products' });
 
 Why this order: Ranked role=combobox, name=Sort products (score 79) above [data-test="product-sort-container"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.

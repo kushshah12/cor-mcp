@@ -75,7 +75,7 @@ export function scanLocators(text, framework = null) {
     let helper = false; // an entry's helper (Cypress/WebdriverIO) carries its member's id: `// COR cor:… · helper, once per file`
     for (let k = start - 1; !id && k >= 0 && COMMENT.test(lines[k]); k--) {
       id = ID_PATTERN.exec(lines[k])?.[1] ?? null;
-      if (id) { helper = /\bhelper\b/.test(lines[k]); label = /· label\b/.test(lines[k]); }
+      if (id) { helper = /\bhelper\b/.test(lines[k]); label = /· label —/.test(lines[k]); }
     }
     out.push({ line: start + 1, statement: statement.trim(), id, helper, label, positional: bannedIn(statement, framework), expression: rootedExpression(statement) });
   }

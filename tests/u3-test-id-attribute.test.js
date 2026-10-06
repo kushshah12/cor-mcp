@@ -61,7 +61,7 @@ async function connect(t, cwd) {
   server.server.onclose = null;
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
   t.after(() => client.close());
-  return async (name, args = {}) => (await client.callTool({ name, arguments: args })).content.map((c) => c.text).join('\n');
+  return async (name, args = {}) => (await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args })).content.map((c) => c.text).join('\n');
 }
 
 test('U3 (AE7) configured data-test: getByTestId counts the items, and inspect renders getByTestId', async (t) => {

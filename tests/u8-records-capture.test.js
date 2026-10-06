@@ -63,7 +63,7 @@ async function connect(t, records) {
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
   t.after(() => client.close());
   const call = async (name, args = {}) => {
-    const result = await client.callTool({ name, arguments: args });
+    const result = await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args });
     return expandGroups(result.content.map((c) => c.text).join('\n'));
   };
   await call('cor_open', { url: `${base}/account`, storageState: statePath });

@@ -50,7 +50,7 @@ async function connect(t) {
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
   t.after(() => client.close());
   return async (name, args = {}) => {
-    const result = await client.callTool({ name, arguments: args });
+    const result = await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args });
     return { isError: result.isError === true, text: expandGroups(result.content.map((c) => c.text).join('\n')) };
   };
 }
@@ -108,7 +108,8 @@ test('AE1: an ambiguous element gets a uniquely-resolving top pick and says what
   const { refOf } = await openAndSnapshot(call, 'shapes.html');
   const out = await call('cor_inspect', { ref: refOf(/item "Blue Cap" › button "Remove"/) });
   // P2a fix: the single-item form here is a partial-text filter, so the template is the answer (each item counted).
-  assert.match(out.text, /\/\/ COR cor:[0-9a-f]{6} · 3\/3 items checked\n  remove = \(value\) =>/);
+  assert.match(out.text, /\/\/ COR cor:[0-9a-f]{6} · remove\n  remove(?: = |: \(page, )/); // P4: the comment names the member
+  assert.match(out.text, /each finds exactly its own item \(3\/3\)/);
   assert.match(out.text, /Why this order: Demoted .*Matches 3 elements/);
 });
 

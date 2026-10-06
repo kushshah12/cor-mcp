@@ -86,7 +86,7 @@ async function connect(t, dir) {
   server.server.onclose = null;
   await Promise.all([server.connect(s), client.connect(c)]);
   t.after(() => client.close());
-  return { records, call: async (name, args = {}) => { const r = await client.callTool({ name, arguments: args }); return { isError: r.isError === true, text: r.content.map((x) => x.text).join('\n') }; } };
+  return { records, call: async (name, args = {}) => { const r = await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args }); return { isError: r.isError === true, text: r.content.map((x) => x.text).join('\n') }; } };
 }
 const CY = { cypress: '13' };
 const entryOf = (text) => text.slice(text.indexOf('Entry —')).split('\n\n')[0];
@@ -108,7 +108,7 @@ test('P1 a split-header table: the cell entry is the header-name helper (Cypress
     await call('cor_open', { url: `${base}/p1-split-header` });
     const entry = entryOf((await call('cor_inspect', { selector: 'table.body tr:nth-child(2) td:nth-child(3)' })).text);
     assert.match(entry, use, entry);
-    assert.match(entry, /cor:[0-9a-f]{6} · 7\/7 items checked/, 'the proof is the template\'s, on the template\'s own code');
+    assert.match(entry, /cor:[0-9a-f]{6} · cellAt\n/, 'P4: the comment names the member; the template\'s proof (7/7) is the reply\'s, on its own code');
     assert.doesNotMatch(entry, /nth-of-type|td\[3\]|cy\.xpath|\(\) => \(feature/, entry);
   }
 });

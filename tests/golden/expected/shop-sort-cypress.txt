@@ -22,7 +22,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
     - "Water Bottle": e10
 - textbox "Email" [ref=e11]
 - button "Subscribe" [ref=e12]
---- cor_inspect {"selector":"[data-test=\"sort\"]","framework":"cypress"} (774 chars)
+--- cor_inspect {"selector":"[data-test=\"sort\"]","framework":"cypress"} (756 chars)
 Best locator (cypress):
   cy.get('[data-test="sort"]')
   Point-in-time — true on this page now: 99 Excellent · 1 match
@@ -30,7 +30,7 @@ Best locator (cypress):
   + Short and shallow
 
 Entry — place in tests/pages/inventory.page.js, member sort (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 99 Excellent · 1 match
+  // COR cor:{id} · sort
   sort = () => cy.get('[data-test="sort"]');
 Framework convention applied: cypress (published guidance).
 
@@ -41,7 +41,7 @@ Alternatives:
 2. cy.get('#sort')
    93 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_inspect {"selector":"[data-test=\"sort\"]","framework":"webdriverio"} (1145 chars)
+--- cor_inspect {"selector":"[data-test=\"sort\"]","framework":"webdriverio"} (1132 chars)
 Best locator (webdriverio):
   await $('aria/Sort')
   Point-in-time — true on this page now: 79 Good · 1 match
@@ -50,7 +50,7 @@ Best locator (webdriverio):
   - Coupled to a label / accessible name
 
 Entry — place in tests/pages/inventory.page.js, member sort (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 79 Good · 1 match
+  // COR cor:{id} · sort
   sort = () => $('aria/Sort');
 
 Why this order: Ranked aria/Sort (score 79) above [data-test="sort"] (score 99) — webdriverio guidance prefers role over testId. Both resolve to exactly one element.

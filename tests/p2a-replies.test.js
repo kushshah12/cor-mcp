@@ -31,7 +31,7 @@ async function connect(t, { cwd = new URL('./golden/projects/empty/', import.met
   server.server.onclose = null;
   await Promise.all([server.connect(s), client.connect(c)]);
   t.after(() => client.close());
-  return async (name, args = {}) => { const r = await client.callTool({ name, arguments: args }); return { isError: r.isError === true, text: r.content.map((x) => x.text).join('\n') }; };
+  return async (name, args = {}) => { const r = await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args }); return { isError: r.isError === true, text: r.content.map((x) => x.text).join('\n') }; };
 }
 const refOf = (text, re) => re.exec(text)?.[1];
 
@@ -44,9 +44,9 @@ test('P2a cor_inspect targets: one call, one entry each; a template\'s items sha
   const sales = refOf(snap, /section "Volume" › button "Contact Sales" \[ref=(e\d+)\]/);
   const out = (await call('cor_inspect', { targets: [alice, bob, sales, 'e99', '#nope'] })).text;
   assert.match(out, /^Entries — place in tests\/pages\/pricing\.page\.js/);
-  assert.match(out, new RegExp(`^${alice}, ${bob} → delete$`, 'm'), 'both items under one template entry');
-  assert.equal((out.match(/· 2\/2 items checked/g) ?? []).length, 1);
-  assert.match(out, new RegExp(`^${sales} → contactSalesButton$`, 'm'));
+  assert.match(out, new RegExp(`^${alice}, ${bob} → delete — 2/2 items checked$`, 'm'), 'both items under one template entry');
+  assert.equal((out.match(/— 2\/2 items checked/g) ?? []).length, 1); // P4: the proof is on the entry's first line
+  assert.match(out, new RegExp(`^${sales} → contactSalesButton — \\d+ \\w+ · 1 match$`, 'm'));
   assert.match(out, /^e99 ✗ Ref e99 does not exist/m);
   assert.match(out, /^#nope ✗ No element matches "#nope"/m);
   assert.doesNotMatch(out, /Alternatives:|Why this order|Durable —/, 'entries only — the detail is for one ref alone');
@@ -58,7 +58,7 @@ test('P2a cor_inspect targets: two elements named alike get two member names', a
   await call('cor_open', { url: `${base}/pricing` });
   const snap = (await call('cor_snapshot')).text;
   const out = (await call('cor_inspect', { targets: [refOf(snap, /"Item 1": (e\d+)/), refOf(snap, /"Item 2": (e\d+)/)] })).text;
-  const members = [...out.matchAll(/→ (\w+)$/gm)].map((m) => m[1]);
+  const members = [...out.matchAll(/→ (\w+) — /gm)].map((m) => m[1]);
   assert.equal(new Set(members).size, members.length, out);
 });
 
@@ -69,7 +69,7 @@ test('P2a an act reply carries the entry for what it showed: open an FAQ answer 
   const out = (await call('cor_click', { ref: refOf(snap, /clickable "Can I get invoices\?" \[ref=(e\d+)\]/) })).text;
   const answer = refOf(out, /\+ "Yes, from the billing page\." \[ref=(e\d+)\]/);
   assert.ok(answer, out);
-  assert.match(out, new RegExp(`^${answer} → faqItemAnswer$`, 'm'), 'named by its class, not by one answer\'s words');
+  assert.match(out, new RegExp(`^${answer} → faqItemAnswer — 3/3 items checked$`, 'm'), 'named by its class, not by one answer\'s words');
   assert.match(out, /faqItemAnswer = \(question\) => this\.page\.locator\('div\.faq-item'\)/);
 });
 
@@ -80,8 +80,8 @@ test('P2a cor_snapshot within carries the region\'s entries after its lines', as
   const [region, entries] = out.split('\nEntries —');
   assert.match(region, /text "\$150 \/ month" \[ref=e\d+\]/);
   assert.ok(entries, out);
-  assert.match(entries, /→ cardPrice\n {2}\/\/ COR cor:[0-9a-f]{6} · 2\/2 items checked/);
-  assert.match(entries, /→ choose\n/);
+  assert.match(entries, /→ cardPrice — 2\/2 items checked\n {2}\/\/ COR cor:[0-9a-f]{6} · cardPrice\n/);
+  assert.match(entries, /\n… \d+ more: cor_inspect targets: \["e\d+"/, 'P4: past 5 entries the rest are refs to ask for');
 });
 
 test('P2a member names: a name that differs per item is not the member name; a constant label is', () => {

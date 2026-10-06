@@ -39,7 +39,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
   - link "X" [ref=e28] ✓id
   - link "Facebook" [ref=e29] ✓id
   - link "LinkedIn" [ref=e30] ✓id
---- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]","framework":"cypress"} (2333 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-sauce-labs-backpack\"]","framework":"cypress"} (2317 chars)
 Recommended — parameterised: 6 items share this shape; every value checked, each finds exactly its own item (6/6).
   Proof: emulated — not run in Cypress. The template was checked in the page for every value; its Cypress idioms were not conformance-tested on this version.
   name = "Sauce Labs Backpack"   (also: "Sauce Labs Bike Light", "Sauce Labs Bolt T-Shirt", "Sauce Labs Fleece Jacket", "Sauce Labs Onesie", … 1 more)
@@ -59,12 +59,12 @@ For this one item alone (cypress):
   + Short and shallow
 
 Entry — place in tests/pages/saucedemoInventory.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 6/6 items checked · helper, once per file (module scope)
+  // COR cor:{id} · addToCart · helper, once per file (module scope)
   const inventoryItem = (name) =>
     cy.get('[data-test="inventory-item"]')
       .contains('[data-test="inventory-item-name"]', new RegExp(`^\\s*${Cypress._.escapeRegExp(name)}\\s*$`))
       .closest('[data-test="inventory-item"]');
-  // COR cor:{id} · 6/6 items checked
+  // COR cor:{id} · addToCart
   addToCart = (name) => inventoryItem(name).find('button[data-test^="add-to-cart-"]');
 Facts:
   • 5 other visible button "Add to cart"s look the same

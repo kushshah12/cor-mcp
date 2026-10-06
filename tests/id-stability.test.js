@@ -50,7 +50,7 @@ async function fresh(t) {
   await call('cor_open', { url: `${base}/form` });
 }
 async function call(name, args = {}) {
-  const result = await client.callTool({ name, arguments: args });
+  const result = await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args });
   return { isError: result.isError === true, text: expandGroups(result.content.map((c) => c.text).join('\n')) };
 }
 const currentEmailId = async () => (await session.getPage()).getAttribute('input', 'id');

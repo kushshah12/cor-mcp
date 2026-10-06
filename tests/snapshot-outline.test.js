@@ -37,7 +37,7 @@ after(async () => {
   site.close();
 });
 
-const call = async (name, args = {}) => expandGroups((await client.callTool({ name, arguments: args })).content.map((c) => c.text).join('\n'));
+const call = async (name, args = {}) => expandGroups((await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args })).content.map((c) => c.text).join('\n'));
 
 /** Each element line with its full path: `table › row "Alice" › button "Edit" [ref=e5]`. */
 function paths(text) {

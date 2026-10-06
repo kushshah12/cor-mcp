@@ -60,7 +60,7 @@ async function connect(t) {
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
   t.after(() => client.close());
   return async (name, args = {}) => {
-    const r = await client.callTool({ name, arguments: args });
+    const r = await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args });
     return { isError: r.isError === true, text: r.content.map((c) => c.text).join('\n') };
   };
 }
@@ -186,7 +186,7 @@ test('the instructions ask for every locator from COR, no partial text, and outc
   assert.match(INSTRUCTIONS, /including elements you only assert on/);
   assert.match(INSTRUCTIONS, /Never match by partial text \(\*=, a substring cy\.contains/);
   assert.match(INSTRUCTIONS, /Assert what an action changed/);
-  assert.match(INSTRUCTIONS, /Keep the page open — no cor_close — until you have graded them/);
+  assert.match(INSTRUCTIONS, /keep the page open — no cor_close — until you have graded them/);
   assert.match(INSTRUCTIONS, /retrying assertion, not a fixed sleep/);
 });
 

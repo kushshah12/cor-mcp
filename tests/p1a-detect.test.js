@@ -136,7 +136,7 @@ async function connect(t, cwd) {
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
   t.after(() => client.close());
   return async (name, args = {}) => {
-    const r = await client.callTool({ name, arguments: args });
+    const r = await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args });
     return r.content.map((c) => c.text).join('\n');
   };
 }

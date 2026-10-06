@@ -30,7 +30,7 @@ before(async () => {
   const server = createServer({ session });
   server.server.onclose = null;
   await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
-  raw = async (name, args = {}) => (await client.callTool({ name, arguments: args })).content.map((c) => c.text).join('\n');
+  raw = async (name, args = {}) => (await client.callTool({ name, arguments: name === 'cor_inspect' && !args.targets && !('detail' in args) ? { ...args, detail: true } : args })).content.map((c) => c.text).join('\n');
 });
 
 const fresh = async () => {
@@ -81,7 +81,7 @@ test('the instructions tell the agent to read what an act changed instead of wri
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'i', version: '0' });
   await Promise.all([createServer({ session }).connect(serverSide), client.connect(clientSide)]);
-  assert.match(client.getInstructions(), /To see what an action changes .* read the reply of cor_click, cor_fill or cor_press/);
+  assert.match(client.getInstructions(), /To see what an action changes, act with cor_click, cor_fill or cor_press and read the reply/); // P4 wording
 });
 
 test('a control whose own text changes is reported once, as a control — not again as text', async () => {

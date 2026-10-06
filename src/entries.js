@@ -67,12 +67,16 @@ export function entryFor({ result, lead, helper, framework, conventions, typescr
   const store = conventions.store.value;
   const ext = typescript ? 'ts' : 'js';
   const file = `${conventions.storeDir.value}/${STORE_FILE[store](pageName(url), ext)}`;
-  const member = memberName(result, lead);
+  // P4: a helper that reaches only the item (no form for the element inside held in every item) returns the item — the
+  // member is named for what it returns (`card`), not for the inspected button.
+  const itemOnly = framework !== 'playwright' && Boolean(helper) && lead && !['group', 'cell'].includes(lead.kind) && helperUse(helper) === helper.call;
+  const member = itemOnly ? /^(\w+)\(/.exec(helper.call)[1] : memberName(result, lead);
   const [best] = result.locators;
   const grade = lead
     ? `${lead.counted ?? lead.count}/${lead.counted ?? lead.count} ${lead.kind === 'group' ? 'options' : 'items'} checked`
-    : `${best.score} ${best.tierLabel} · 1 match`;
-  const tag = `COR cor:${id} · ${grade}`;
+    : best ? `${best.score} ${best.tierLabel} · 1 match` : null; // no locator at all: the entry is a decline
+  // P4: the comment names the member, never a grade or count — those go stale; the record keeps the grade, cor_check reports it.
+  const tag = `COR cor:${id} · ${member}`;
   const p = lead?.param;
   const pTyped = p ? `${p}${typescript ? ': string' : ''}` : '';
   const head = `Entry — place in ${file}, member ${member} (cor_check reads the cor: id; keep the comment):`;
@@ -88,12 +92,12 @@ export function entryFor({ result, lead, helper, framework, conventions, typescr
     const value = lead
       ? lead.template?.xpath?.selectorTemplate?.replace(new RegExp(`__${p}__`, 'g'), `{${p}}`)
       : result.locators.find((l) => l.resolution?.usable !== false && isPlainSelector(l.value))?.value;
-    if (!value) return { lines: [`Entry: no plain CSS or XPath string reaches this element for a ${store.toUpperCase()} map — keep it in code (cor.config.js locators.store) or add a test attribute.`, ''], member, file, store };
+    if (!value) return { lines: [`Entry: no plain CSS or XPath string reaches this element for a ${store.toUpperCase()} map — keep it in code (cor.config.js locators.store) or add a test attribute.`, ''], member, file, store, proof: grade };
     const lines = store === 'json'
       ? [head, `  ${JSON.stringify(member)}: ${JSON.stringify(value)}`, `  .cor/ids.json: ${JSON.stringify(`${file}#${member}`)} → "${id}" (written by COR; JSON holds no comments)`]
       : [head, `  # ${tag}`, `  ${member}: ${JSON.stringify(value)}`];
     if (lead) lines.push(`  {${p}} is replaced by the exact ${p} — the XPath compares it as text, so quote it as an XPath literal.`);
-    return { lines: [...lines, ''], member, file, store };
+    return { lines: [...lines, ''], member, file, store, proof: grade };
   }
 
   const comment = `  // ${tag}`;
@@ -124,10 +128,10 @@ export function entryFor({ result, lead, helper, framework, conventions, typescr
       ? helper.uses.find((u) => /\.click\(\)\s*$/.test(u))?.replace(/\s*\.click\(\)\s*$/, '')
       : lead ? null : labelCode;
   const click = labelUse ? [
-    `  // COR cor:${id} · label — the input is hidden: click this, assert ${member}'s checked state`,
+    `  // COR cor:${id} · ${member}Label · label — the input is hidden: click this, assert ${member}'s checked state`,
     framework === 'playwright' && store !== 'page-object-class'
       ? `  ${member}Label: (page${p ? `, ${pTyped}` : ''}) => ${labelUse},`
       : `  ${member}Label${store === 'page-object-class' ? ' =' : ':'} (${p ? pTyped : ''}) => ${indent(framework === 'playwright' ? labelUse.replace(/\bpage\./g, 'this.page.') : labelUse)}${store === 'page-object-class' ? ';' : ','}`,
   ] : [];
-  return { lines: [head, ...preamble, comment, body, ...click, ''], member, file, store, preamble, comment, body, click };
+  return { lines: [head, ...preamble, comment, body, ...click, ''], member, file, store, preamble, comment, body, click, proof: grade, itemOnly };
 }

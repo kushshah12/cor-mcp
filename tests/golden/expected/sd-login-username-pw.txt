@@ -10,7 +10,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
   - textbox "Username" [ref=e1] ✓id
   - textbox "Password" [ref=e2] ✓id
   - button "Login" [ref=e3] ✓id
---- cor_inspect {"selector":"[data-test=\"username\"]"} (1259 chars)
+--- cor_inspect {"selector":"[data-test=\"username\"]"} (1250 chars)
 Best locator (playwright):
   page.getByRole('textbox', { name: 'Username' })
   Point-in-time — true on this page now: 79 Good · 1 match
@@ -19,7 +19,7 @@ Best locator (playwright):
   - Coupled to a label / accessible name
 
 Entry — place in tests/pages/saucedemoLogin.page.js, member username (cor_check reads the cor: id; keep the comment):
-  // COR cor:{id} · 79 Good · 1 match
+  // COR cor:{id} · username
   username = () => this.page.getByRole('textbox', { name: 'Username' });
 
 Why this order: Ranked role=textbox, name=Username (score 79) above [data-test="username"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
