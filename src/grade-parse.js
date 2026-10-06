@@ -69,14 +69,25 @@ function reader(src, param = null) {
   function string() {
     const quote = src[i++];
     let out = '';
+    const parts = []; // P5: a template literal filled only with the parameter — text, null (the value), text, …
     while (i < src.length && src[i] !== quote) {
       if (src[i] === '\\') { out += src[i + 1] ?? ''; i += 2; continue; }
-      if (quote === '`' && src[i] === '$' && src[i + 1] === '{') fail('a template literal with ${…} depends on runtime values');
+      if (quote === '`' && src[i] === '$' && src[i + 1] === '{') {
+        const close = src.indexOf('}', i);
+        const expr = close < 0 ? '' : src.slice(i + 2, close).trim();
+        if (!param) fail(`a template literal with \${${expr || '…'}} depends on runtime values — pass param: "${expr || 'name'}" (and values) to grade it across them`);
+        if (expr !== param) fail(`a template literal with \${${expr}} — only \${${param}} is filled in`);
+        parts.push(out, null);
+        out = '';
+        usedParam = true;
+        i = close + 1;
+        continue;
+      }
       out += src[i++];
     }
     if (src[i] !== quote) fail('an unterminated string');
     i++;
-    return out;
+    return parts.length ? { kind: 'template', parts: [...parts, out] } : out;
   }
 
   function regex() {
@@ -218,6 +229,7 @@ function reader(src, param = null) {
 function buildChain(page, { calls }, value) {
   const resolve = (v) => {
     if (v && v.kind === 'param') return value;
+    if (v && v.kind === 'template') return v.parts.map((x) => (x === null ? value : x)).join('');
     if (v && v.kind === 'locator') return buildChain(page, v, value);
     if (v && typeof v === 'object' && !(v instanceof RegExp)) return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, resolve(x)]));
     return v;
@@ -276,6 +288,15 @@ export function parseGradable(input, { param = null, framework = null } = {}) {
   const src = String(input ?? '').trim().replace(/;$/, '').replace(/^await\s+/, '').trim();
   if (!src) throw new NotGradable('it is empty');
 
+  // P5: Cypress and WebdriverIO across a parameter — each value is filled in (a bare name or `${param}` in a template
+  // literal), then the literal form is read as usual. Values must be given: there is no first CSS step to find them by.
+  if (param && /^(?:cy\s*\.|\$)/.test(src)) {
+    const probe = substituteParam(src, param, '\u0001');
+    const fw = src.startsWith('cy') ? 'cypress' : 'webdriverio';
+    parseGradable(probe, { framework: fw }); // throws NotGradable for a form it cannot read
+    return { framework: fw, usesParam: probe !== src, build: (page, v) => parseGradable(substituteParam(src, param, v), { framework: fw }).build(page), baseCss: null };
+  }
+
   // Cypress
   const cy = /^cy\s*\.\s*(get|contains)\s*(?=\()/.exec(src);
   if (cy) {
@@ -323,12 +344,12 @@ export function parseGradable(input, { param = null, framework = null } = {}) {
     if (rest) throw new NotGradable(`it has more after the locator (${rest.slice(0, 30)})`);
     const [base] = parsed.calls;
     if (base.args.length === 0) throw new NotGradable(`${method}() has no argument`);
-    if (method === 'locator' && typeof base.args[0] !== 'string') throw new NotGradable('locator() needs a selector string');
+    if (method === 'locator' && typeof base.args[0] !== 'string' && base.args[0]?.kind !== 'template') throw new NotGradable('locator() needs a selector string');
     const build = (page, value) => buildChain(page, parsed, value);
     if (param) {
       // Across every value: the caller counts each; durability is graded on a
       // literal copy (substituteParam), so the chain description is not needed.
-      return { framework: 'playwright', usesParam: r.usedParam(), build, baseCss: method === 'locator' ? base.args[0] : null };
+      return { framework: 'playwright', usesParam: r.usedParam(), build, baseCss: method === 'locator' && typeof base.args[0] === 'string' ? base.args[0] : null };
     }
     if (parsed.calls.length === 1) {
       return {
@@ -378,6 +399,12 @@ export function substituteParam(src, param, value) {
   for (let i = 0; i < src.length; i++) {
     const ch = src[i];
     if (quote) {
+      // P5: `${param}` inside a template literal is filled with the value, escaped for that literal.
+      if (quote === '`' && src.startsWith(`\${${param}}`, i)) {
+        out += String(value).replace(/[\\`]/g, (c) => `\\${c}`).replace(/\$\{/g, '\\${');
+        i += param.length + 2;
+        continue;
+      }
       out += ch;
       if (ch === '\\') { out += src[++i] ?? ''; continue; }
       if (ch === quote) quote = null;

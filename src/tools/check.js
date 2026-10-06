@@ -139,7 +139,7 @@ export function checkTools(session, inspector, records = null) {
         if (fixes++ >= MAX_FIXES) return ['Fix the ones above and run cor_check again for this one.'];
         if (!page || !site.expression) return [`Open the page it targets (cor_open) and run cor_check again for COR's entry — or cor_inspect the element.`];
         let parsed;
-        try { parsed = parseGradable(site.expression, { framework: session.resolveFramework() ?? undefined }); } catch { return ['Not readable as a locator COR can run — cor_inspect the element and place its entry.']; }
+        try { parsed = parseGradable(site.expression, { framework: session.resolveFramework() ?? undefined }); } catch (error) { return [`Not readable as a locator COR can run (${error.message}) — cor_inspect the element and place its entry.`]; }
         let handle = null;
         try {
           const loc = parsed.build(page);

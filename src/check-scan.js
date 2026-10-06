@@ -18,6 +18,19 @@ const OPENS = /(?:\(|=>|[^=!<>]=|\|\||&&|\?\?)\s*$/; // P2a fix: `||` / `&&` too
 const ROOTED = /(?:this\.)?page\s*\.\s*(?:locator|getBy[A-Z]\w*)\s*\(|\bcy\s*\.\s*(?:get|contains)\s*\(|\$\$?\s*\(/;
 const STEP = /^\s*\.\s*(locator|getBy[A-Z]\w*|filter|first|last|nth|or|and|find|eq)\s*\(/;
 
+/** The line that opens the `{ … }` block holding line `at` (braces counted back, strings skipped), or -1 at top level. */
+function enclosingBlock(lines, at) {
+  let depth = 0;
+  for (let k = at - 1; k >= 0 && k >= at - 40; k--) {
+    const code = lines[k].replace(/(['"`])(?:\\.|(?!\1).)*\1/g, '""');
+    for (let j = code.length - 1; j >= 0; j--) {
+      if (code[j] === '}') depth++;
+      else if (code[j] === '{' && --depth < 0) return /=>\s*\{\s*$|\)\s*\{\s*$/.test(code) ? k : -1; // a function body, not a class or object
+    }
+  }
+  return -1;
+}
+
 /** The balanced `( … )` at `i` (src[i] === '('): its end index, skipping strings. */
 function closeParen(src, i) {
   let depth = 0;
@@ -76,6 +89,15 @@ export function scanLocators(text, framework = null) {
     for (let k = start - 1; !id && k >= 0 && COMMENT.test(lines[k]); k--) {
       id = ID_PATTERN.exec(lines[k])?.[1] ?? null;
       if (id) { helper = /\bhelper\b/.test(lines[k]); label = /· label —/.test(lines[k]); }
+    }
+    // P5: a locator inside a block body (`cellAt = (order, column) => { … return this.page.locator(…); }`) carries the id of
+    // the member or helper whose block holds it — the comment above the line that opens that block.
+    if (!id) {
+      const opener = enclosingBlock(lines, start);
+      for (let k = opener - 1; !id && opener > 0 && k >= 0 && COMMENT.test(lines[k]); k--) {
+        id = ID_PATTERN.exec(lines[k])?.[1] ?? null;
+        if (id) { helper = /\bhelper\b/.test(lines[k]); label = /· label —/.test(lines[k]); }
+      }
     }
     out.push({ line: start + 1, statement: statement.trim(), id, helper, label, positional: bannedIn(statement, framework), expression: rootedExpression(statement) });
   }
