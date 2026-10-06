@@ -65,6 +65,9 @@ export const CASES = [
   { id: 'p4-brief-hidden-wdio', project: 'wdio9', open: 'fixture/toggles', calls: [['cor_inspect', { selector: '#annual', detail: false }]] },
   { id: 'p4-brief-declined-pw', open: 'fixture/p1-no-durable', calls: [['cor_inspect', { selector: '.list > div:nth-child(2) .dot', detail: false }]] },
 
+  // ── P3 class page: a price anchored on a parent's data-* (the engine takes the ancestor name that narrows most) ──
+  { id: 'p3-parent-attr-pw', open: 'fixture/p3-parent-attr', calls: [['cor_inspect', { selector: '[data-plan-key=team] .price-amount', detail: false }]] },
+
   // ── P1 class pages: one per bug class, each entry must pass the shared positional / structural check ──
   { id: 'p1-split-header-cy', project: 'cy16', open: 'fixture/p1-split-header', calls: [['cor_inspect', { selector: 'table.body tr:nth-child(2) td:nth-child(3)' }]] },
   { id: 'p1-split-header-pw', open: 'fixture/p1-split-header', calls: [['cor_inspect', { selector: 'table.body tr:nth-child(2) td:nth-child(3)' }]] },
