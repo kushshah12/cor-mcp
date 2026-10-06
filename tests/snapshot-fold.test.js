@@ -108,7 +108,7 @@ test('a large section of form controls and a table is not folded — only link l
   const rows = Array.from({ length: 10 }, (_, i) => `<tr><td><input type="checkbox" aria-label="select ${i}"></td><td>User ${i}</td><td><a href="#u${i}">Edit</a></td></tr>`).join('');
   const menu = Array.from({ length: 60 }, (_, i) => `<button>Menu ${i}</button>`).join('');
   await page.setContent(`${menu}<h2>iframe and table</h2><div><input type="search" aria-label="Search"><select aria-label="Size"><option>10</option></select>${Array.from({ length: 5 }, (_, i) => `<button>Page ${i}</button>`).join('')}<table class="users">${rows}</table></div>`);
-  const snap = await raw('cor_snapshot');
+  const snap = await raw('cor_snapshot', { full: true }); // P2a: past 3k characters the default is the region index
   assert.doesNotMatch(snap, /folded/, snap);
   assert.match(snap, /checkbox "select 9"/);
   await page.goto(`${base}/`);

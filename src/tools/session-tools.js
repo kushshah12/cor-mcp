@@ -145,7 +145,7 @@ function focus(el) {
 }
 
 /** @param {ReturnType<import('../session.js').createSession>} session */
-export function sessionTools(session, inspector = null) {
+export function sessionTools(session, inspector = null, outline = null) {
   // Act tools never launch a browser onto about:blank — that only hides the missing step.
   const openPage = () => {
     if (!session.isOpen) throw new Error('No page is open — call cor_open with a URL first.');
@@ -180,7 +180,8 @@ export function sessionTools(session, inspector = null) {
         title: 'Open a page',
         description:
           'Open a URL in the COR-controlled browser. The browser starts on first use and is reused across calls. ' +
-          'For a page behind a login, pass a Playwright storage-state file so the existing session is adopted.',
+          'For a page behind a login, pass a Playwright storage-state file so the existing session is adopted. ' +
+          'The reply lists the page\'s controls with refs (on a large page, a region index) — no cor_snapshot needed first.',
         inputSchema: {
           url: z.string().url().describe('Page to open.'),
           storageState: z
@@ -200,7 +201,9 @@ export function sessionTools(session, inspector = null) {
         await page.waitForLoadState('load', { timeout: 5000 }).catch(() => {});
         await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
         const status = response ? ` (HTTP ${response.status()})` : '';
-        return text(`${await pageState(page)}${status}. Browser: ${session.browserLabel}.\n${session.frameworkLine}`);
+        // P2a: the page's outline (or region index) comes with the open — no separate cor_snapshot turn.
+        const shown = outline ? `\n\n${await outline(page).catch(() => 'cor_snapshot lists the page\'s controls.')}` : '';
+        return text(`${await pageState(page)}${status}. Browser: ${session.browserLabel}.\n${session.frameworkLine}${shown}`);
       },
     },
     {

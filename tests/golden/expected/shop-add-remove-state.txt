@@ -2,6 +2,26 @@
 Now at {base}/app/inventory.html — "COR Shop â€” Products" (HTTP 200). Browser: {browser}.
 Framework: Playwright — from cor.config.js.
 Locators: page objects in tests/pages/ (cor.config.js).
+
+"COR Shop â€” Products" {base}/app/inventory.html — 12 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>). "N items, each: …": every item has those controls; its line lists their refs in that order.
+
+- header
+  - link "COR Shop" [ref=e1]
+  - link "Cart, empty" [ref=e2]
+- combobox "Sort" = "Name" [ref=e3] ✓id
+- 4 items, each: button "Add to cart"
+  - "Coffee Mug": e4 ✓id
+  - "Gel Pen": e5 ✓id
+  - "Baseball Cap": e6 ✓id
+  - "Logo T-Shirt": e7 ✓id
+- section "Featured"
+  - 3 sections, each: link "Details"
+    - "Sticker Pack": e8
+    - "Tote Bag": e9
+    - "Water Bottle": e10
+- textbox "Email" [ref=e11]
+- button "Subscribe" [ref=e12]
 --- cor_inspect {"selector":"[data-test=\"add-to-cart-pen\"]"} (2049 chars)
 Recommended — parameterised: 4 items share this shape; every value checked, each finds exactly its own item (4/4).
   Proof: counted by Playwright, every value.
@@ -32,16 +52,16 @@ Alternatives:
 2. page.locator('button[data-test="add-to-cart-pen"][name="add-to-cart-pen"]')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_click {"target":"[data-test=\"add-to-cart-pen\"]"} (761 chars)
+--- cor_click {"target":"[data-test=\"add-to-cart-pen\"]"} (881 chars)
 Clicked [data-test="add-to-cart-pen"]. Now at {base}/app/inventory.html — "COR Shop â€” Products"
 Changes:
-+ item "Gel Pen": button "Remove" [ref=e1]
++ item "Gel Pen": button "Remove" [ref=e13]
 ~ link "Cart, 1 item": "Cart, empty" → "Cart, 1 item"
 - button "Add to cart"
-Refs: 0 still valid.
+Refs: 7 still valid; e4, e6, e7 re-bound to the re-rendered element; stale: e2 (changed what it shows or where it sits); e5 (was removed).
 
 Entries — place in tests/pages/inventory.page.js (keep each // COR comment: cor_check reads the ids):
-e1 → remove
+e13 → remove
   // COR cor:{id} · 4/4 items checked
   remove = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).locator('button.btn');
 Assert what this changed — the new or changed text, the URL, that gone items are no longer displayed (hidden or removed: "not displayed" holds for both) — not only that an element exists.

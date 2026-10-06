@@ -2,6 +2,10 @@
 Now at {base}/fixture/p1-no-durable — "No durable locator" (HTTP 200). Browser: {browser}.
 Framework: Cypress v16 — from ./package.json (cypress). Override with framework: "…".
 Locators: page objects in cypress/pages/ (default — no specs found).
+
+"No durable locator" {base}/fixture/p1-no-durable — 0 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
+
 --- cor_inspect {"selector":".list > div:nth-child(2) .dot"} (1855 chars)
 Recommendation: change the application — no durable locator exists for this element (best is Unstable).
 Add a test attribute (this requires an application change):

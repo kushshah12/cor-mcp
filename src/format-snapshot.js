@@ -178,6 +178,75 @@ export function renderSnapshot(snapshot, { unstableIds = new Set() } = {}) {
   return [head, legend, ...framesNote(snapshot.frames), '', ...lines].join('\n');
 }
 
+// ── region index (P2a) ──────────────────────────────────────────────────────
+// A large page's outline (BrowserStack pricing: 205 controls, 8.6k characters) is replaced by one line per region: its
+// name, how many controls it holds, and the named controls to act on first — toggles and fields, then buttons, then links.
+const INDEX_REGION_MAX = 40; // a labelled region with more controls than this is split into its own regions
+const INDEX_LINES = 18;
+const INDEX_NAMED = 4;
+const ROLE_RANK = (role) => (/^(radio|checkbox|switch|tab|combobox|textbox|searchbox|spinbutton|slider|option)$/.test(role) ? 0 : role === 'button' ? 1 : role === 'link' ? 3 : 2);
+
+function regionsOf(nodes, out, loose) {
+  for (const node of nodes) {
+    if (node.kind === 'leaf') { loose.push(node); continue; }
+    const count = controlCount(node);
+    const split = node.children.some((c) => c.kind === 'container' && c.label);
+    if (node.label && (count <= INDEX_REGION_MAX || !split)) out.push(node);
+    else regionsOf(node.children, out, loose);
+  }
+  return out;
+}
+
+const linkList = (node) => { const leaves = leavesOf(node); return leaves.length > 0 && leaves.filter((l) => l.role === 'link').length >= leaves.length * 0.8; };
+
+function namedLine(leaves) {
+  const seen = new Map();
+  for (const leaf of leaves) {
+    const key = `${leaf.role}|${leaf.name}`;
+    if (seen.has(key)) seen.get(key).n += 1;
+    else seen.set(key, { leaf, n: 1 });
+  }
+  const ranked = [...seen.values()].sort((a, b) => ROLE_RANK(a.leaf.role) - ROLE_RANK(b.leaf.role));
+  const shown = ranked.slice(0, INDEX_NAMED).map(({ leaf, n }) => `${controlText(leaf)} [ref=${leaf.ref}]${n > 1 ? ` ×${n}` : ''}${leaf.states.length ? ` [${leaf.states.join('] [')}]` : ''}`);
+  return `${shown.join(', ')}${ranked.length > INDEX_NAMED ? `, … ${ranked.length - INDEX_NAMED} more` : ''}`;
+}
+
+/**
+ * @param {{ url: string, title: string, count: number, tree: object[] }} snapshot
+ * @param {{ file?: string|null }} [options]  where the full outline was written, if it was
+ */
+export function renderIndex(snapshot, { file = null } = {}) {
+  const loose = [];
+  const regions = regionsOf(snapshot.tree, [], loose);
+  const head = `${snapshot.title ? `"${snapshot.title}" ` : ''}${snapshot.url} — ${snapshot.count} interactive elements in ${regions.length} region${regions.length === 1 ? '' : 's'} (index)`;
+  const where = file ? `the full outline is in ${file} (refs and text only)` : 'cor_snapshot full: true lists every control';
+  const lines = [];
+  for (let i = 0; i < regions.length && lines.length < INDEX_LINES; i++) {
+    // A run of link lists (footer columns, menus) is one line: tests rarely act there.
+    let j = i;
+    while (j < regions.length && linkList(regions[j])) j++;
+    if (j - i >= 2) {
+      const links = regions.slice(i, j).reduce((n, x) => n + controlCount(x), 0);
+      lines.push(`- ${j - i} link lists (${links} links): ${regions.slice(i, j).slice(0, 6).map((x) => `"${foldName(x)}"`).join(', ')}${j - i > 6 ? ', …' : ''}`);
+      i = j - 1;
+      continue;
+    }
+    const leaves = leavesOf(regions[i]);
+    // Its items: labelled sub-regions (a card per plan) or controls hinted with their item (`in "Team"`).
+    const named = regions[i].children.filter((c) => c.kind === 'container' && c.label).map((c) => c.label);
+    const items = [...new Set([...named, ...leaves.map((l) => HINT_IN.exec(l.hint ?? '')?.[1]).filter(Boolean)])];
+    const itemPart = items.length >= 2 ? `; ${items.length} items: ${items.slice(0, 5).map((x) => `"${x}"`).join(', ')}${items.length > 5 ? ', …' : ''}` : '';
+    lines.push(`- ${containerText(regions[i])} (${controlCount(regions[i])}): ${namedLine(leaves)}${itemPart}`);
+    regions[i].shown = true;
+  }
+  if (loose.length) lines.push(`- outside any region (${loose.length}): ${namedLine(loose)}`);
+  const unshown = regions.filter((x) => !x.shown && !linkList(x));
+  if (lines.length >= INDEX_LINES && unshown.length) lines.push(`… ${unshown.length} more regions: ${unshown.slice(0, 12).map((x) => `"${foldName(x)}"`).join(', ')}`);
+  return [head,
+    `One line per region: its controls, the named ones first. Refs are live. Pass a region's name to cor_snapshot within for its controls, text and entries; ${where}.`,
+    ...framesNote(snapshot.frames), '', ...lines].join('\n');
+}
+
 /**
  * The iframes COR cannot read: it lists and inspects the top document only, so the controls
  * inside a frame are missing from the snapshot and cannot be reached — said, not silently left out.

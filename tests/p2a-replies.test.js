@@ -3,7 +3,10 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer as createHttpServer } from 'node:http';
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { createRecordStore } from '../src/records.js';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
@@ -19,12 +22,12 @@ let base;
 before(() => new Promise((r) => site.listen(0, '127.0.0.1', () => { base = `http://127.0.0.1:${site.address().port}`; r(); })));
 after(() => { site.closeAllConnections?.(); site.close(); });
 
-async function connect(t) {
-  const session = createSession({ headless: true, cwd: new URL('./golden/projects/empty/', import.meta.url).pathname });
+async function connect(t, { cwd = new URL('./golden/projects/empty/', import.meta.url).pathname, records = false } = {}) {
+  const session = createSession({ headless: true, cwd });
   t.after(() => session.close());
   const [c, s] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'test', version: '0' });
-  const server = createServer({ session });
+  const server = createServer({ session, records: records ? createRecordStore({ root: () => session.root }) : null });
   server.server.onclose = null;
   await Promise.all([server.connect(s), client.connect(c)]);
   t.after(() => client.close());
@@ -89,4 +92,35 @@ test('P2a member names: a name that differs per item is not the member name; a c
   assert.equal(item({ role: null, name: 'Add to cart', css: 'div.buy' }, ['iPhone'], 'div', "x.getByText('Add to cart')"), 'addToCart', 'named in the code: constant');
   assert.equal(memberName({ element: { tag: 'span', id: 'plan', testIds: {} } }), 'plan', 'no name: its id');
   assert.equal(memberName({ element: { tag: 'span', id: 'item-42', testIds: {} } }), 'element', 'not a numbered id');
+});
+
+test('P2a cor_open on a small page lists its controls with live refs — no cor_snapshot first', async (t) => {
+  const call = await connect(t);
+  const opened = (await call('cor_open', { url: `${base}/faq` })).text;
+  const ref = refOf(opened, /clickable "Can I get invoices\?" \[ref=(e\d+)\]/);
+  assert.ok(ref, opened);
+  assert.match((await call('cor_click', { ref })).text, /Yes, from the billing page\./, 'the ref from cor_open acts');
+});
+
+test('P2a a large page: cor_open gives the region index (~1k), the full outline goes to .cor/snapshots/ (refs and text only)', async (t) => {
+  const dir = mkdtempSync(join(tmpdir(), 'cor-p2a-'));
+  t.after(() => rmSync(dir, { recursive: true, force: true }));
+  writeFileSync(join(dir, 'package.json'), JSON.stringify({ name: 'x', devDependencies: { '@playwright/test': '1' } }));
+  const call = await connect(t, { cwd: dir, records: true });
+  const opened = (await call('cor_open', { url: `${base}/p2a-large` })).text;
+  const index = opened.slice(opened.indexOf('"Large pricing"'));
+  assert.ok(index.length < 1500, `index is ${index.length} characters`);
+  assert.match(index, /114 interactive elements in \d+ regions \(index\)/);
+  assert.match(index, /^- section "Plans" \(16\): radio "Monthly" \[ref=e\d+\] \[checked\], radio "Annual"/m, 'toggles first');
+  assert.match(index, /items: .*"Team Pro"/, 'the cards are named');
+  assert.match(index, /^- 5 link lists \(60 links\)/m, 'footer columns fold to one line');
+  assert.match(index, /full outline is in \.cor\/snapshots\/p2aLarge\.txt/);
+  const file = readFileSync(join(dir, '.cor/snapshots/p2aLarge.txt'), 'utf8');
+  assert.match(file, /link "Link 5\.12" \[ref=e\d+\]/, 'every control is in the file');
+  assert.doesNotMatch(file.split('\n').slice(1).join('\n'), /\[(data-|aria-)|#\w|:nth-|\/\//, 'no selector to copy (the head line holds the URL)');
+  assert.equal(readFileSync(join(dir, '.cor/snapshots/.gitignore'), 'utf8'), '*\n', 'the folder ignores itself; the team\'s .gitignore is untouched');
+  assert.equal(existsSync(join(dir, '.gitignore')), false);
+  const q = refOf(index, /button "Question 2\?" \[ref=(e\d+)\]/);
+  assert.match((await call('cor_click', { ref: q })).text, /Answer 2\./, 'index refs are live');
+  assert.match((await call('cor_snapshot', { full: true })).text, /link "Link 5\.12" \[ref=e\d+\]/, 'full: true lists every control');
 });

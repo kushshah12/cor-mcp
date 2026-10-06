@@ -2,6 +2,13 @@
 Now at {base}/app/login.html — "COR Shop â€” Sign in" (HTTP 200). Browser: {browser}.
 Framework: Playwright — from cor.config.js.
 Locators: page objects in tests/pages/ (cor.config.js).
+
+"COR Shop â€” Sign in" {base}/app/login.html — 3 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
+
+- textbox "Username" [ref=e1] ✓id
+- textbox "Password" [ref=e2] ✓id
+- button "Login" [ref=e3] ✓id
 --- cor_inspect {"selector":"[data-test=\"login-button\"]"} (1236 chars)
 Best locator (playwright):
   page.getByRole('button', { name: 'Login' })
@@ -26,18 +33,18 @@ Alternatives:
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
 --- cor_fill {"target":"[data-test=\"username\"]","value":"standard"} (51 chars)
 Filled [data-test="username"].
-Refs: 0 still valid.
+Refs: 3 still valid.
 --- cor_fill {"target":"[data-test=\"password\"]","value":"wrong"} (51 chars)
 Filled [data-test="password"].
-Refs: 0 still valid.
+Refs: 3 still valid.
 --- cor_click {"target":"[data-test=\"login-button\"]"} (546 chars)
 Clicked [data-test="login-button"]. Now at {base}/app/login.html — "COR Shop â€” Sign in"
 Text:
-+ "Username and password do not match" [ref=e1]
-Refs: 0 still valid.
++ "Username and password do not match" [ref=e4]
+Refs: 3 still valid.
 
 Entries — place in tests/pages/login.page.js (keep each // COR comment: cor_check reads the ids):
-e1 → error
+e4 → error
   // COR cor:{id} · 79 Good · 1 match
   error = () => this.page.getByRole('alert');
 Assert what this changed — the new or changed text, the URL, that gone items are no longer displayed (hidden or removed: "not displayed" holds for both) — not only that an element exists.
@@ -64,20 +71,20 @@ Alternatives:
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
 --- cor_fill {"target":"[data-test=\"password\"]","value":"secret"} (51 chars)
 Filled [data-test="password"].
-Refs: 1 still valid.
+Refs: 4 still valid.
 --- cor_click {"target":"[data-test=\"login-button\"]"} (851 chars)
 Clicked [data-test="login-button"]. Now at {base}/app/inventory.html — "COR Shop â€” Products"
 The page navigated. Headings on the new page (cor_inspect one for the exact locator of text you assert on; cor_snapshot for its controls):
-  h1 "Products" [ref=e2]
-  h3 "Coffee Mug" [ref=e3]
-  h3 "Gel Pen" [ref=e4]
-  h3 "Baseball Cap" [ref=e5]
-  h3 "Logo T-Shirt" [ref=e6]
+  h1 "Products" [ref=e5]
+  h3 "Coffee Mug" [ref=e6]
+  h3 "Gel Pen" [ref=e7]
+  h3 "Baseball Cap" [ref=e8]
+  h3 "Logo T-Shirt" [ref=e9]
 
 Entries — place in tests/pages/inventory.page.js (keep each // COR comment: cor_check reads the ids):
-e2 → productsHeading
+e5 → productsHeading
   // COR cor:{id} · 79 Good · 1 match
   productsHeading = () => this.page.getByRole('heading', { name: 'Products' });
-e3, e4, e5, e6 → cardName
+e6, e7, e8, e9 → cardName
   // COR cor:{id} · 4/4 items checked
   cardName = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).locator('h3.card__name');

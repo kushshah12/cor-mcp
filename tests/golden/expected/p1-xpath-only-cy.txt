@@ -2,6 +2,10 @@
 Now at {base}/fixture/p1-xpath-only — "Compare" (HTTP 200). Browser: {browser}.
 Framework: Cypress v16 — from ./package.json (cypress). Override with framework: "…".
 Locators: page objects in cypress/pages/ (default — no specs found).
+
+"Compare" {base}/fixture/p1-xpath-only — 0 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
+
 --- cor_inspect {"selector":"div[data-product-id=\"live\"] table:nth-of-type(3) tr:nth-child(2) td:nth-child(4)"} (2500 chars)
 Recommended — parameterised by row and column: 1 rows × 4 columns; every row and column checked (5/5).
   Proof: checked with the browser's XPath engine for every value; the XPath is used as it is.

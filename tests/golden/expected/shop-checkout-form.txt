@@ -2,6 +2,17 @@
 Now at {base}/app/checkout.html — "COR Shop â€” Checkout" (HTTP 200). Browser: {browser}.
 Framework: Playwright — from cor.config.js.
 Locators: page objects in tests/pages/ (cor.config.js).
+
+"COR Shop â€” Checkout" {base}/app/checkout.html — 6 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
+
+- header
+  - link "COR Shop" [ref=e1]
+  - link "Cart, empty" [ref=e2]
+- textbox "First name" [ref=e3] ✓id
+- textbox "Last name" [ref=e4] ✓id
+- textbox "Postal code" [ref=e5] ✓id
+- button "Continue" [ref=e6] ✓id
 --- cor_inspect {"selector":"[data-test=\"postal-code\"]"} (1255 chars)
 Best locator (playwright):
   page.getByRole('textbox', { name: 'Postal code' })
@@ -27,11 +38,11 @@ Alternatives:
 --- cor_click {"target":"[data-test=\"continue\"]"} (544 chars)
 Clicked [data-test="continue"]. Now at {base}/app/checkout.html — "COR Shop â€” Checkout"
 Text:
-+ "Error: first name is required" [ref=e1]
-Refs: 0 still valid.
++ "Error: first name is required" [ref=e7]
+Refs: 6 still valid.
 
 Entries — place in tests/pages/checkout.page.js (keep each // COR comment: cor_check reads the ids):
-e1 → error
+e7 → error
   // COR cor:{id} · 79 Good · 1 match
   error = () => this.page.getByRole('alert');
 Assert what this changed — the new or changed text, the URL, that gone items are no longer displayed (hidden or removed: "not displayed" holds for both) — not only that an element exists.

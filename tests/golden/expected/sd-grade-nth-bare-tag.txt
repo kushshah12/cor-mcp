@@ -2,6 +2,43 @@
 Now at {base}/site/saucedemo-inventory — "Swag Labs" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
 Locators: page objects in tests/pages/ (default — no specs found).
+
+"Swag Labs" {base}/site/saucedemo-inventory — 30 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
+
+- header
+  - button "Open Menu" [ref=e1]
+  - navigation
+    - button "All Items" [ref=e2] ✓id
+    - button "Dynamic Catalog" [ref=e3] ✓id
+    - link "About" [ref=e4] ✓id
+    - button "Logout" [ref=e5] ✓id
+    - button "Reset App State" [ref=e6] ✓id
+  - button "Close Menu" [ref=e7]
+  - button "Cart, empty" [ref=e8] ✓id
+  - combobox "Sort products" = "Name (A to Z)" [ref=e9] ✓id
+- button "View details for Sauce Labs Backpack" [ref=e10] ✓id (1 of 2)
+- button "View details for Sauce Labs Backpack" [ref=e11] ✓id (2 of 2)
+- button "Add to cart" [ref=e12] ✓id (1 of 6)
+- button "View details for Sauce Labs Bike Light" [ref=e13] ✓id (1 of 2)
+- button "View details for Sauce Labs Bike Light" [ref=e14] ✓id (2 of 2)
+- button "Add to cart" [ref=e15] ✓id (2 of 6)
+- button "View details for Sauce Labs Bolt T-Shirt" [ref=e16] ✓id (1 of 2)
+- button "View details for Sauce Labs Bolt T-Shirt" [ref=e17] ✓id (2 of 2)
+- button "Add to cart" [ref=e18] ✓id (3 of 6)
+- button "View details for Sauce Labs Fleece Jacket" [ref=e19] ✓id (1 of 2)
+- button "View details for Sauce Labs Fleece Jacket" [ref=e20] ✓id (2 of 2)
+- button "Add to cart" [ref=e21] ✓id (4 of 6)
+- button "View details for Sauce Labs Onesie" [ref=e22] ✓id (1 of 2)
+- button "View details for Sauce Labs Onesie" [ref=e23] ✓id (2 of 2)
+- button "Add to cart" [ref=e24] ✓id (5 of 6)
+- button "View details for Test.allTheThings() T-Shirt (Red)" [ref=e25] ✓id (1 of 2)
+- button "View details for Test.allTheThings() T-Shirt (Red)" [ref=e26] ✓id (2 of 2)
+- button "Add to cart" [ref=e27] ✓id (6 of 6)
+- footer
+  - link "X" [ref=e28] ✓id
+  - link "Facebook" [ref=e29] ✓id
+  - link "LinkedIn" [ref=e30] ✓id
 --- cor_grade {"selector":"page.locator('.inventory_item').nth(0).locator('button')"} (873 chars)
 Positional — .nth(0) picks one of 6 matches by position: a reorder, an added item or a hidden copy silently changes which element the test touches. Not acceptable as written.
 

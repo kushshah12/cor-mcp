@@ -2,6 +2,59 @@
 Now at {base}/site/bstackdemo — "StackDemo" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
 Locators: page objects in tests/pages/ (default — no specs found).
+
+"StackDemo" {base}/site/bstackdemo — 72 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>). "N items, each: …": every item has those controls; its line lists their refs in that order.
+
+- link "logo" [ref=e1]
+- link "Favourites" [ref=e2]
+- link "Orders" [ref=e3]
+- link "Offers" [ref=e4] (1 of 2)
+- textbox "Search" [ref=e5]
+- button "flowchart main Search" [ref=e6]
+- navigation › link "Sign In" [ref=e7]
+- link "banner main" [ref=e8]
+- section "Vendors:"
+  - checkbox "Apple" [ref=e9]
+  - checkbox "Samsung" [ref=e10]
+  - checkbox "Google" [ref=e11]
+  - checkbox "OnePlus" [ref=e12]
+- section "25 Product(s) found." › combobox = "Select" [ref=e13]
+- 25 items, each: button "delete", clickable "Add to cart"
+  - "iPhone 12": e14, e15
+  - "iPhone 12 Mini": e16, e17
+  - "iPhone 12 Pro Max": e18, e19
+  - "iPhone 12 Pro": e20, e21
+  - "iPhone 11": e22, e23
+  - "iPhone 11 Pro": e24, e25
+  - "iPhone XS": e26, e27
+  - "iPhone XR": e28, e29
+  - "iPhone XS Max": e30, e31
+  - "Galaxy S20": e32, e33
+  - "Galaxy S20+": e34, e35
+  - "Galaxy S20 Ultra": e36, e37
+  - "Galaxy S10": e38, e39
+  - "Galaxy S9": e40, e41
+  - "Galaxy Note 20": e42, e43
+  - "Galaxy Note 20 Ultra": e44, e45
+  - "Pixel 4": e46, e47
+  - "Pixel 3": e48, e49
+  - "Pixel 2": e50, e51
+  - "One Plus 8": e52, e53
+  - "One Plus 8T": e54, e55
+  - "One Plus 8 Pro": e56, e57
+  - "One Plus 7T": e58, e59
+  - "One Plus 7": e60, e61
+  - "One Plus 6T": e62, e63
+- clickable "0" (.bag) [ref=e64]
+- clickable "Continue Shopping" [ref=e65]
+- link "Offers" [ref=e66] (2 of 2)
+- link "Contact Us" [ref=e67]
+- link "Privacy Policy" [ref=e68]
+- link "Careers" [ref=e69]
+- link "Read More" [ref=e70]
+- textbox "Email" [ref=e71]
+- button "Subscribe to Newsletter" [ref=e72]
 --- cor_inspect {"selector":"[id=\"2\"] .shelf-item__buy-btn"} (2763 chars)
 Recommended — parameterised: 25 items share this shape; every value checked, each finds exactly its own item (25/25).
   Proof: counted by Playwright, every value.

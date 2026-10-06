@@ -2,7 +2,10 @@ import { frameHint } from '../frames.js';
 import { z } from 'zod';
 import { callPage } from '../page-runtime.js';
 import { inspectParts, renderInspect } from '../format.js';
-import { renderAmbiguousScope, renderScoped, renderSnapshot } from '../format-snapshot.js';
+import { renderAmbiguousScope, renderIndex, renderScoped, renderSnapshot } from '../format-snapshot.js';
+import { mkdirSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { pageName } from '../entries.js';
 import { REF, checkRef, goneError } from './refs.js';
 import { applyIdVerdicts, checkIds, numberedIds } from '../id-stability.js';
 import { parseGradable } from '../grade-parse.js';
@@ -127,6 +130,36 @@ export async function verifyTemplate(page, params) {
   }
 }
 
+// P2a: a page outline longer than this is answered with the region index; the full outline goes to a file.
+const INDEX_OVER = 3000;
+
+/**
+ * P2a: the page outline as cor_open and cor_snapshot give it — in full on a small page, else the region index, with the
+ * full outline written to .cor/snapshots/<page>.txt when records are on (that folder ignores itself in git: COR never
+ * edits the team's .gitignore). Issues the refs either way.
+ */
+export async function pageOutline(session, page, { idCache = new Map(), records = null, full = false } = {}) {
+  // U14: mark ids U7's reload check already found regenerated — cached verdicts only; a snapshot never reloads.
+  const unstableIds = new Set(
+    [...idCache].filter(([key, v]) => v.status === 'regenerated' && key.startsWith(`${page.url()}#`)).map(([key]) => key.slice(page.url().length + 1)),
+  );
+  const snapshot = await callPage(page, 'snapshot', { start: session.highestRef + 1 });
+  session.issueRefs(snapshot.live);
+  const outline = renderSnapshot(snapshot, { unstableIds });
+  if (full || outline.length <= INDEX_OVER) return outline;
+  let file = null;
+  if (records?.enabled !== false && records?.dir) {
+    try {
+      const dir = join(records.dir(), '..', 'snapshots');
+      mkdirSync(dir, { recursive: true });
+      writeFileSync(join(dir, '.gitignore'), '*\n');
+      writeFileSync(join(dir, `${pageName(page.url())}.txt`), `${outline}\n`);
+      file = `.cor/snapshots/${pageName(page.url())}.txt`;
+    } catch { /* the index says to ask for full: true instead */ }
+  }
+  return renderIndex(snapshot, { file });
+}
+
 /**
  * P1: a locator that fails the shared check (positional, bare-tag chain, …) never leads while one that resolves and passes
  * exists — so a text or role anchor outranks an anonymous `div div div h3` chain whatever the engine scored.
@@ -249,7 +282,7 @@ export async function compactEntries(inspector, targets, { max = Infinity, frame
 }
 
 /** @param {ReturnType<import('../session.js').createSession>} session */
-export function inspectTools(session, idCache = new Map(), inspector = createInspector(session, idCache)) {
+export function inspectTools(session, idCache = new Map(), inspector = createInspector(session, idCache), records = null) {
   const openPage = () => {
     if (!session.isOpen) throw new Error('No page is open — call cor_open with a URL first.');
     return session.getPage();
@@ -265,8 +298,10 @@ export function inspectTools(session, idCache = new Map(), inspector = createIns
           'landmarks, sections by heading, tables (column / row), list items. Pick the element you need, then pass its ref to cor_inspect. ' +
           'Markers: ✓id test attribute, +N hidden lookalikes, [disabled]/[checked]/[expanded]/[selected], [unstable id]; ' +
           '"clickable" is an element with no role that the page makes clickable (cursor: pointer). ' +
-          'Take a new snapshot after any navigation or act call — earlier refs expire.',
+          'Take a new snapshot after any navigation or act call — earlier refs expire. ' +
+          'On a large page it answers with a region index (each region\'s controls, the named ones first); full: true lists every control.',
         inputSchema: {
+          full: z.boolean().optional().describe('The whole outline even on a large page, instead of the region index.'),
           within: z.string().optional().describe(
             'Show one region in full instead — every line of text, prices and labels included. ' +
             'A ref (its region: the card, row, column or section that identifies it) or a region\'s name ' +
@@ -274,18 +309,12 @@ export function inspectTools(session, idCache = new Map(), inspector = createIns
           ),
         },
       },
-      handler: async ({ within }) => {
+      handler: async ({ within, full = false }) => {
         const page = await openPage();
-        // U14: mark ids U7's reload check already found regenerated — cached
-        // verdicts only; a snapshot never triggers a reload.
+        if (!within) return text(await pageOutline(session, page, { idCache, records, full }));
         const unstableIds = new Set(
           [...idCache].filter(([key, v]) => v.status === 'regenerated' && key.startsWith(`${page.url()}#`)).map(([key]) => key.slice(page.url().length + 1)),
         );
-        if (!within) {
-          const snapshot = await callPage(page, 'snapshot');
-          session.issueRefs(snapshot.live);
-          return text(renderSnapshot(snapshot, { unstableIds }));
-        }
 
         // U15. Current refs are kept, so the default snapshot's still resolve.
         const byRef = REF.test(within.trim());

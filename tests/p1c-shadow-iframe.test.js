@@ -48,15 +48,17 @@ before(async () => {
 });
 after(() => { site.closeAllConnections?.(); site.close(); return session.close(); });
 
+// P2a: refs number on across page loads in one session — the snapshot's first ref, not a literal e1.
+const firstRef = (text) => /\[ref=(e\d+)\]/.exec(text)[1];
 const open = (path) => call('cor_open', { url: `${base}${path}` });
 const FRAMEWORKS = ['playwright', 'webdriverio', 'cypress'];
 
 // ── V2: the host never names a control inside its shadow root ──
 test('P1c V2: on a shadow-DOM page no framework leads with the host — none of its candidates finds exactly the button', async () => {
   await open('/cards');
-  await call('cor_snapshot');
+  const first = firstRef((await call('cor_snapshot')).text);
   for (const fw of FRAMEWORKS) {
-    const { text } = await call('cor_inspect', { ref: 'e1', framework: fw });
+    const { text } = await call('cor_inspect', { ref: first, framework: fw });
     assert.match(text, /^No locator found here resolves to exactly this element\. The closest \(not usable as written\): /m, fw);
     assert.doesNotMatch(text, /^Best locator/m, fw);
     assert.doesNotMatch(text, /Excellent · 1 match/, `${fw}: the host is not scored Excellent for a button`);
@@ -68,9 +70,9 @@ test('P1c V2: on a shadow-DOM page no framework leads with the host — none of 
 
 test('P1c V2: an element in a shadow root gets a fact naming the host, in every framework', async () => {
   await open('/cards');
-  await call('cor_snapshot');
+  const first = firstRef((await call('cor_snapshot')).text);
   for (const fw of FRAMEWORKS) {
-    const { text } = await call('cor_inspect', { ref: 'e1', framework: fw });
+    const { text } = await call('cor_inspect', { ref: first, framework: fw });
     assert.match(text, /^ {2}• inside a shadow root \(host #host\) — Playwright and WebdriverIO see in; Cypress needs its shadow setting on$/m, fw);
   }
   await open('/light');
@@ -79,15 +81,15 @@ test('P1c V2: an element in a shadow root gets a fact naming the host, in every 
 
 test('P1c V2: nested shadow roots are counted', async () => {
   await open('/nested');
-  await call('cor_snapshot'); // a plain selector cannot reach into two roots; a ref does
-  assert.match((await call('cor_inspect', { ref: 'e1' })).text, /inside 2 nested shadow roots \(host #outer\)/);
+  const first = firstRef((await call('cor_snapshot')).text); // a plain selector cannot reach into two roots; a ref does
+  assert.match((await call('cor_inspect', { ref: first })).text, /inside 2 nested shadow roots \(host #outer\)/);
 });
 
 test('P1c V2: a control in a shadow root that has its own unique locator still gets it, and a real count for the shadow chain', async () => {
   await open('/only');
-  await call('cor_snapshot');
+  const first = firstRef((await call('cor_snapshot')).text);
   for (const fw of ['playwright', 'webdriverio']) {
-    const { text } = await call('cor_inspect', { ref: 'e1', framework: fw, all: true });
+    const { text } = await call('cor_inspect', { ref: first, framework: fw, all: true });
     assert.match(text, /^Best locator|^For this one item alone/m, fw);
     assert.doesNotMatch(text, /^No locator found here/m, fw);
     assert.match(text, /inside a shadow root \(host #host\)/, fw);
@@ -157,8 +159,8 @@ test('iframe check: the note is a line of its own — unit', () => {
 // ── Cypress: the shadow setting is the fix, not a test attribute ──
 test('P1c V2: Cypress on a control in a shadow root is told the setting, with the locator that works once it is on', async () => {
   await open('/only');
-  await call('cor_snapshot');
-  const { text } = await call('cor_inspect', { ref: 'e1', framework: 'cypress' });
+  const first = firstRef((await call('cor_snapshot')).text);
+  const { text } = await call('cor_inspect', { ref: first, framework: 'cypress' });
   assert.match(text, /^No locator found here resolves to exactly this element\./m);
   assert.match(text, /^Cypress does not look inside a shadow root unless told to\. With the setting on this finds exactly this element: cy\.get\('#only', \{ includeShadowDom: true \}\)$/m);
   assert.match(text, /^ {2}or set includeShadowDom: true once in the Cypress config and use cy\.get\('#only'\)\.$/m);
@@ -167,15 +169,15 @@ test('P1c V2: Cypress on a control in a shadow root is told the setting, with th
 
 test('P1c V2: the Cypress fix is only offered when the piercing query finds exactly this element', async () => {
   await open('/cards'); // two identical Choose buttons: no candidate is unique even with piercing
-  await call('cor_snapshot');
-  const cards = (await call('cor_inspect', { ref: 'e1', framework: 'cypress' })).text;
+  const first = firstRef((await call('cor_snapshot')).text);
+  const cards = (await call('cor_inspect', { ref: first, framework: 'cypress' })).text;
   assert.doesNotMatch(cards, /includeShadowDom/);
   assert.match(cards, /Add a test attribute/, 'falls back to the application change');
   await open('/light');
   assert.doesNotMatch((await call('cor_inspect', { selector: '#plain', framework: 'cypress' })).text, /includeShadowDom/, 'never in the light DOM');
   await open('/only');
-  await call('cor_snapshot');
-  for (const fw of ['playwright', 'webdriverio']) assert.doesNotMatch((await call('cor_inspect', { ref: 'e1', framework: fw })).text, /includeShadowDom/, `${fw} needs no setting`);
+  const only = firstRef((await call('cor_snapshot')).text);
+  for (const fw of ['playwright', 'webdriverio']) assert.doesNotMatch((await call('cor_inspect', { ref: only, framework: fw })).text, /includeShadowDom/, `${fw} needs no setting`);
 });
 
 test('P1c: the ambiguity fact skips a bare tag selector — nobody would pick it — and keeps a real candidate', () => {

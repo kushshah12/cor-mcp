@@ -13,6 +13,7 @@ import { removedMatch, saferScope } from './removed.js';
 let refs = new Map(); // ref -> element, replaced on every full snapshot
 const meta = new Map(); // ref -> { identity, path } — what the ref was issued for (U16)
 let nextRef = 1; // per page load: refs are never renumbered
+let reusable = new Map(); // element -> ref, during a snapshot: the refs it may keep
 
 /**
  * Other visible elements an agent could have meant: same role, same name, so
@@ -41,10 +42,15 @@ function lookalikes(target) {
 }
 
 /** The outline snapshot (src/page/outline.js); refs issued here are what inspect and act tools resolve. */
-function snapshot() {
+function snapshot({ start = 1 } = {}) {
+  // P2a: numbering continues past every ref the session issued, so a ref from another page is never reused here;
+  // an element still on the page keeps its ref, so cor_open's outline and a later cor_snapshot agree.
+  nextRef = Math.max(nextRef, start);
+  reusable = new Map([...refs].map(([r, el]) => [el, r]));
   refs = new Map();
-  meta.clear();
   const outline = buildOutline(issueRef);
+  reusable = new Map();
+  for (const r of [...meta.keys()]) if (!refs.has(r)) meta.delete(r);
   return { url: location.href, title: document.title, ...outline, frames: framesOf(), live: [...refs.keys()] };
 }
 
@@ -68,6 +74,8 @@ function scoped({ ref, text, keep }) {
  */
 function issueRef(el) {
   for (const [ref, known] of refs) if (known === el) return ref;
+  const kept = reusable.get(el);
+  if (kept) { refs.set(kept, el); return kept; }
   const ref = `e${nextRef++}`;
   refs.set(ref, el);
   meta.set(ref, { identity: identityOf(el), path: structuralPath(el) });

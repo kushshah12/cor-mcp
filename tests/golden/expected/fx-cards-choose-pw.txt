@@ -2,11 +2,23 @@
 Now at {base}/fixture/cards — "Cards" (HTTP 200). Browser: {browser}.
 Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
 Locators: page objects in tests/pages/ (default — no specs found).
---- cor_inspect {"selector":".card:nth-child(2) > button"} (2294 chars)
+
+"Cards" {base}/fixture/cards — 8 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>). [via label]: a hidden input shown by its label — click the label, check state on the input.
+
+- radio "Team" [ref=e1] [checked] [via label]
+- radio "Team Pro" [ref=e2] [via label]
+- checkbox "Annual billing" [ref=e3] [via label]
+- button "5 users | $30 per user" [ref=e4]
+- button "Choose" [ref=e5] in "Team"
+- button "5 users | $75 per user" [ref=e6]
+- button "Choose" [ref=e7] in "Team Ultimate"
+- button "Lonely" [ref=e8]
+--- cor_inspect {"selector":".card:nth-child(2) > button"} (2274 chars)
 ⚠ Check this is the element you meant: 1 other visible element looks the same — button "Choose".
-  You inspected: in "Team Ultimate" under "Desktop & Mobile, plus:"
-  Also:          in "Team"
-  If you meant another one, call cor_snapshot for current refs and cor_inspect it.
+  You inspected: e7 in "Team Ultimate" under "Desktop & Mobile, plus:"
+  Also:          e5 in "Team"
+  If you meant another one, cor_inspect its ref instead.
 
 Recommendation: change the application — no durable locator exists for this element (best is Unstable).
 Add a test attribute (this requires an application change):

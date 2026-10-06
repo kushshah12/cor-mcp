@@ -225,13 +225,12 @@ test('a unique element gets no warning, nor does a target the snapshot never lis
   assert.match(box.text, /^(Best locator|Recommendation)/, 'nameless focusable divs are not lookalikes of a plain div');
 });
 
-test('without a current snapshot, lookalikes are described but their refs are not offered', async (t) => {
+test('lookalikes come with their refs right after cor_open (P2a: it lists the page); refs that survive an act still do', async (t) => {
   const call = await connect(t);
   await call('cor_open', { url: `${base}/pricing.html` });
   const bySelector = await call('cor_inspect', { selector: 'table input[type="submit"]' });
   assert.match(bySelector.text, /^⚠ Check this is the element you meant/);
-  assert.match(bySelector.text, /You inspected: in "Team Ultimate" \(table\)\n  Also:          in "Team Ultimate"\n/);
-  assert.match(bySelector.text, /call cor_snapshot for current refs/);
+  assert.match(bySelector.text, /You inspected: e\d+ in "Team Ultimate" \(table\)\n  Also:          e\d+ in "Team Ultimate"\n/);
 
   // Refs that survive an act (U16) are still offered…
   const { refOf } = await openAndSnapshot(call, 'pricing.html');
@@ -239,11 +238,10 @@ test('without a current snapshot, lookalikes are described but their refs are no
   await call('cor_fill', { target: 'select', value: '5 users | $75 per user' });
   const kept = await call('cor_inspect', { selector: 'table input[type="submit"]' });
   assert.match(kept.text.split('Best locator')[0], new RegExp(`Also: +${card} in "Team Ultimate"`));
-  // …refs a navigation expired are not.
+  // …and a new page load numbers past them: the old ref is never offered for the new page's element.
   await call('cor_open', { url: `${base}/pricing.html` });
-  const expired = await call('cor_inspect', { selector: 'table input[type="submit"]' });
-  assert.doesNotMatch(expired.text.split('Best locator')[0], new RegExp(`\\b${card}\\b`));
-  assert.match(expired.text, /call cor_snapshot for current refs/);
+  const reloaded = await call('cor_inspect', { selector: 'table input[type="submit"]' });
+  assert.doesNotMatch(reloaded.text.split('Best locator')[0], new RegExp(`\\b${card}\\b`));
 });
 
 test('many lookalikes: five are listed and the rest counted', async (t) => {
@@ -264,7 +262,7 @@ test('a ref is stale after navigation; an act that leaves its element alone keep
   const email = refOf(/textbox "Email"/);
   assert.equal((await call('cor_inspect', { ref: email })).isError, false);
 
-  await call('cor_open', { url: `${base}/next` }); // navigation
+  await (await session.getPage()).goto(`${base}/next`); // a navigation the agent did not ask for: no new outline
   const afterNav = await call('cor_inspect', { ref: email });
   assert.equal(afterNav.isError, true);
   assert.match(afterNav.text, /stale: the page navigated.*cor_snapshot again/);
@@ -282,15 +280,15 @@ test('refs are never renumbered: a ref from an earlier snapshot is old, never an
   const call = await connect(t);
   const first = await openAndSnapshot(call, 'shapes.html');
   const old = first.refOf(/textbox "Email"/);
-  const second = await openAndSnapshot(call, 'shapes.html'); // same URL, new page load: numbering restarts with the document
-  assert.equal(second.refOf(/textbox "Email"/), old, 'a fresh document starts at e1 again');
-
-  const again = await call('cor_snapshot'); // same document: new numbers
-  const renumbered = again.text.match(/textbox "Email" \[ref=(e\d+)\]/)[1];
-  assert.notEqual(renumbered, old);
+  const second = await openAndSnapshot(call, 'shapes.html'); // same URL, new page load: numbering continues (P2a)
+  const renumbered = second.refOf(/textbox "Email"/);
+  assert.notEqual(renumbered, old, 'a new document never reuses a number the agent holds');
   const stale = await call('cor_inspect', { ref: old });
   assert.equal(stale.isError, true);
   assert.match(stale.text, /is from an earlier cor_snapshot of this page/);
+
+  const again = await call('cor_snapshot'); // same document: an element keeps its ref (P2a)
+  assert.equal(again.text.match(/textbox "Email" \[ref=(e\d+)\]/)[1], renumbered);
   assert.equal((await call('cor_inspect', { ref: renumbered })).isError, false);
 });
 
@@ -298,7 +296,8 @@ test('a ref that never existed returns an actionable message', async (t) => {
   const call = await connect(t);
   const { lines } = await openAndSnapshot(call, 'shapes.html');
   const out = await call('cor_inspect', { ref: 'e999' });
-  assert.match(out.text, new RegExp(`Ref e999 does not exist — the last cor_snapshot issued e1–e${lines.length}\\.`));
+  const [, lo, hi] = /Ref e999 does not exist — the last cor_snapshot issued e(\d+)–e(\d+)\./.exec(out.text) ?? [];
+  assert.equal(hi - lo + 1, lines.length, out.text); // P2a: numbering continues across page loads in one session
   assert.doesNotMatch(out.text, /\n\s+at /);
 });
 

@@ -6,7 +6,7 @@ import { inspectTools } from './tools/inspect.js';
 import { gradeTools } from './tools/grade.js';
 import { checkTools } from './tools/check.js';
 import { healTools } from './tools/heal.js';
-import { createInspector } from './tools/inspect.js';
+import { createInspector, pageOutline } from './tools/inspect.js';
 
 const { name, version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -15,7 +15,8 @@ const { name, version } = JSON.parse(readFileSync(new URL('../package.json', imp
 export function defaultTools(session, records = null) {
   const idCache = new Map(); // id-stability verdicts, shared by inspect and grade
   const inspector = createInspector(session, idCache, records); // shared: cor_check and cor_heal issue entries too
-  return [...sessionTools(session, inspector), ...inspectTools(session, idCache, inspector), ...gradeTools(session, idCache), ...checkTools(session, inspector, records), ...healTools(session, inspector, records)];
+  const outline = (page) => pageOutline(session, page, { idCache, records });
+  return [...sessionTools(session, inspector, outline), ...inspectTools(session, idCache, inspector, records), ...gradeTools(session, idCache), ...checkTools(session, inspector, records), ...healTools(session, inspector, records)];
 }
 
 // Sent once at connect. The user asks the agent for tests, not for locators,
