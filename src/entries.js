@@ -29,9 +29,10 @@ export function memberName(result, lead) {
     const leaf = result.params?.model?.leaf;
     // P2a: a leaf whose name differs per item (an item's own title, one FAQ answer's words) is named by its class instead
     // (`faq-item__answer` → faqItemAnswer), else by the parameter (`titleText`).
-    const varies = leaf?.name && leaf.css && !lead.code?.includes(leaf.name)
+    const css = leaf?.css ?? leaf?.shownCss; // P3: a leaf with hidden twins keeps its CSS as shownCss
+    const varies = leaf?.name && css && !lead.code?.includes(leaf.name)
       && (result.params?.values?.includes(leaf.name) || (!leaf.role && !IMPLICIT_ROLE[result.element?.tag]));
-    if (varies) return camel(/\.([\w-]+)[^.]*$/.exec(leaf.css)?.[1]) ?? `${camel(lead.param) ?? 'item'}Text`;
+    if (varies) return camel(/\.([\w-]+)[^.]*$/.exec(css)?.[1]) ?? `${camel(lead.param) ?? 'item'}Text`;
     const leafName = leaf?.name ?? result.lookalikes?.name;
     return camel(leafName) ?? camel(lead.param) ?? 'item';
   }

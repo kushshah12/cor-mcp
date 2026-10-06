@@ -432,7 +432,8 @@ export function parameterise(target) {
   // Lookalikes of other shapes (a card's "Choose" and the comparison table's)
   // can leave the target the only item of its shape: nothing to parameterise.
   // BrowserStack pricing rendered "1 items share this shape (1/1)" without this.
-  if (items.length < 2) return null;
+  // P3 per-card entries: a text copied elsewhere (the sticky bar's compact "$ 375 / month") still sits in repeated cards.
+  if (items.length < 2) return isControl(target) ? null : structuralTemplate(target);
   const itemSel = itemSelector(items);
   if (!itemSel) return { count: items.length, reason: 'the items share no class or tag that names them' };
   const inner = innerOf(target, targetItem, items);
@@ -745,18 +746,27 @@ function structuralRepeats(target) {
   return null;
 }
 
-/** The target inside each item by its tag and class: exactly one per item, and the target in its own. */
+/**
+ * The target inside each item by its tag and class: exactly one SHOWN per item, and the target in its own. P3 per-card
+ * entries: an item may hold hidden twins (BrowserStack's Team card keeps a price per toggle state) — the leaf then filters
+ * to the shown one — and items without the element (Volume has no price) are left out of the template's values.
+ */
 function cssInner(target, targetItem, items) {
   const tag = target.tagName.toLowerCase();
   const cls = namingClasses(target)[0];
   const sel = cls ? `${tag}.${cssEscape(cls)}` : tag;
-  const one = (it) => it.querySelectorAll(sel).length === 1;
-  if (!items.every(one) || targetItem.querySelector(sel) !== target) return null;
+  // One match per item, shown or not (a closed FAQ's answers are all hidden); several only when exactly one is shown.
+  const pick = (it) => { const all = [...it.querySelectorAll(sel)]; const shown = all.filter(isVisible); return all.length === 1 ? all : shown; };
+  const holding = items.filter((it) => it.querySelector(sel));
+  if (holding.length < 2 || !holding.every((it) => pick(it).length === 1) || pick(targetItem)[0] !== target) return null;
+  const twins = holding.some((it) => it.querySelectorAll(sel).length > 1);
   return {
-    code: `.locator(${q(sel)})`, pw: sel,
-    xpath: `//${tag}${cls ? `[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]` : ''}`,
-    count: (it) => it.querySelectorAll(sel).length,
-    leaf: { role: null, name: text(target), css: sel, aria: false, cy: { css: sel, shown: false } },
+    items: holding,
+    code: `.locator(${q(sel)})${twins ? '.filter({ visible: true })' : ''}`, pw: twins ? `${sel}:visible` : sel,
+    // XPath cannot say "visible": with twins there is no XPath form.
+    xpath: twins ? null : `//${tag}${cls ? `[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]` : ''}`,
+    count: (it) => pick(it).length,
+    leaf: { role: null, name: text(target), css: twins ? null : sel, shownCss: twins ? sel : null, aria: false, cy: { css: sel, shown: twins } },
   };
 }
 
@@ -769,7 +779,7 @@ function structuralTemplate(target) {
   if (!itemSel) return { count: items.length, reason: 'the items share no class or tag that names them' };
   const inner = cssInner(target, targetItem, items);
   if (!inner) return { count: items.length, reason: 'the element is not the only one of its kind inside its item' };
-  return templateFor(target, targetItem, items, itemSel, inner, { allowSelf: true });
+  return templateFor(target, targetItem, inner.items, itemSel, inner, { allowSelf: true });
 }
 
 // ── U18b.3: mixed naming ────────────────────────────────────────────────────

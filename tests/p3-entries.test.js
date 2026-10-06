@@ -39,7 +39,7 @@ async function connect(t, framework = 'playwright') {
   server.server.onclose = null;
   await Promise.all([server.connect(s), client.connect(c)]);
   t.after(() => client.close());
-  return { dir, call: async (name, args = {}) => { const r = await client.callTool({ name, arguments: args }); return { isError: r.isError === true, text: r.content.map((x) => x.text).join('\n') }; } };
+  return { dir, session, call: async (name, args = {}) => { const r = await client.callTool({ name, arguments: args }); return { isError: r.isError === true, text: r.content.map((x) => x.text).join('\n') }; } };
 }
 
 test('P3 the every-item locator is a member with its own id; a loop written with it passes cor_check; items share one record', async (t) => {
@@ -105,4 +105,41 @@ test('P3 a closed item that hides its content (display: none) gets no 0-height n
   await call('cor_open', { url: `${base}/faq` });
   await call('cor_click', { target: '.faq-item:nth-child(3) .faq-item__question' });
   assert.doesNotMatch((await call('cor_inspect', { selector: '.faq-item:nth-child(3) .faq-item__answer' })).text, /clipped to 0 height/);
+});
+
+for (const [fw, leaf] of [
+  ['playwright', /^ {2}cardPrice = \(title\) => this\.page\.locator\('div\.card'\)\.filter\(\{ has: .*\}\)\.locator\('p\.card__price'\)\.filter\(\{ visible: true \}\);$/m],
+  ['cypress', /^ {2}cardPrice = \(title\) => card\(title\)\.find\('p\.card__price'\)\.filter\(':visible'\);$/m],
+  ['webdriverio', /^ {2}cardPrice = \(title\) => card\(title\)\.\$\$\('p\.card__price'\)\.find\(\(el\) => el\.isDisplayed\(\)\);$/m],
+]) {
+  test(`P3 per-card entries (${fw}): a price inside one card gets the card template — hidden twin skipped, a card without a price left out`, async (t) => {
+    const { call } = await connect(t, fw);
+    await call('cor_open', { url: `${base}/p3-card-price` });
+    const out = (await call('cor_inspect', { selector: '.card:nth-child(2) .card__price' })).text;
+    assert.match(out, /^✓ cardPrice\(title\) → .* — 3\/3 items checked$/m, out); // Team, Team Ultimate, and the variant Team Pro — not Volume
+    assert.match(out, leaf, out);
+  });
+}
+
+test('P3 per-card entries: after the toggle, the template reaches the price the toggle shows', async (t) => {
+  const { call, session } = await connect(t);
+  await call('cor_open', { url: `${base}/p3-card-price` });
+  const out = (await call('cor_inspect', { selector: '.card:nth-child(1) .card__price:not([hidden])' })).text;
+  const code = /^ {2}cardPrice = \(title\) => (.*);$/m.exec(out)[1].replace(/this\.page/g, 'page');
+  const page = await session.getPage();
+  const price = (title) => new Function('page', 'title', `return ${code}`)(page, title).textContent();
+  assert.equal(await price('Team'), '$150 / month');
+  await page.click('label[for=t2]');
+  assert.equal(await price('Team Pro'), '$200 / month');
+  assert.equal(await price('Team Ultimate'), '$375 / month');
+});
+
+test('P3 per-card entries: no template when a card shows two of the element, or only one card holds it', async (t) => {
+  const { call } = await connect(t);
+  await call('cor_open', { url: `${base}/p3-card-no-template` });
+  for (const sel of ['.a .tile:nth-child(2) .cost', '.b .box:nth-child(1) .fee']) {
+    assert.doesNotMatch((await call('cor_inspect', { selector: sel })).text, /\(title\) →/, sel);
+  }
+  // the reason is the page's own, not a later count's
+  assert.match((await call('cor_inspect', { selector: '.a .tile:nth-child(2) .cost', detail: true })).text, /the element is not the only one of its kind inside its item/);
 });

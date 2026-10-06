@@ -1,0 +1,20 @@
+<!doctype html>
+<title>P3 per-card entries: a price inside each card</title>
+<style>.grid { display: flex; gap: 12px } .card { border: 1px solid #ccc; padding: 8px; width: 200px } .toggle input { position: absolute; opacity: 0; width: 0; height: 0 }</style>
+<!-- BrowserStack's shape: the Team card holds a price per toggle state, the hidden one FIRST (a plain `$` would take it);
+     Team Ultimate is named by its h3; Volume has no price and is left out of the values. -->
+<div class="grid">
+  <div class="card">
+    <div class="toggle"><input type="radio" id="t1" name="tv" checked><label for="t1">Team</label><input type="radio" id="t2" name="tv"><label for="t2">Team Pro</label></div>
+    <p class="card__price" hidden>$200 / month</p><p class="card__price">$150 / month</p><button>Choose</button>
+  </div>
+  <div class="card"><h3 class="card__title">Team Ultimate</h3><p class="card__price">$375 / month</p><button>Choose</button></div>
+  <div class="card"><h3 class="card__title">Volume</h3><p>Inquire for pricing</p><button>Contact Sales</button></div>
+</div>
+<!-- A sticky bar repeats one card's price (BrowserStack's compact copy): the text has a lookalike outside the cards. -->
+<section class="sticky"><p class="card__price card__price--compact">$375 / month</p></section>
+<script>
+  for (const r of document.querySelectorAll('input[name="tv"]')) {
+    r.addEventListener('change', () => { const [pro, team] = r.closest('.card').querySelectorAll('.card__price'); pro.hidden = r.id !== 't2'; team.hidden = r.id === 't2'; });
+  }
+</script>

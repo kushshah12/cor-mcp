@@ -4,7 +4,7 @@
     {
       "major": 16,
       "version": "16.1.1",
-      "date": "2026-10-05",
+      "date": "2026-10-06",
       "idioms": {
         "item.attribute": {
           "ok": true,
@@ -18,7 +18,7 @@
         },
         "every": {
           "ok": true,
-          "checks": 17,
+          "checks": 18,
           "failures": []
         },
         "item.label": {
@@ -28,12 +28,12 @@
         },
         "item.either": {
           "ok": true,
-          "checks": 24,
+          "checks": 30,
           "failures": []
         },
         "leaf.css.shown": {
           "ok": true,
-          "checks": 9,
+          "checks": 12,
           "failures": []
         },
         "variant.click": {
@@ -43,12 +43,12 @@
         },
         "group.label": {
           "ok": true,
-          "checks": 10,
+          "checks": 14,
           "failures": []
         },
         "group.label-click": {
           "ok": true,
-          "checks": 4,
+          "checks": 8,
           "failures": []
         },
         "group.role": {
@@ -68,7 +68,7 @@
         },
         "group.tl": {
           "ok": true,
-          "checks": 16,
+          "checks": 20,
           "failures": []
         }
       }

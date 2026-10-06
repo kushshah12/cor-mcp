@@ -4,7 +4,7 @@
 import { helperName, js, plainValue, withinBar } from './shared.js';
 
 /** Idioms this renderer can emit (each has a conformance fixture, §10). */
-export const IDIOMS = ['item.attribute', 'item.label', 'item.label.attr', 'item.either', 'leaf.aria', 'leaf.aria.shown', 'leaf.css', 'every', 'variant.click',
+export const IDIOMS = ['item.attribute', 'item.label', 'item.label.attr', 'item.either', 'leaf.aria', 'leaf.aria.shown', 'leaf.css', 'leaf.css.shown', 'every', 'variant.click',
   'group.aria', 'group.label-input', 'group.label-click', 'cell.xpath'];
 
 function item(model, values, ts) {
@@ -41,6 +41,8 @@ export function leaf(model, from) {
   if (l?.aria && l.twins) return { idiom: 'leaf.aria.shown', code: `${from}.$$(${js(`aria/${l.name}`)}).find((el) => el.isDisplayed())` };
   if (l?.aria) return { idiom: 'leaf.aria', code: `${from}.$(${js(`aria/${l.name}`)})` };
   if (l?.css) return { idiom: 'leaf.css', code: `${from}.$(${js(l.css)})` };
+  // P3: hidden twins of a CSS leaf (a price per toggle state) — the shown one.
+  if (l?.shownCss) return { idiom: 'leaf.css.shown', code: `${from}.$$(${js(l.shownCss)}).find((el) => el.isDisplayed())` };
   return null;
 }
 

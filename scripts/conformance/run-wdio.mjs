@@ -20,7 +20,12 @@ const base = `http://127.0.0.1:${site.address().port}`;
 
 const session = createSession({ headless: true });
 const pw = await session.getPage();
-const browser = await remote({ logLevel: 'error', capabilities: { browserName: 'chrome', 'goog:chromeOptions': { args: ['--headless=new', '--window-size=1400,1000'] } } });
+const browser = await remote({ logLevel: 'error', capabilities: {
+  browserName: 'chrome',
+  'goog:chromeOptions': { args: ['--headless=new', '--window-size=1400,1000'], ...(process.env.COR_CHROME_BINARY ? { binary: process.env.COR_CHROME_BINARY } : {}) },
+  // When Chrome auto-updates ahead of a published chromedriver: pin both (a Chrome for Testing build and its driver).
+  ...(process.env.COR_CHROMEDRIVER ? { 'wdio:chromedriverOptions': { binary: process.env.COR_CHROMEDRIVER } } : {}),
+} });
 const version = JSON.parse(readFileSync(new URL('./node_modules/webdriverio/package.json', import.meta.url), 'utf8')).version;
 const Async = Object.getPrototypeOf(async () => {}).constructor;
 
