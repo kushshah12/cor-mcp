@@ -2,7 +2,7 @@
 // one fails and comes back with COR's entry to paste (R32); a working one with no id is tied to its element's record
 // and gets the id to add (R44). Identity is the id, or the element a locator finds — never its text (R46).
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
 import { join, relative, resolve, sep } from 'node:path';
 import { z } from 'zod';
 import { scanLocators, scanYaml } from '../check-scan.js';
@@ -66,10 +66,12 @@ export function checkTools(session, inspector, records = null) {
       const listed = files?.length ? files.map((f) => resolve(root, f)) : changed ?? allFiles(root);
       const scope = files?.length ? 'the given files' : changed ? 'files changed on this branch' : 'all project files';
       const storeDir = posix(session.conventions.storeDir.value);
-      const recordDir = join(root, '.cor', 'records');
       // Review fix: with capture off, committed records cannot be extended — ids are checked for presence only.
-      const recordsOn = existsSync(recordDir) && records?.enabled !== false;
-      const known = new Set(recordsOn ? readdirSync(recordDir).filter((n) => n.endsWith('.json')).map((n) => n.slice(0, -5)) : []);
+      // P8a: an id COR issued is a record (placed) or a pending entry (shown, not yet in code).
+      const recordsOn = records?.enabled !== false && ['records', 'pending'].some((d) => existsSync(join(root, '.cor', d)));
+      const known = new Set(recordsOn && records ? [...records.list(), ...records.listPending()] : []);
+      const usedIn = new Map(); // P8a: id → the code locations found in this scan
+      const scanned = new Set();
       let sidecar = {};
       try { sidecar = JSON.parse(readFileSync(join(root, '.cor', 'ids.json'), 'utf8')); } catch { /* none */ }
       const page = session.isOpen ? await session.getPage() : null;
@@ -86,6 +88,7 @@ export function checkTools(session, inspector, records = null) {
         const inStore = storeDir === '.' || rel.startsWith(`${storeDir}/`);
         let src;
         try { src = readFileSync(file, 'utf8'); } catch { continue; }
+        scanned.add(rel);
         let sites = [];
         if (CODE.test(rel)) sites = scanLocators(src, framework);
         else if (inStore && /\.ya?ml$/.test(rel)) sites = scanYaml(src, framework);
@@ -99,6 +102,7 @@ export function checkTools(session, inspector, records = null) {
         for (const site of sites) {
           count++;
           const where = `${rel}:${site.line}`;
+          if (site.id && known.has(site.id)) usedIn.set(site.id, [...(usedIn.get(site.id) ?? []), { file: rel, line: site.line }]);
           const shown = site.statement.split('\n')[0].slice(0, 100);
           if (site.positional) {
             const declined = site.id && known.has(site.id) ? records?.read(site.id)?.declined : null;
@@ -158,6 +162,15 @@ export function checkTools(session, inspector, records = null) {
         if (declined) return [on, ...entry.filter(Boolean).map((l) => `  ${l}`)];
         if (!site.positional && id && before.has(id)) return [on, `COR already has a record of this element: add \`// COR cor:${id}\` on the line above it (keep the locator).`];
         return [on, 'Replace it with COR\'s entry:', ...entry.filter(Boolean).map((l) => `  ${l}`)];
+      }
+
+      // P8a: ids found in code are placed — promoted out of pending with the elements their steps replay — and their code
+      // locations kept current. A full scan also sends records no code uses back to pending; old pending entries expire.
+      if (recordsOn && records?.enabled) {
+        const kept = new Set();
+        for (const [id, found] of usedIn) { records.promote(id, kept); records.place(id, found, scanned); }
+        if (all && !files?.length && !listed.truncated) for (const id of records.list()) if (!kept.has(id)) records.demote(id);
+        records.prune();
       }
 
       const cut = listed.truncated ? ` Scanned the first ${MAX_FILES} files only — pass files to check the rest.` : '';

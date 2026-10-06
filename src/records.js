@@ -1,13 +1,15 @@
 // U8: one committed record per issued entry, under <project>/.cor/records/<id>.json — what a heal (U12) reads on any
-// machine that has the repo. A record holds the page (origin + path, masked), the element's fingerprint and up to 12
+// machine that has the repo. P8a: an entry is pending (.cor/pending/<id>.json, git-ignored) until cor_check finds its id
+// in code and promotes it; a page's reach and states are in .cor/pages/<page>.json. A record holds the page (origin + path, masked), the element's fingerprint and up to 12
 // ranked strategies as data ({ kind, value }), masked (src/redact.js). It holds no ready-to-paste code,
 // and COR never puts a record's contents in a reply: records are COR's, not advice for the agent (README).
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pageKey, redactFingerprint, redactLocator, redactText } from './redact.js';
 
-export const RECORD_VERSION = 1;
+export const RECORD_VERSION = 2; // P8a: state, kind, values, usedIn, leadsTo; version 1 is still read (state unknown)
+const PENDING_DAYS = 14;
 const MAX_STRATEGIES = 12;
 export const ID_PATTERN = /cor:([0-9a-f]{6})\b/;
 const randomId = () => randomBytes(3).toString('hex');
@@ -15,6 +17,12 @@ const randomId = () => randomBytes(3).toString('hex');
 /** Review fix: a record's page is masked (a path can carry a token), and pages match by path, not host. */
 export const recordPage = (url) => redactText(pageKey(url));
 export const pathOf = (page) => { try { return new URL(page).pathname; } catch { return String(page); } };
+/** P8a: a page's file name — its path (`/orders/new` → `orders-new`, `/` → `index`). */
+export const pageSlug = (url) => pathOf(recordPage(url)).replace(/^\/+|\/+$/g, '').replace(/[^\w.-]+/g, '-') || 'index';
+/** P8a: a state is keyed by its steps; the page as opened is `initial`. */
+export const stateKey = (steps) => (steps?.length
+  ? `s${createHash('sha1').update(steps.map((st) => `${st.action}:${st.id ?? ''}:${st.value ?? ''}`).join('>')).digest('hex').slice(0, 6)}` : 'initial');
+const readJson = (file) => { try { return JSON.parse(readFileSync(file, 'utf8')); } catch { return null; } };
 
 const writeAtomic = (file, body) => {
   const tmp = `${file}.${process.pid}.tmp`;
@@ -33,22 +41,26 @@ const writeAtomic = (file, body) => {
  */
 export function createRecordStore({ root, enabled = true, newId = randomId, now = Date.now }) {
   const dir = () => join(root(), '.cor', 'records');
+  const pendingDir = () => join(root(), '.cor', 'pending');
+  const pagesDir = () => join(root(), '.cor', 'pages');
   const fileOf = (id) => join(dir(), `${id}.json`);
-  const store = { issue, link, read, list, enabled, dir, lastError: null };
+  const pendingOf = (id) => join(pendingDir(), `${id}.json`);
+  const store = { issue, link, read, list, listPending, isPlaced, promote, demote, place, prune, readPage, recordState, recordReach, leadsTo, enabled, dir, lastError: null };
 
   /** A fresh id — regenerated if a record by that name already exists. */
   function issueId() {
     for (let i = 0; i < 20; i++) {
       const id = newId();
-      if (!enabled || !existsSync(fileOf(id))) return id;
+      if (!enabled || (!existsSync(fileOf(id)) && !existsSync(pendingOf(id)))) return id;
     }
     throw new Error('could not find a free record id in .cor/records/');
   }
 
-  /** Every record id in the project. */
-  function list() {
-    try { return readdirSync(dir()).filter((n) => /^[0-9a-f]{6}\.json$/.test(n)).map((n) => n.slice(0, -5)); } catch { return []; }
-  }
+  const ids = (d) => { try { return readdirSync(d).filter((n) => /^[0-9a-f]{6}\.json$/.test(n)).map((n) => n.slice(0, -5)); } catch { return []; } };
+  /** Every placed record id in the project (P8a: pending entries are not listed). */
+  function list() { return ids(dir()); }
+  function listPending() { return ids(pendingDir()); }
+  function isPlaced(id) { return existsSync(fileOf(id)); }
 
   /**
    * The id already recorded for this element: same page path, same position, same member, same identity (tag and
@@ -57,7 +69,7 @@ export function createRecordStore({ root, enabled = true, newId = randomId, now 
    */
   function existing({ page, elementKey, member, fingerprint }) {
     // ponytail: a linear scan per inspect; an index file if a project ever holds thousands of records.
-    for (const id of list()) {
+    for (const id of [...list(), ...listPending()]) {
       const r = read(id);
       if (r && pathOf(r.page) === pathOf(page) && r.elementKey === elementKey && r.member === member
         && r.fingerprint?.tag === fingerprint.tag && (r.fingerprint?.text ?? null) === (redactFingerprint(fingerprint).text ?? null)) return r.id;
@@ -69,30 +81,126 @@ export function createRecordStore({ root, enabled = true, newId = randomId, now 
    * Write the record for a just-issued entry. Returns the id; with capture off, an id and nothing written. A failed
    * write never fails the inspect: the id is returned and `lastError` says why the record is missing.
    */
-  function issue({ url, fingerprint, elementKey = null, member = null, strategies, declined = null }) {
+  function issue({ url, fingerprint, elementKey = null, member = null, strategies, declined = null, state = 'initial', kind = 'single', values = null }) {
     store.lastError = null;
     const page = recordPage(url);
     const id = (enabled && elementKey && existing({ page, elementKey, member, fingerprint })) || issueId();
     if (!enabled) return id;
     try {
-      mkdirSync(dir(), { recursive: true });
+      const placed = isPlaced(id);
+      const before = read(id);
       const record = {
         v: RECORD_VERSION,
         id,
         page,
         elementKey,
         member,
+        // P8a: where the element lives (the page as opened, or a state reached by steps), what it is, and who uses it.
+        state,
+        kind,
+        ...(values?.length ? { values } : {}),
         fingerprint: redactFingerprint(fingerprint),
         strategies: strategies.slice(0, MAX_STRATEGIES).map((s) => ({ kind: s.kind, value: redactLocator(s.value) })),
-        created: new Date(now()).toISOString().slice(0, 10),
+        created: before?.created ?? new Date(now()).toISOString().slice(0, 10),
         // P1: a decline id — COR found no locator that passes the shared check; cor_check reports it as declined, cited.
         ...(declined ? { declined } : {}),
+        ...(before?.usedIn ? { usedIn: before.usedIn } : {}),
+        ...(before?.leadsTo ? { leadsTo: before.leadsTo } : {}),
       };
-      writeAtomic(fileOf(id), `${JSON.stringify(record, null, 2)}\n`);
+      write(record, placed);
     } catch (error) {
       store.lastError = error.message;
     }
     return id;
+  }
+
+  /** A record into records/ (placed) or pending/ — pending is git-ignored: an entry nobody placed never reaches a commit. */
+  function write(record, placed) {
+    if (placed) {
+      mkdirSync(dir(), { recursive: true });
+      writeAtomic(fileOf(record.id), `${JSON.stringify(record, null, 2)}\n`);
+      return;
+    }
+    mkdirSync(pendingDir(), { recursive: true });
+    const ignore = join(pendingDir(), '.gitignore');
+    if (!existsSync(ignore)) writeFileSync(ignore, '# COR: entries shown but not yet placed in code — cor_check promotes them to ../records/\n*\n');
+    writeAtomic(pendingOf(record.id), `${JSON.stringify(record, null, 2)}\n`);
+  }
+
+  /** P8a: a pending entry whose id is in code becomes a record, with every element its state and its page's reach replay. */
+  function promote(id, seen = new Set()) {
+    if (!enabled || seen.has(id)) return;
+    seen.add(id);
+    const r = read(id);
+    if (!r) return;
+    if (!isPlaced(id)) {
+      write(r, true);
+      try { unlinkSync(pendingOf(id)); } catch { /* gone */ }
+    }
+    const page = readPage(r.page);
+    const steps = [...(page?.reach?.steps ?? []), ...(page?.states?.[r.state]?.steps ?? [])];
+    for (const st of steps) if (st.id) promote(st.id, seen);
+  }
+
+  /** P8a: a placed record no code uses goes back to pending (cor_check all: true — it saw every file). */
+  function demote(id) {
+    const r = isPlaced(id) ? read(id) : null;
+    if (!r) return;
+    const { usedIn: _, ...rest } = r;
+    write(rest, false);
+    unlinkSync(fileOf(id));
+  }
+
+  /** P8a: the code locations that use an id — those in the scanned files are replaced, the rest kept. */
+  function place(id, found, scanned) {
+    const r = read(id);
+    if (!r || !enabled) return;
+    const usedIn = [...(r.usedIn ?? []).filter((u) => !scanned.has(u.file)), ...found].sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
+    if (JSON.stringify(usedIn) === JSON.stringify(r.usedIn ?? [])) return;
+    write({ ...r, usedIn }, isPlaced(id));
+  }
+
+  /** P8a: pending entries older than PENDING_DAYS are deleted — unless a placed element's steps need them (they were promoted). */
+  function prune() {
+    const cutoff = new Date(now() - PENDING_DAYS * 86_400_000).toISOString().slice(0, 10);
+    let removed = 0;
+    for (const id of listPending()) {
+      const r = readJson(pendingOf(id));
+      if (r?.created && r.created < cutoff) { try { unlinkSync(pendingOf(id)); removed++; } catch { /* gone */ } }
+    }
+    return removed;
+  }
+
+  // ── P8a: page files — how a page is reached and the states inside it ──
+  const pageFile = (url) => join(pagesDir(), `${pageSlug(url)}.json`);
+  function readPage(url) { return readJson(pageFile(url)); }
+  function writePage(url, update) {
+    if (!enabled) return;
+    try {
+      const page = readPage(url) ?? { v: 1, page: recordPage(url), reach: { open: pathOf(recordPage(url)) }, states: {} };
+      update(page);
+      mkdirSync(pagesDir(), { recursive: true });
+      writeAtomic(pageFile(url), `${JSON.stringify(page, null, 2)}\n`);
+    } catch (error) {
+      store.lastError = error.message;
+    }
+  }
+  /** The state a list of steps reaches on this page, recorded once; returns its key. */
+  function recordState(url, steps) {
+    const key = stateKey(steps);
+    if (key !== 'initial' && !readPage(url)?.states?.[key]) writePage(url, (p) => { p.states[key] = { steps }; });
+    return key;
+  }
+  /** A page reached from another page by steps — the first way it was reached is kept. */
+  function recordReach(url, from, steps) {
+    if (readPage(url)?.reach?.from) return;
+    writePage(url, (p) => { p.reach = { from: pageSlug(from), steps }; });
+  }
+  /** The control that led to another page. */
+  function leadsTo(id, url) {
+    const r = read(id);
+    if (!r || !enabled || r.leadsTo === pageSlug(url)) return;
+    try { write({ ...r, leadsTo: pageSlug(url) }, isPlaced(id)); } catch (error) { store.lastError = error.message; }
   }
 
   /** U8 (R42): JSON stores cannot hold a comment, so `file#key → id` lives in COR's own sidecar, never in the team's map. */
@@ -115,14 +223,11 @@ export function createRecordStore({ root, enabled = true, newId = randomId, now 
     }
   }
 
-  /** A record COR can read: this format version, with a fingerprint and strategies — else null. */
+  /** A record COR can read — placed, else pending; version 1 or 2, with a fingerprint and strategies — else null. */
   function read(id) {
-    try {
-      const r = JSON.parse(readFileSync(fileOf(id), 'utf8'));
-      return r?.v === RECORD_VERSION && r.fingerprint && Array.isArray(r.strategies) ? r : null;
-    } catch {
-      return null;
-    }
+    const r = readJson(fileOf(id)) ?? readJson(pendingOf(id));
+    if (!(r && (r.v === 1 || r.v === RECORD_VERSION) && r.fingerprint && Array.isArray(r.strategies))) return null;
+    return r.v === 1 ? { ...r, state: null } : r; // P8a: a version-1 record's state is unknown
   }
 
   return store;

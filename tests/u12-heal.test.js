@@ -151,9 +151,13 @@ test('U12 (AE12) a committed record heals in a fresh session with only the check
 });
 
 test('U12 (R45) no id: the page\'s elements that lost every locator are listed, without claiming which one was meant', async (t) => {
-  const { call } = await connect(t, project('noid'));
+  const dir = project('noid');
+  const { call } = await connect(t, dir);
   const mug = (await issue(call, '[data-test="add-to-cart-mug"]')).id;
-  await issue(call, '[data-test="save-draft"]');
+  const draft = (await issue(call, '[data-test="save-draft"]')).id;
+  // P8a: only placed elements are listed — cor_check places the ids it finds in code
+  writeFileSync(join(dir, 'shop.spec.js'), [mug, draft].map((id) => `// COR cor:${id} · x\nconst x${id} = (page) => page.locator('#x');`).join('\n'));
+  await call('cor_check', { files: ['shop.spec.js'] });
   await call('cor_open', { url: `${base}?m=removed` });
   const out = (await call('cor_heal', { locator: "page.locator('[data-test=\"add-to-cart-mug\"]')" })).text;
   assert.match(out, /^No cor: id on this locator, so COR cannot tell which element it meant\. 1 recorded element on this page lost every recorded locator — match by hand:/, out);

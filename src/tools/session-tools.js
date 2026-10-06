@@ -7,6 +7,7 @@ import { compactEntries } from './inspect.js';
 // P2a: entry blocks an act reply carries; the rest are counted with their refs.
 export const ACT_ENTRIES = 4; // P4: was 6
 import { checkRef, goneError } from './refs.js';
+import { pathOf } from '../records.js';
 
 // Act tools only reach a page state so an element can be inspected; nothing
 // here asserts. So they use raw DOM calls through evaluate rather than
@@ -145,11 +146,32 @@ function focus(el) {
 }
 
 /** @param {ReturnType<import('../session.js').createSession>} session */
-export function sessionTools(session, inspector = null, outline = null) {
+export function sessionTools(session, inspector = null, outline = null, records = null) {
   // Act tools never launch a browser onto about:blank — that only hides the missing step.
   const openPage = () => {
     if (!session.isOpen) throw new Error('No page is open — call cor_open with a URL first.');
     return session.getPage();
+  };
+
+  // P8a: the steps acted since this page was opened. An inspect records the state they reach; an act that opens another
+  // document records that page's reach (this page plus the steps) and the control's leadsTo. A step names a record.
+  const startTrail = (page) => { session.trail = { page: pathOf(page.url()), url: page.url(), steps: [] }; };
+  const stepFor = async (page, handle, action, value = null) => {
+    if (!records?.enabled || !inspector) return null;
+    if (session.trail?.page !== pathOf(page.url())) startTrail(page);
+    let target = null;
+    if (handle) try { target = await inspector({ element: handle, quiet: true }); } catch { /* not inspectable: the step names no record */ }
+    return { id: target?.id ?? null, action, value: value ?? target?.value ?? null };
+  };
+  const endStep = (page, step, result) => {
+    if (!step) return;
+    const from = session.trail;
+    if (result.navigated && pathOf(page.url()) !== from.page) {
+      startTrail(page);
+      records.recordReach(page.url(), from.url, [...from.steps, step]);
+      if (step.id) records.leadsTo(step.id, page.url());
+    } else if (result.navigated) startTrail(page); // the same page reloaded: back to as opened
+    else from.steps.push(step);
   };
 
   // U22: said once per session, the first time an act changes something.
@@ -201,6 +223,7 @@ export function sessionTools(session, inspector = null, outline = null) {
         await page.waitForLoadState('load', { timeout: 5000 }).catch(() => {});
         await page.waitForLoadState('networkidle', { timeout: 3000 }).catch(() => {});
         const status = response ? ` (HTTP ${response.status()})` : '';
+        startTrail(page);
         // P2a: the page's outline (or region index) comes with the open — no separate cor_snapshot turn.
         const shown = outline ? `\n\n${await outline(page).catch(() => 'cor_snapshot lists the page\'s controls.')}` : '';
         return text(`${await pageState(page)}${status}. Browser: ${session.browserLabel}.\n${session.frameworkLine}${shown}`);
@@ -216,7 +239,9 @@ export function sessionTools(session, inspector = null, outline = null) {
       handler: async (args) => {
         const page = await openPage();
         const handle = await resolveElement(session, page, args);
+        const step = await stepFor(page, handle, 'click');
         const result = await act(session, page, () => onHandle(handle, click), { expectNavigation: await expectsNavigation(handle) });
+        endStep(page, step, result);
         return text(`Clicked ${args.ref ?? args.target}. ${await pageState(page)}\n${await actReply(result)}`);
       },
     },
@@ -230,7 +255,9 @@ export function sessionTools(session, inspector = null, outline = null) {
       handler: async (args) => {
         const page = await openPage();
         const handle = await resolveElement(session, page, args);
+        const step = await stepFor(page, handle, 'fill', args.value);
         const result = await act(session, page, () => onHandle(handle, fill, args.value));
+        endStep(page, step, result);
         return text(`Filled ${args.ref ?? args.target}.\n${await actReply(result, { quietIfUnchanged: true })}`);
       },
     },
@@ -248,11 +275,13 @@ export function sessionTools(session, inspector = null, outline = null) {
       handler: async ({ key, ref: r, target: selector }) => {
         const page = await openPage();
         const handle = r || selector ? await resolveElement(session, page, { ref: r, target: selector }) : null;
+        const step = await stepFor(page, handle, 'press', key);
         const result = await act(session, page, async () => {
           if (handle) await onHandle(handle, focus);
           // A real key event, so Enter submits a form and Escape closes a dialog.
           await page.keyboard.press(key);
         });
+        endStep(page, step, result);
         return text(`Pressed ${key}. ${await pageState(page)}\n${await actReply(result)}`);
       },
     },

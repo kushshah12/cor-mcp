@@ -53,7 +53,9 @@ after(async () => {
 });
 
 const tempDir = () => mkdtempSync(join(tmpdir(), 'cor-rec-'));
-const recordsIn = (dir) => readdirSync(join(dir, '.cor', 'records')).map((f) => JSON.parse(readFileSync(join(dir, '.cor', 'records', f), 'utf8')));
+// P8a: an entry is pending until cor_check finds its id in code; both folders hold records
+const jsonIn = (d) => { try { return readdirSync(d).filter((f) => f.endsWith('.json')).map((f) => join(d, f)); } catch { return []; } };
+const recordsIn = (dir) => ['records', 'pending'].flatMap((d) => jsonIn(join(dir, '.cor', d))).map((f) => JSON.parse(readFileSync(f, 'utf8')));
 
 async function connect(t, records) {
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
@@ -143,7 +145,7 @@ test('through the bin: one record per element, nothing on stderr, nothing outsid
   const withCapture = await runBin(t, { cwd: on });
   assert.equal(withCapture.stderr, '', 'capture is silent');
   assert.deepEqual(readdirSync(on), ['.cor'], 'only .cor/ inside the working folder');
-  assert.equal(readdirSync(join(on, '.cor', 'records')).length, 3, 'four inspects of three elements: one record each');
+  assert.equal(recordsIn(on).length, 3, 'four inspects of three elements: one record each');
 
   const noId = (texts) => texts.map((s) => s.replace(/cor:[0-9a-f]{6}/g, 'cor:{id}'));
   for (const [args, env] of [[['--no-records'], {}], [['--no-fingerprints'], {}], [[], { COR_RECORDS: 'off' }], [[], { COR_FINGERPRINTS: 'off' }]]) {

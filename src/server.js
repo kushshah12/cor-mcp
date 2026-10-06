@@ -16,7 +16,7 @@ export function defaultTools(session, records = null) {
   const idCache = new Map(); // id-stability verdicts, shared by inspect and grade
   const inspector = createInspector(session, idCache, records); // shared: cor_check and cor_heal issue entries too
   const outline = (page) => pageOutline(session, page, { idCache });
-  return [...sessionTools(session, inspector, outline), ...inspectTools(session, idCache, inspector, records), ...gradeTools(session, idCache), ...checkTools(session, inspector, records), ...healTools(session, inspector, records)];
+  return [...sessionTools(session, inspector, outline, records), ...inspectTools(session, idCache, inspector, records), ...gradeTools(session, idCache), ...checkTools(session, inspector, records), ...healTools(session, inspector, records)];
 }
 
 // Sent once at connect. The user asks the agent for tests, not for locators,

@@ -28,7 +28,8 @@ process.stdin.on('end', shutdown);
 process.on('SIGINT', shutdown);
 process.on('SIGTERM', shutdown);
 
-// U8: one record per issued entry in <project>/.cor/records/ — committed, so heal works on any machine.
+// U8: one record per issued entry in <project>/.cor/records/ — committed, so heal works on any machine. P8a: an entry
+// waits in .cor/pending/ (git-ignored) until cor_check finds its id in code.
 // Off with --no-records (or the old --no-fingerprints) or COR_RECORDS=off (or COR_FINGERPRINTS=off).
 const capture = !values['no-records'] && !values['no-fingerprints'] && process.env.COR_RECORDS !== 'off' && process.env.COR_FINGERPRINTS !== 'off';
 const records = createRecordStore({ enabled: capture, root: () => session.root });

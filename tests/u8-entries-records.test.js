@@ -156,5 +156,5 @@ test('U8 a re-inspect of the same element reuses its id: one record per element,
   const c = idOf(await call('cor_inspect', { selector: '[data-test="add-to-cart-onesie"]' }));
   assert.equal(a, b);
   assert.notEqual(a, c);
-  assert.equal(readdirSync(join(dir, '.cor/records')).length, 3); // P3: the onesie's template also records its every-item locator
+  assert.equal(readdirSync(join(dir, '.cor/pending')).filter((f) => f.endsWith('.json')).length, 3); // P8a: shown, not yet placed // P3: the onesie's template also records its every-item locator
 });

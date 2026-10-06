@@ -8,6 +8,7 @@ import { applyIdVerdicts, checkIds, numberedIds } from '../id-stability.js';
 import { parseGradable } from '../grade-parse.js';
 import { entryFor, everyName, everyOf, memberName } from '../entries.js';
 import { bannedIn, bannedSelector } from '../positional.js';
+import { pathOf } from '../records.js';
 
 export const FRAMEWORKS = ['playwright', 'cypress', 'selenium', 'webdriverio', 'nightwatch', 'testcafe', 'puppeteer'];
 
@@ -273,17 +274,21 @@ export function createInspector(session, idCache = new Map(), records = null) {
       ...result.locators.filter((l) => !bannedSelector(l.value)).map((l) => ({ kind: l.strategy, value: l.value })),
     ];
     const member = memberName(result, entryLead);
-    const id = reuseId ?? (records ? records.issue({ url: page.url(), fingerprint: result.capture.fingerprint, elementKey: result.capture.elementKey, member, strategies, declined }) : newId());
+    // P8a: the state the element was found in — the steps acted since the page was opened (cor_open or a navigation).
+    const trail = session.trail?.page === pathOf(page.url()) ? session.trail : null;
+    const state = records && !reuseId ? records.recordState(page.url(), trail?.steps ?? []) : 'initial';
+    const kind = !entryLead ? 'single' : ['group', 'cell'].includes(entryLead.kind) ? entryLead.kind : 'item';
+    const id = reuseId ?? (records ? records.issue({ url: page.url(), fingerprint: result.capture.fingerprint, elementKey: result.capture.elementKey, member, strategies, declined, state, kind, values: entryLead?.values ?? null }) : newId());
     const labelCode = !entryLead && !declined && result.viaLabel ? await labelLocator(page, result.viaLabel, framework) : null;
     // P3: the every-item locator gets its own record and id (its strategy is the items' locator).
     const everyCode = !declined && !reuseId ? everyOf(entryLead, framework, helper) : null;
-    const everyId = everyCode ? (records ? records.issue({ url: page.url(), fingerprint: { tag: 'every', attrs: {}, text: everyCode }, elementKey: `every:${everyCode}`, member: everyName(everyCode), strategies: [{ kind: 'every', value: everyCode }] }) /* keyed by the locator: every item of the template shares it */ : newId()) : null;
+    const everyId = everyCode ? (records ? records.issue({ url: page.url(), fingerprint: { tag: 'every', attrs: {}, text: everyCode }, elementKey: `every:${everyCode}`, member: everyName(everyCode), strategies: [{ kind: 'every', value: everyCode }], state, kind: 'every' }) /* keyed by the locator: every item of the template shares it */ : newId()) : null;
     const entry = entryFor({ result, lead: entryLead, helper, framework, conventions: session.conventions, typescript, url: page.url(), id, declined, labelCode, everyId });
     if (records && !reuseId && entry.store === 'json') records.link(`${entry.file}#${entry.member}`, id);
     // Review fix: a record that could not be written does not fail the inspect — the reply says heal has nothing for it.
     const entryLines = records?.lastError && !reuseId ? [...entry.lines.slice(0, -1), `  (record not saved: ${records.lastError} — cor_heal will have no record for this id)`, ''] : entry.lines;
     const reply = renderInspect(result, { refsLive, framework, all, dataCyNote, typescript, major: detected?.version ?? null, testingLibrary: Boolean(detected?.testingLibrary), entry: entryLines, parts });
-    return { reply, entry: entryLines, declined, info: entry, brief: renderBrief(result, parts, entry, { framework, refsLive }) };
+    return { reply, entry: entryLines, declined, info: entry, brief: renderBrief(result, parts, entry, { framework, refsLive }), id, value: entryLead?.value ?? null };
   };
 }
 const renamed = (info, member) => ({ ...info, member, body: info.body?.replace(info.member, member), comment: info.comment?.replace(`· ${info.member}`, `· ${member}`), click: info.click?.map((l) => l.split(info.member).join(member)) });

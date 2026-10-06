@@ -72,9 +72,9 @@ test('U8 review: a button that turns into Remove in place gets its own id — Ad
 
 test('U8 review: a record that cannot be written does not fail the inspect; the entry says heal has no record', async (t) => {
   const dir = project('readonly');
-  mkdirSync(join(dir, '.cor', 'records'), { recursive: true });
-  chmodSync(join(dir, '.cor', 'records'), 0o500);
-  t.after(() => chmodSync(join(dir, '.cor', 'records'), 0o700));
+  mkdirSync(join(dir, '.cor', 'pending'), { recursive: true }); // P8a: a new entry is written to pending/
+  chmodSync(join(dir, '.cor', 'pending'), 0o500);
+  t.after(() => chmodSync(join(dir, '.cor', 'pending'), 0o700));
   const { call } = await connect(t, dir);
   await call('cor_open', { url: base });
   const out = await call('cor_inspect', { selector: '[data-test="badge"]' });

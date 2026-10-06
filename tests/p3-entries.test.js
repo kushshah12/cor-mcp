@@ -56,7 +56,9 @@ test('P3 the every-item locator is a member with its own id; a loop written with
   assert.match(check, /^cor_check: 2 locators in 1 file \(the given files\) — 2 carry a COR id, 0 to fix\./, check);
   const heal = await call('cor_heal', { id: every.exec(first)[1] });
   assert.match(heal.text, /is an every-item locator — it finds every item, not one element/);
-  assert.equal(readdirSync(join(dir, '.cor/records')).length, 3, 'question, answer, and one every-item record');
+  // P8a: cor_check placed the question and the every-item locator; the answer, shown but not placed, stays pending
+  assert.equal(readdirSync(join(dir, '.cor/records')).length, 2, 'question and one every-item record');
+  assert.deepEqual(readdirSync(join(dir, '.cor/pending')).filter((f) => f.endsWith('.json')).length, 1, 'the answer');
 });
 
 for (const [fw, show] of [
