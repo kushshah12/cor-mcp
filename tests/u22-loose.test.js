@@ -130,8 +130,9 @@ test('WebdriverIO CSS in $() is graded like any CSS', async (t) => {
   assert.equal(r.isError, false, r.text);
   assert.doesNotMatch(r.text, /Loose/);
   const chained = await call('cor_grade', { selector: "$('main').$('#plain')" });
-  assert.equal(chained.isError, true);
-  assert.match(chained.text, /chained WebdriverIO calls/);
+  // P5: a WebdriverIO chain is read step by step now, not refused.
+  assert.equal(chained.isError, false, chained.text);
+  assert.match(chained.text, /1 match/);
 });
 
 // ── A1: a click that navigates waits for the new page and lists its headings with refs ──
