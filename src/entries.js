@@ -3,7 +3,7 @@
 // tools; COR never edits the team's files. cor_check (U9) finds entries again by that id, never by their text.
 
 import { helperUse } from './format.js';
-import { everyItem, leafIn } from './idioms/index.js';
+import { everyItem, leafIn, nameOf } from './idioms/index.js';
 
 const camel = (s) => {
   const words = String(s ?? '').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
@@ -186,7 +186,17 @@ export function entryFor({ result, lead, helper, framework, conventions, typescr
     `  // COR cor:${id} · ${ofMember}`,
     store === 'page-object-class' ? `  ${ofMember} = (item${itemType}) => ${ofCode};` : `  ${ofMember}: (item${itemType}) => ${ofCode},`,
   ] : [];
-  const extra = [...click, ...show, ...every, ...of];
+  // P3 (runs 92a3c7e6, 8cf9312a): an item named by either of two elements comes with its name member — "each card shows its name".
+  const nameMember = lead?.model?.slot?.kind === 'either' && !lead.model.leaf?.nameSels && !itemOnly
+    ? `${camel(/\.([\w-]+)[^.]*$/.exec(lead.model.item?.css ?? '')?.[1]) ?? 'item'}Name` : null;
+  const nameCode = !nameMember ? null : framework === 'playwright' ? lead.nameCode?.replace(/\bpage\./g, store === 'page-object-class' ? 'this.page.' : 'page.')
+    : helper?.call ? nameOf(framework, lead.model, helper.call) : null;
+  const named = nameCode && nameMember !== member ? [
+    `  // COR cor:${id} · ${nameMember}`,
+    store === 'page-object-class' ? `  ${nameMember} = (${pTyped}) => ${nameCode};`
+      : framework === 'playwright' ? `  ${nameMember}: (page, ${pTyped}) => ${nameCode},` : `  ${nameMember}: (${pTyped}) => ${nameCode},`,
+  ] : [];
+  const extra = [...click, ...show, ...named, ...every, ...of];
   // P3: a state the test must check before acting — an item that starts open closes on the first click.
   const notes = [];
   if (lead?.startsOpen) notes.push(`note: ${lead.startsOpen.map((v) => `"${v}"`).join(', ')} ${lead.startsOpen.length === 1 ? 'is' : 'are'} open now — clicking it closes it; check its state before clicking`);

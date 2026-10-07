@@ -21,13 +21,17 @@ export function gradeTools(session, idCache = new Map()) {
           'If it reports Healthy, STOP: the locator is not why the test failed — look at the product or the assertion instead of replacing it. ' +
           `Accepts ${SUPPORTED_FORMS}.`,
         inputSchema: {
-          selector: z.string().min(1).describe('The selector exactly as written in the test, e.g. page.getByRole(\'button\', { name: \'Save\' }) or cy.get(\'.btn\').'),
+          selector: z.string().min(1).optional().describe('The selector exactly as written in the test, e.g. page.getByRole(\'button\', { name: \'Save\' }) or cy.get(\'.btn\').'),
+          // P3 (run 92a3c7e6): cor_heal takes `locator`, so agents pass it here too — the same thing.
+          locator: z.string().min(1).optional().describe('Same as selector.'),
           framework: z.enum(FRAMEWORKS).optional().describe('Framework to render alternatives for. Default: the framework of the project as cor_open reported it, else the form of the selector (getBy* → playwright, cy.* → cypress), else playwright.'),
           param: z.string().optional().describe('For a parameterised helper: the variable in the selector (e.g. title in getByText(title, { exact: true })). COR runs the locator for every value and says which items no value reaches.'),
           values: z.array(z.string()).optional().describe('Values to run the parameterised locator with. Omit to let COR find each item\'s values on the page (needs the chain to start with page.locator(\'css\')).'),
         },
       },
-      handler: async ({ selector, framework: asked, param, values }) => {
+      handler: async ({ selector: given, locator, framework: asked, param, values }) => {
+        const selector = given;
+        if (!selector) throw new Error('Pass the locator to grade as selector.');
         // The argument wins; else the form of the selector (cy.* is Cypress whatever the project is); else the project's framework.
         const project = session.resolveFramework(asked) ?? undefined;
         const framework = asked ?? undefined;

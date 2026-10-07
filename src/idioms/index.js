@@ -41,3 +41,9 @@ export function leafIn(framework, model, from, opts = {}) {
   return out.code;
 }
 export const idiomsOf = (framework) => TABLES[framework]?.IDIOMS ?? [];
+
+/** P3: the item's name from the item helper's call, whichever of its naming elements holds it (an either-named item only). */
+export function nameOf(framework, model, from) {
+  if (model.slot?.kind !== 'either' || model.slot.transformed) return null;
+  return TABLES[framework]?.leaf({ ...model, leaf: { nameSels: model.slot.sels.join(', ') } }, from)?.code ?? null;
+}

@@ -978,7 +978,7 @@ function render(slot, itemSel, inner0, values, self, items) {
   const ph = `__${p}__`;
   // P3: a name leaf compares the parameter, so its code is built for it
   const inner = inner0.codeFor ? { ...inner0, code: inner0.codeFor(p), pw: inner0.pwFor(ph) } : inner0;
-  let code; let pw; let xpath;
+  let code; let pw; let xpath; let nameCode = null;
   const vis = itemSel.visible ? '.filter({ visible: true })' : '';
   const css = itemSel.visible ? `${itemSel.css}:visible` : itemSel.css;
   if (slot.kind === 'attribute') {
@@ -988,6 +988,9 @@ function render(slot, itemSel, inner0, values, self, items) {
   } else if (slot.kind === 'either') {
     const [a, b] = slot.sels;
     code = `page.locator(${q(itemSel.css)})${vis}.filter({ has: ${namedBy(a.sel, p, items)}.or(${namedBy(b.sel, p, items)}) })${inner.code}`;
+    // P3 (runs 92a3c7e6, 8cf9312a): the item's name, whichever element holds it — both agents composed it for "each card shows
+    // its name" because it came only from inspecting the name itself.
+    if (!inner0.codeFor) nameCode = `${code.slice(0, code.length - inner.code.length)}.locator(${q(`${a.sel}, ${b.sel}`)}).getByText(${p}, { exact: true })`;
     pw = `${css}:has(${a.sel}:text-is("${ph}"), ${b.sel}:text-is("${ph}")) >> ${inner.pw}`;
     xpath = inner.xpath && `${itemSel.xpath}[.//${a.xpathSel}[normalize-space()=${ph}] or .//${b.xpathSel}[normalize-space()=${ph}]]${inner.xpath}`;
   } else {
@@ -1006,6 +1009,7 @@ function render(slot, itemSel, inner0, values, self, items) {
     // P3 (run b14ddae4): the element inside one item of that loop — the agent appended it to the every-item locator by hand.
     // a name leaf needs the value, and a control found by class can reach another control: no per-item form for either
     leafCode: inner0.codeFor || inner0.leaf?.control ? null : inner.code,
+    nameCode,
     // P1c: the same item selector as a plain CSS string, for the WebdriverIO and Cypress lines.
     everyCss: itemSel.css,
     // P3a: what the WebdriverIO and Cypress renderers read (src/idioms/) — the same item, name slot and leaf that were just checked.

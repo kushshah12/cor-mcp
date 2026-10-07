@@ -119,7 +119,7 @@ export function checkTools(session, inspector, records = null) {
           } else if (site.id) {
             findings.push({ where, what: `cor:${site.id} is not a record COR issued in this project (copied from elsewhere, or edited?).`, fix: await fixFor(site) });
           } else {
-            findings.push({ where, what: `${shown} — no COR id.`, fix: await fixFor(site) });
+            findings.push({ where, what: `${shown} — no COR id.`, fix: helperFix(site, src) ?? await fixFor(site) });
           }
         }
       }
@@ -136,6 +136,24 @@ export function checkTools(session, inspector, records = null) {
           return r.capture?.elementKey && r.capture.elementKey !== record.elementKey
             ? `cor:${site.id} was issued for another element on this page — the locator was edited after COR issued it.` : null;
         } catch { return null; }
+      }
+
+      /**
+       * P3 (runs 92a3c7e6, 8cf9312a): a module-scope helper placed without its `// COR … · helper` line — the member that calls it
+       * carries the id, so say which line to add instead of "not readable" (the agent worked the ids out by hand).
+       */
+      function helperFix(site, src) {
+        const name = /^(?:export\s+)?const\s+(\w+)\s*=\s*(?:async\s*)?\(/.exec(site.statement)?.[1];
+        if (!name) return null;
+        // a `// COR cor:<id> · <member>` line whose member, on the next line, calls the helper
+        const lines = src.split('\n');
+        for (let i = 0; i + 1 < lines.length; i++) {
+          const c = /\/\/ COR cor:([0-9a-f]{6}) · (\w+)(?!.*· helper)/.exec(lines[i]);
+          if (c && known.has(c[1]) && new RegExp(`\\b${name}\\(`).test(lines[i + 1])) {
+            return [`This is the helper of ${c[2]} (cor:${c[1]}): add this line above it — no other change:`, `  // COR cor:${c[1]} · ${c[2]} · helper, once per file (module scope)`];
+          }
+        }
+        return null;
       }
 
       /** COR's fix for a site: run its locator on the open page; the element it finds gets an entry (or its existing id). */

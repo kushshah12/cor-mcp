@@ -278,3 +278,50 @@ test('P3 a cell template is scoped when any checked combination is ambiguous, no
   assert.match(out, /^✓ cellAt\(featureList, column\) → /m, out);
   assert.match(out, /const tables = "\/\/div\[@data-plan-type='teams'\]/, out);
 });
+
+// ── runs 92a3c7e6 (CY) / 8cf9312a (WDIO) ──
+for (const [fw, name] of [
+  ['playwright', /^ {2}cardName = \(title\) => this\.page\.locator\('div\.card'\)\.filter\(.*\)\.locator\('h3\.card__title, label'\)\.getByText\(title, \{ exact: true \}\);$/m],
+  ['cypress', /^ {2}cardName = \(title\) => card\(title\)\.contains\('h3\.card__title, label', new RegExp/m],
+  ['webdriverio', /^ {2}cardName = \(title\) => card\(title\)\.\$\$\('h3\.card__title, label'\)\.find\(async \(el\) => \(await el\.getText\(\)\) === title\);$/m],
+]) {
+  test(`P3 an entry on an item named by either of two elements carries the item's name member (${fw})`, async (t) => {
+    const { call } = await connect(t, fw);
+    await call('cor_open', { url: `${base}/p3-card-price` });
+    const out = (await call('cor_inspect', { selector: '.card:nth-child(2) .card__price' })).text;
+    assert.match(out, name, out);
+    const id = /cor:([0-9a-f]{6}) · cardPrice\n/.exec(out)[1];
+    assert.match(out, new RegExp(`// COR cor:${id} · cardName$`, 'm'), 'under the entry\'s id');
+  });
+}
+
+test('P3 no name member for an item named one way (a heading only), nor twice when the entry is the name', async (t) => {
+  const { call } = await connect(t);
+  await call('cor_open', { url: `${base}/faq` });
+  assert.doesNotMatch((await call('cor_inspect', { selector: '.faq-item:nth-child(2) .faq-item__answer' })).text, /Name = /);
+  await call('cor_open', { url: `${base}/p3-card-price` });
+  assert.equal((await call('cor_inspect', { selector: '.card:nth-child(2) h3' })).text.match(/cardName = /g).length, 1);
+});
+
+test('P3 cor_grade takes locator as well as selector (cor_heal\'s name for it)', async (t) => {
+  const { call } = await connect(t);
+  await call('cor_open', { url: `${base}/p8a-start` });
+  assert.match((await call('cor_grade', { locator: "page.getByRole('heading', { name: 'Start' })" })).text, /1 match/);
+});
+
+test('P3 cor_check on a module helper placed without its id names the line to add, from the member that calls it', async (t) => {
+  const { dir, call } = await connect(t, 'cypress');
+  await call('cor_open', { url: `${base}/p3-card-price` });
+  const out = (await call('cor_inspect', { selector: '.card:nth-child(2) .card__price' })).text;
+  const id = /cor:([0-9a-f]{6}) · cardPrice\n/.exec(out)[1];
+  writeFileSync(join(dir, 'pricing.page.js'), [
+    "const card = (title) =>",
+    "  cy.get('div.card').contains('h3.card__title, label', new RegExp(`^\\\\s*${Cypress._.escapeRegExp(title)}\\\\s*$`)).closest('div.card');",
+    'export class PricingPage {',
+    `  // COR cor:${id} · cardPrice`,
+    "  cardPrice = (title) => card(title).find('p.card__price').filter(':visible');",
+    '}',
+  ].join('\n'));
+  const check = (await call('cor_check', { files: ['pricing.page.js'] })).text;
+  assert.match(check, new RegExp(`This is the helper of cardPrice \\(cor:${id}\\): add this line above it — no other change:\\n {4}// COR cor:${id} · cardPrice · helper, once per file \\(module scope\\)`), check);
+});
