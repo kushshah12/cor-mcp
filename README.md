@@ -2,18 +2,100 @@
 
 An MCP server that lets a coding agent open a page, pick an element, and get ranked, graded locators for it in the test framework you use.
 
-> The full README — install, tools and the maintenance workflow — lands with the release (U9). This file currently documents the one thing the server does without being asked.
+More at [corlabs.dev](https://corlabs.dev).
+
+## Install
+
+Requires Node 18+ and Google Chrome (Microsoft Edge, or Playwright's Chromium, also work). Nothing is installed globally: your agent runs the server with `npx`.
+
+Add COR to your client. Every client runs the same command, `npx -y @corlabsdev/mcp`.
+
+**Claude Code**
+
+```bash
+claude mcp add cor -- npx -y @corlabsdev/mcp
+```
+
+To share it with your team, put it in `.mcp.json` at the project root instead:
+
+```json
+{ "mcpServers": { "cor": { "command": "npx", "args": ["-y", "@corlabsdev/mcp"] } } }
+```
+
+**GitHub Copilot (VS Code)** — create `.vscode/mcp.json` (or run **MCP: Add Server** from the Command Palette):
+
+```json
+{ "servers": { "cor": { "type": "stdio", "command": "npx", "args": ["-y", "@corlabsdev/mcp"] } } }
+```
+
+Then open Copilot Chat, switch to **Agent** mode, and enable `cor` in the tools list.
+
+**Codex** (CLI and IDE extension)
+
+```bash
+codex mcp add cor -- npx -y @corlabsdev/mcp
+```
+
+or add this to `~/.codex/config.toml`:
+
+```toml
+[mcp_servers.cor]
+command = "npx"
+args = ["-y", "@corlabsdev/mcp"]
+```
+
+**Cursor** — `.cursor/mcp.json`, and **Claude Desktop** — `claude_desktop_config.json`:
+
+```json
+{ "mcpServers": { "cor": { "command": "npx", "args": ["-y", "@corlabsdev/mcp"] } } }
+```
+
+Any other MCP client: register a stdio server whose command is `npx` with arguments `-y @corlabsdev/mcp`.
+
+Restart the client (or reload the window), then ask your agent to open your page: *"Use COR to open https://example.com/login and write the locators for the sign-in form."*
+
+If no browser is found the server says so; install Chrome, or run `npx playwright-core install chromium`.
+
+**Options** (append to `args`, or after `--` in `claude mcp add`):
+
+| Flag | Effect |
+|---|---|
+| `--headless` | Run the browser without a window (default: visible) |
+| `--idle-minutes <n>` | Close the browser after `n` idle minutes |
+| `--no-records` | Write no entry records into your project (see below) |
+
+## Tools
+
+| Tool | Does |
+|---|---|
+| `cor_open` | Open a page; lists its controls with refs |
+| `cor_snapshot` | Text, controls and entries within one region of a large page |
+| `cor_inspect` | Ranked, graded locators for the elements you name, as entries to place in your code |
+| `cor_click`, `cor_fill`, `cor_press` | Act on the page and report what changed |
+| `cor_check` | Fail any locator in your files that did not come from COR |
+| `cor_grade` | Score a locator you wrote yourself |
+| `cor_heal` | Propose a repair for a locator that stopped matching |
+| `cor_close` | Close the browser |
+
+## Workflow
+
+1. `cor_open` the page, then `cor_inspect` every element the test touches, in one call.
+2. Place each entry as given, its `// COR cor:…` comment included, in the file it names.
+3. Run `cor_check` before the tests. When a test breaks on a locator, `cor_grade` it and `cor_heal` if it is broken.
+
+## Updating
+
+`npx -y @corlabsdev/mcp` runs the latest version each time it starts. To pin one, use `npx -y @corlabsdev/mcp@0.1.0`.
 
 ## Setup: COR as the only browser tool
 
 Configure COR MCP **instead of** Playwright MCP for test authoring, not alongside it: COR drives the browser (open, click, fill, press), returns locators as entries for your locator files, checks them (`cor_check`) and repairs them (`cor_heal`). With a second browser server attached, an agent falls back to its snapshots and types its own selectors — which `cor_check` will then fail.
 
-Settings live in the project's `cor.config.js` — the same file `@corlabs/client` reads, which `cor init` writes. `framework` is the SDK's own key; the MCP's settings go under `locators`. Every field is optional and overrides what COR infers from the repo; `cor_open` reports both:
+Settings are optional. COR infers your test framework and conventions from the repo; to override them, add a `cor.config.js` at the project root. `framework` names the test framework and the rest go under `locators`. Every field is optional; `cor_open` reports what was inferred and what was overridden:
 
 ```js
 module.exports = {
-  // …the SDK's apiUrl, projectId, branch, cacheFile…
-  framework: 'playwright',          // also the SDK's
+  framework: 'playwright',          // 'playwright' | 'cypress' | 'webdriverio'
   locators: {
     order: 'framework',             // 'framework' (default: each framework's published guidance, after uniqueness) or 'testid-first'
     testIdAttribute: 'data-test',   // what getByTestId reads (default: playwright.config's testIdAttribute, else data-testid)

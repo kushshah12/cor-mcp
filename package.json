@@ -1,7 +1,19 @@
 {
   "name": "@corlabsdev/mcp",
-  "version": "0.1.0",
-  "description": "MCP server that gives coding agents ranked, graded locators from a live page",
+  "version": "0.1.1",
+  "description": "MCP server that gives AI coding agents scored, maintainable, parameterised locators from a live page, in the test framework your repo already uses, then checks and repairs them.",
+  "homepage": "https://corlabs.dev",
+  "keywords": [
+    "mcp",
+    "locators",
+    "ui automation",
+    "test-automation",
+    "playwright",
+    "cypress",
+    "webdriverio",
+    "selenium",
+    "ai-agents"
+  ],
   "type": "module",
   "bin": {
     "cor-mcp": "./dist/cor-mcp.js"
