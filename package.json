@@ -1,6 +1,6 @@
 {
   "name": "@corlabsdev/mcp",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "MCP server that gives AI coding agents scored, maintainable, parameterised locators from a live page, in the test framework your repo already uses, then checks and repairs them.",
   "homepage": "https://corlabs.dev",
   "keywords": [
@@ -37,7 +37,7 @@
     "release:patch": "npm version patch --tag-version-prefix=mcp-v -m \"mcp %s\"",
     "release:publish": "npm publish --access public"
   },
-  "license": "UNLICENSED",
+  "license": "SEE LICENSE IN LICENSE",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.1",
     "playwright-core": "1.63.0",
