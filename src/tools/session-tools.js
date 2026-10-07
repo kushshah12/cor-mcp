@@ -200,7 +200,7 @@ export function sessionTools(session, inspector = null, outline = null, records 
   const inCodeBlock = async (page) => {
     if (!records?.enabled) return null;
     const path = pathOf(recordPage(page.url()));
-    if (!records.list().some((id) => { const r = records.read(id); return r?.usedIn?.length && pathOf(r.page) === path; })) return null;
+    if (!records.list().some((id) => { const r = records.read(id); return r && records.liveUsedIn(r).length && pathOf(r.page) === path; })) return null;
     const slug = pageSlug(page.url());
     const pages = records.listPages();
     pages[slug] ??= { page: recordPage(page.url()), reach: { open: path }, states: {} }; // version-1 records: no page file yet

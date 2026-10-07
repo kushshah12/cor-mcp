@@ -213,7 +213,7 @@ export function checkTools(session, inspector, records = null) {
             : r.status === 'reinspect' ? [`cor_open ${pathOf(r.record.page)}, cor_inspect the element and replace the entry.`] : ['Fix the step named above first.'];
           for (const u of r.record.usedIn) findings.push({ where: `${u.file}:${u.line}`, what: `cor:${id}${member ? ` (${member})` : ''} ${what}.`, fix });
         }
-        const rest = [tally('needs state') && `${tally('needs state')} need a state (cor_inspect them once)`, tally('not checked') && `${tally('not checked')} not checked (time cap)`].filter(Boolean);
+        const rest = [tally('needs state') && `${tally('needs state')} need a state (cor_inspect them once)`, tally('not checked') && `${tally('not checked')} not checked (time cap)`, tally('unchecked') && `${tally('unchecked')} COR cannot check yet (cor_open their page for why)`].filter(Boolean);
         if (used.length) verifiedNote = ` Records: ${tally('verified')} of ${used.length} verified on the live page${rest.length ? `, ${rest.join(', ')}` : ''}.`;
       }
 

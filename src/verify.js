@@ -12,11 +12,14 @@ const placeholders = (tpl) => [...new Set(tpl.match(/__\w+__/g) ?? [])];
 const xpathLiteral = (v) => (!v.includes("'") ? `'${v}'` : !v.includes('"') ? `"${v}"` : `concat(${v.split("'").map((p) => `'${p}'`).join(`, "'", `)})`);
 /** A template with its one placeholder filled: a quoted CSS string (`"__title__"`) or an XPath literal (cells, rows). */
 const fill = (tpl, name, value) => tpl.replace(new RegExp(`"${name}"|${name}`, 'g'), (m) => (m.startsWith('"') ? JSON.stringify(value) : xpathLiteral(value)));
+const fillAll = (tpl, values) => Object.entries(values).reduce((t, [name, v]) => fill(t, `__${name}__`, v), tpl);
+// Run 6efb7196: a stored locator with a masked value (src/redact.js) finds nothing by construction — it is not evidence.
+const MASKED = /\[(?:token|email|number)\]/;
+const runnable = (record) => record.strategies.filter((s) => !MASKED.test(s.value));
 const templateOf = (record) => {
-  const tpl = record.strategies.find((s) => s.kind === 'template')?.value;
+  const tpl = runnable(record).find((s) => s.kind === 'template')?.value;
   const names = tpl ? placeholders(tpl) : [];
-  // ponytail: one placeholder only — a cell (row × column) is checked through its single-element locators.
-  return names.length === 1 ? { tpl, name: names[0] } : null;
+  return names.length ? { tpl, names } : null;
 };
 
 /** The one element a locator finds, else how many it found. */
@@ -25,8 +28,20 @@ async function one(loc) {
   return n === 1 ? { handle: await loc.elementHandle().catch(() => null) } : { found: n };
 }
 
-/** Does the live element look like the recorded one — cor_heal's bar: similarity and identity. */
+/**
+ * Does the live element look like the recorded one — cor_heal's bar: similarity and identity. Run 6efb7196: a bare text
+ * element takes its wrapper's template (P3), so the template finds the wrapper of the recorded element — its only child counts.
+ */
 async function matches(page, handle, fingerprint) {
+  if (await looksLike(page, handle, fingerprint)) return true;
+  const child = await handle.evaluateHandle((el) => (el.children.length === 1 ? el.firstElementChild : null)).catch(() => null);
+  const only = child?.asElement();
+  const same = only ? await looksLike(page, only, fingerprint) : false;
+  await child?.dispose().catch(() => {});
+  return same;
+}
+
+async function looksLike(page, handle, fingerprint) {
   try {
     const sim = await callPage(page, 'similarityTo', { element: handle, fingerprint });
     const live = await callPage(page, 'fingerprintOf', { element: handle });
@@ -39,10 +54,20 @@ const finds = (n) => `finds ${n} elements`;
 /** R13: one record on `page` — `{ ok }` or `{ ok: false, why }`. A template is checked for every value. */
 export async function verifyRecord(page, record) {
   const t = templateOf(record);
-  if (t && record.values?.length) {
+  // Run 6efb7196: a cell is checked at its own row × column. Recorded before COR kept them, it cannot be — never through
+  // a single-element locator (the header class found 1262 cells).
+  if (record.kind === 'cell') {
+    if (!t || !record.cell) return { skip: 'recorded before COR kept its row and column: cor_inspect it once' };
+    const { handle, found } = await one(page.locator(fillAll(t.tpl, record.cell)));
+    if (!handle) return { ok: false, why: `${finds(found)} at ${Object.values(record.cell).join(' × ')}` };
+    const same = await matches(page, handle, record.fingerprint);
+    await handle.dispose().catch(() => {});
+    return same ? { ok: true } : { ok: false, why: `finds one cell at ${Object.values(record.cell).join(' × ')}, but not the recorded one` };
+  }
+  if (t?.names.length === 1 && record.values?.length) {
     let same = false;
     for (const value of record.values) {
-      const { handle, found } = await one(page.locator(fill(t.tpl, t.name, value)));
+      const { handle, found } = await one(page.locator(fill(t.tpl, t.names[0], value)));
       if (!handle) return { ok: false, why: `${finds(found)} for "${value}"` };
       same ||= await matches(page, handle, record.fingerprint);
       await handle.dispose().catch(() => {});
@@ -56,7 +81,7 @@ export async function verifyRecord(page, record) {
 
 /** The recorded element through its first locator that runs on its own. */
 async function single(page, record, { shown = false } = {}) {
-  for (const s of record.strategies) {
+  for (const s of runnable(record)) {
     const loc = strategyLocator(page, s);
     if (!loc) continue;
     const { handle, found } = await one(loc);
@@ -65,7 +90,7 @@ async function single(page, record, { shown = false } = {}) {
     await handle.dispose().catch(() => {});
     return same ? { ok: true } : { ok: false, why: 'finds one element, but not the recorded one' };
   }
-  return { ok: false, why: 'COR has no locator it can run for it' };
+  return { skip: 'COR has no recorded locator it can run on its own (masked or templated)' };
 }
 
 /** R16: a failed element gets cor_heal's proposal when one passes the heal bar, else "re-inspect". */
@@ -86,11 +111,12 @@ async function replay(tab, records, step) {
   const t = templateOf(record);
   let target;
   // A template takes the step's value even when the item list does not hold it (the Team card's "Team Pro" label).
-  if (t && step.value != null) target = await one(tab.locator(fill(t.tpl, t.name, step.value)));
+  if (t?.names.length === 1 && step.value != null) target = await one(tab.locator(fill(t.tpl, t.names[0], step.value)));
   else {
     const check = await verifyRecord(tab, record);
+    if (check.skip) return { why: `cannot be replayed — ${check.skip}` };
     if (!check.ok) return { record, ...(await failed(tab, record, check.why)) };
-    target = await one(record.strategies.map((s) => strategyLocator(tab, s)).find(Boolean));
+    target = await one(runnable(record).map((s) => strategyLocator(tab, s)).find(Boolean));
   }
   if (!target.handle) return { record, ...(await failed(tab, record, finds(target.found))) };
   const navigates = Boolean(record.leadsTo);
@@ -131,7 +157,8 @@ function reachOf(slug, pages, current, seen = new Set()) {
  */
 export async function verifyPages({ context, records, pages, slugs, here = null, current = null, capMs }) {
   const results = new Map();
-  const placed = records.list().map((id) => records.read(id)).filter((r) => r && r.kind !== 'every' && !r.declined); // an every-item locator is checked through its template; a decline is cited by cor_check, not verified
+  const placed = records.list().map((id) => records.read(id)).filter((r) => r && r.kind !== 'every' && !r.declined)
+    .map((r) => (r.usedIn ? { ...r, usedIn: records.liveUsedIn?.(r) ?? r.usedIn } : r)); // only code that still holds the id // an every-item locator is checked through its template; a decline is cited by cor_check, not verified
   const tabs = [];
   const tasks = [];
   for (const slug of slugs) {
@@ -166,6 +193,7 @@ export async function verifyPages({ context, records, pages, slugs, here = null,
           for (const r of left) {
             const v = await verifyRecord(tab, r);
             if (v.ok) results.set(r.id, { record: r, status: 'verified' });
+            else if (v.skip) results.set(r.id, { record: r, status: 'unchecked', why: v.skip });
             else if (last) results.set(r.id, { record: r, ...(await failed(tab, r, v.why)) });
             else next.push(r);
           }
@@ -200,6 +228,7 @@ const LABEL = {
   unreached: 'state not reached',
   'needs state': 'needs state — recorded before COR kept states: cor_inspect it once',
   'not checked': 'not checked (time cap)',
+  unchecked: 'not checked',
 };
 const ORDER = Object.keys(LABEL);
 

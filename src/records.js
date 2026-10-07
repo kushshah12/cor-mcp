@@ -45,7 +45,7 @@ export function createRecordStore({ root, enabled = true, newId = randomId, now 
   const pagesDir = () => join(root(), '.cor', 'pages');
   const fileOf = (id) => join(dir(), `${id}.json`);
   const pendingOf = (id) => join(pendingDir(), `${id}.json`);
-  const store = { issue, link, read, list, listPending, isPlaced, promote, demote, place, prune, readPage, listPages, recordState, recordReach, leadsTo, enabled, dir, lastError: null };
+  const store = { issue, link, read, list, listPending, isPlaced, promote, demote, place, prune, liveUsedIn, readPage, listPages, recordState, recordReach, leadsTo, enabled, dir, lastError: null };
 
   /** A fresh id — regenerated if a record by that name already exists. */
   function issueId() {
@@ -81,7 +81,7 @@ export function createRecordStore({ root, enabled = true, newId = randomId, now 
    * Write the record for a just-issued entry. Returns the id; with capture off, an id and nothing written. A failed
    * write never fails the inspect: the id is returned and `lastError` says why the record is missing.
    */
-  function issue({ url, fingerprint, elementKey = null, member = null, strategies, declined = null, state = 'initial', kind = 'single', values = null }) {
+  function issue({ url, fingerprint, elementKey = null, member = null, strategies, declined = null, state = 'initial', kind = 'single', values = null, cell = null }) {
     store.lastError = null;
     const page = recordPage(url);
     const id = (enabled && elementKey && existing({ page, elementKey, member, fingerprint })) || issueId();
@@ -105,6 +105,7 @@ export function createRecordStore({ root, enabled = true, newId = randomId, now 
         state,
         kind,
         ...(values?.length ? { values } : {}),
+        ...(cell ? { cell: Object.fromEntries(Object.entries(cell).map(([k, v]) => [k, redactText(v)])) } : {}), // P8b: the cell's row and column, to verify it at
         fingerprint: redactFingerprint(fingerprint),
         strategies: strategies.slice(0, MAX_STRATEGIES).map((s) => ({ kind: s.kind, value: redactLocator(s.value) })),
         created: before?.created ?? new Date(now()).toISOString().slice(0, 10),
@@ -164,6 +165,11 @@ export function createRecordStore({ root, enabled = true, newId = randomId, now 
     const usedIn = [...(r.usedIn ?? []).filter((u) => !scanned.has(u.file)), ...found].sort((a, b) => a.file.localeCompare(b.file) || a.line - b.line);
     if (JSON.stringify(usedIn) === JSON.stringify(r.usedIn ?? [])) return;
     write({ ...r, usedIn }, isPlaced(id));
+  }
+
+  /** P8b (run 6efb7196): the code locations that still hold the id — a deleted or rewritten file is not "in your code". */
+  function liveUsedIn(record) {
+    return (record.usedIn ?? []).filter((u) => { try { return readFileSync(join(root(), u.file), 'utf8').includes(`cor:${record.id}`); } catch { return false; } });
   }
 
   /** P8a: pending entries older than PENDING_DAYS are deleted — unless a placed element's steps need them (they were promoted). */

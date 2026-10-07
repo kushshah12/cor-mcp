@@ -281,7 +281,7 @@ export function createInspector(session, idCache = new Map(), records = null) {
     const trail = session.trail?.page === pathOf(page.url()) ? session.trail : null;
     const state = records && !reuseId ? records.recordState(page.url(), trail?.steps ?? []) : 'initial';
     const kind = !entryLead ? 'single' : ['group', 'cell'].includes(entryLead.kind) ? entryLead.kind : 'item';
-    const id = reuseId ?? (records ? records.issue({ url: page.url(), fingerprint: result.capture.fingerprint, elementKey: result.capture.elementKey, member, strategies, declined, state, kind, values: entryLead?.values ?? null }) : newId());
+    const id = reuseId ?? (records ? records.issue({ url: page.url(), fingerprint: result.capture.fingerprint, elementKey: result.capture.elementKey, member, strategies, declined, state, kind, values: entryLead?.values ?? null, cell: kind === 'cell' && entryLead.vars ? { [entryLead.vars[0]]: entryLead.row, [entryLead.vars[1]]: entryLead.column } : null }) : newId());
     const labelCode = !entryLead && !declined && result.viaLabel ? await labelLocator(page, result.viaLabel, framework) : null;
     // P3: the every-item locator gets its own record and id (its strategy is the items' locator).
     const everyCode = !declined && !reuseId ? everyOf(entryLead, framework, helper) : null;

@@ -105,3 +105,45 @@ test('P8b a locator that still finds one element is not "verified" when the elem
   await page.goto(`${base}/p8b-shop?release=2`);
   assert.deepEqual(await verifyRecord(page, record), { ok: false, why: 'finds one element, but not the recorded one' });
 });
+
+// Run 6efb7196 (WDIO, BrowserStack): four elements the passing tests used were reported broken.
+test('P8b run 6efb7196: a cell is checked at its recorded row × column — never through a header class; recorded without one, it is "not checked"', async (t) => {
+  const { call, records, session } = await connect(t);
+  await call('cor_open', { url: `${base}/p8b-shop` });
+  const id = idOf(await call('cor_inspect', { selector: 'tbody tr:nth-child(1) td:nth-child(3)' }));
+  const record = records.read(id);
+  assert.equal(record.kind, 'cell');
+  assert.deepEqual(Object.values(record.cell), ['Bug Capture', 'Team Ultimate']);
+  const page = await session.getPage();
+  assert.deepEqual(await verifyRecord(page, record), { ok: true });
+  const { cell: _, ...old } = record;
+  assert.deepEqual(await verifyRecord(page, old), { skip: 'recorded before COR kept its row and column: cor_inspect it once' });
+});
+
+test('P8b run 6efb7196: a masked stored locator ([token]) is not run — the next one is; none left is "not checked", not broken', async (t) => {
+  const session = createSession({ headless: true, cwd: root });
+  t.after(() => session.close());
+  const page = await session.getPage();
+  await page.goto(`${base}/p8b-shop`);
+  const fingerprint = { tag: 'h1', attrs: {}, text: 'Pricing', classes: ['shop__title'] };
+  const masked = { kind: 'css', value: 'div[data-toggle-group="[token]"] h1' };
+  assert.deepEqual(await verifyRecord(page, { strategies: [masked, { kind: 'css', value: 'h1' }], fingerprint }), { ok: true });
+  assert.ok((await verifyRecord(page, { strategies: [masked], fingerprint })).skip);
+});
+
+test('P8b run 6efb7196: a template that finds the wrapper of the recorded text element (its only child) verifies', async (t) => {
+  const session = createSession({ headless: true, cwd: root });
+  t.after(() => session.close());
+  const page = await session.getPage();
+  await page.goto(`${base}/p8b-shop`);
+  const record = { kind: 'item', values: ['How do I pay?', 'Can I cancel?'], fingerprint: { tag: 'p', attrs: {}, text: 'By card.', classes: [] },
+    strategies: [{ kind: 'template', value: 'div.faq:has(p.faq__q:text-is("__question__")) >> div.faq__a' }] };
+  assert.deepEqual(await verifyRecord(page, record), { ok: true });
+});
+
+test('P8b run 6efb7196: "already in your code" lists only code that still holds the id — a rewritten file drops it', async (t) => {
+  const { call, dir, price } = await firstRun(t);
+  writeFileSync(join(dir, 'shop.spec.js'), `// COR cor:${price} · cardPrice\nconst cardPrice = (page) => page.locator('.x');\n`); // the heading is gone from the code
+  const reply = await call('cor_open', { url: `${base}/p8b-shop` });
+  assert.match(reply, /Already in your code on \/p8b-shop \(shop\.spec\.js\): 1 element\.\n  verified: cardPrice \(2 values\)\n/);
+});

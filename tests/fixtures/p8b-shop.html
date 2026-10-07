@@ -12,6 +12,14 @@
   </div>
   <div class="card"><h3 class="card__title">Team Ultimate</h3><p class="card__price">$375 / month</p><button>Choose</button></div>
 </div>
+<!-- Run 6efb7196: a comparison table (cells are checked at their row × column) and FAQ answers whose text sits in an
+     only-child <p> of the answer wrapper (the template finds the wrapper). -->
+<table class="compare">
+  <thead><tr><th>Feature</th><th>Team</th><th>Team Ultimate</th></tr></thead>
+  <tbody><tr><th>Bug Capture</th><td>—</td><td>Included</td></tr><tr><th>Live</th><td>Included</td><td>Included</td></tr></tbody>
+</table>
+<div class="faq"><p class="faq__q">How do I pay?</p><div class="faq__a"><p>By card.</p></div></div>
+<div class="faq"><p class="faq__q">Can I cancel?</p><div class="faq__a"><p>Any time.</p></div></div>
 <script>
   for (const r of document.querySelectorAll('input[name="tv"]')) {
     r.addEventListener('change', () => { const [pro, team] = r.closest('.card').querySelectorAll('.card__price'); pro.hidden = r.id !== 't2'; team.hidden = r.id === 't2'; });
