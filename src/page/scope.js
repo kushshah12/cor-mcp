@@ -9,7 +9,7 @@ import { DEFAULT_TEST_ID_ATTRIBUTES, isUnstableClass } from '@corlabs/engine/cor
 import { columnNameOf } from './params.js';
 import { HEADING, clip, deepQueryAll, hasControl, isControl, isShown, isVisible, roleAndName, squash, visibleLabelOf } from './dom.js';
 import {
-  CELL, ITEM, LANDMARKS, TABLE, ariaLabel, containersFor, headingLevel, label, ownText, rowKey, statesOf,
+  CELL, ITEM, LANDMARKS, TABLE, ariaLabel, containersFor, headingLevel, label, ownText, rowKey, statesOf, headerSection,
 } from './outline.js';
 
 const MAX_LINES = 80;
@@ -112,6 +112,10 @@ function regionsNamed(query) {
   }
   for (const n of document.querySelectorAll(ITEM)) {
     if (isVisible(n)) named.push({ text: ownText(n, ITEM) ?? '', make: () => ({ ...nodeRegion(n), kind: 'item' }) });
+  }
+  for (const n of document.querySelectorAll('section')) {
+    const text = isVisible(n) ? headerSection(n) : null; // P3: a section named by its header text (BrowserStack's FAQ)
+    if (text) named.push({ text, make: () => ({ ...nodeRegion(n), kind: 'section' }) });
   }
   for (const row of document.querySelectorAll('tr,[role="row"]')) {
     if (isVisible(row) && row.closest(TABLE)) named.push({ text: rowKey(row) ?? '', make: () => ({ ...nodeRegion(row), kind: 'row' }) });

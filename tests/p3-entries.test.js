@@ -224,3 +224,37 @@ test('P3 (WebdriverIO live cells) a selector constant may pass 120 characters; l
   assert.equal(withinBar(['const cell = () => {', `  const row = \`\${tables}${long}\`;`, '};']), false, 'an interpolated string is logic');
   assert.equal(withinBar(Array.from({ length: 9 }, () => 'x')), false, 'still at most 8 lines');
 });
+
+// ── run f1380230 follow-ups ──
+test('P3 a section named by its header text is a region — in the index, and for within; a long run of table rows is one index line', async (t) => {
+  const { call } = await connect(t);
+  const opened = (await call('cor_open', { url: `${base}/p3-index` })).text;
+  assert.match(opened, /\(index\)/, 'the page is large enough for the index');
+  assert.match(opened, /^- section "Have questions about our plans & pricing\?" \(\d+\): clickable "Question number 0\?"/m, opened);
+  assert.match(opened, /^- 30 table rows \(30 controls\): "Feature 0", "Feature 1", .* — cor_snapshot within a row's name for its cells$/m, opened);
+  const faq = (await call('cor_snapshot', { within: 'Have questions about our plans & pricing?' })).text;
+  assert.match(faq, /section "Have questions about our plans & pricing\?" in full/, faq);
+});
+
+test('P3 a bare text element that is its wrapper\'s only child gets the wrapper\'s template (an answer holding a link)', async (t) => {
+  const { call } = await connect(t);
+  await call('cor_open', { url: `${base}/p3-index` });
+  const withLink = (await call('cor_inspect', { selector: '.faq-item__a p' })).text;
+  const plain = (await call('cor_inspect', { selector: '.faq-item:nth-child(3) .faq-item__a' })).text;
+  for (const out of [withLink, plain]) assert.match(out, /^ {2}faqItemA = \(\w+\) => .*\.locator\('div\.faq-item__a'\);$/m, out);
+});
+
+test('P3 a ref passed as target is used as a ref', async (t) => {
+  const { call } = await connect(t);
+  const opened = (await call('cor_open', { url: `${base}/p8a-start` })).text;
+  const ref = /link "Next page" \[ref=(e\d+)\]/.exec(opened)[1];
+  const out = (await call('cor_click', { target: ref })).text;
+  assert.match(out, /^Clicked e\d+\. Now at .*\/p8a-next/m, out);
+});
+
+test('P3 a navigation through an interim page with no headings still lists the destination\'s headings', async (t) => {
+  const { call } = await connect(t);
+  await call('cor_open', { url: `${base}/p8a-start` });
+  const out = (await call('cor_click', { target: 'a[href="/p3-interim"]' })).text;
+  assert.match(out, /^ {2}h1 "Next" \[ref=e\d+\]$/m, out);
+});

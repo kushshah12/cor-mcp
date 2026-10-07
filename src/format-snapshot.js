@@ -229,6 +229,17 @@ export function renderIndex(snapshot) {
       i = j - 1;
       continue;
     }
+    // P3 (run f1380230): a run of table rows is one line too — 28 rows of one info icon each pushed BrowserStack's FAQ out of
+    // the index. Each row's cells are one cor_snapshot within its name away.
+    let r = i;
+    while (r < regions.length && regions[r].type === 'row') r++;
+    if (r - i >= 3) {
+      const names = regions.slice(i, r).map((x) => `"${foldName(x)}"`);
+      lines.push(`- ${r - i} table rows (${regions.slice(i, r).reduce((n, x) => n + controlCount(x), 0)} controls): ${names.slice(0, 6).join(', ')}${names.length > 6 ? ', …' : ''} — cor_snapshot within a row's name for its cells`);
+      regions.slice(i, r).forEach((x) => { x.shown = true; });
+      i = r - 1;
+      continue;
+    }
     const leaves = leavesOf(regions[i]);
     // Its items: labelled sub-regions (a card per plan) or controls hinted with their item (`in "Team"`).
     const named = regions[i].children.filter((c) => c.kind === 'container' && c.label).map((c) => c.label);

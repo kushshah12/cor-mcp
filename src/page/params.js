@@ -799,8 +799,21 @@ function nameInner(target, targetItem, items) {
   };
 }
 
+/**
+ * P3 (run f1380230): a text element with no class of its own that is its wrapper's only child stands for that wrapper — the
+ * same text, and a class every item has. BrowserStack's first FAQ answer is a bare <p> (it holds a link) inside
+ * div.…__answer, where the others put their text in the div itself; the <p> got no template and the agent invented an id.
+ */
+function wrapperOf(target) {
+  let t = target;
+  while (!namingClasses(t).length && t.parentElement && t.parentElement !== document.body && t.parentElement.children.length === 1
+    && squash(t.parentElement.innerText) === squash(t.innerText)) t = t.parentElement;
+  return namingClasses(t).length ? t : target;
+}
+
 /** U18b.2. A template over structural repeats, or null when the target has none. */
-function structuralTemplate(target) {
+function structuralTemplate(target0) {
+  const target = isControl(target0) ? target0 : wrapperOf(target0);
   const found = structuralRepeats(target);
   if (!found) return null;
   const { item: targetItem, items } = found;

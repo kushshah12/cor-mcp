@@ -1,0 +1,59 @@
+<!doctype html>
+<title>P3 index: a header-named section, a long table, plain sections</title>
+<!-- Run f1380230: BrowserStack's FAQ is a <section> named by a header <div> (no heading), after a 29-row comparison table. -->
+<h1>Pricing</h1>
+<section class="plans"><div class="card"><h3>Plan 0</h3><button>Choose plan 0</button><button>Details of plan 0</button></div>
+<div class="card"><h3>Plan 1</h3><button>Choose plan 1</button><button>Details of plan 1</button></div>
+<div class="card"><h3>Plan 2</h3><button>Choose plan 2</button><button>Details of plan 2</button></div>
+<div class="card"><h3>Plan 3</h3><button>Choose plan 3</button><button>Details of plan 3</button></div>
+<div class="card"><h3>Plan 4</h3><button>Choose plan 4</button><button>Details of plan 4</button></div>
+<div class="card"><h3>Plan 5</h3><button>Choose plan 5</button><button>Details of plan 5</button></div>
+<div class="card"><h3>Plan 6</h3><button>Choose plan 6</button><button>Details of plan 6</button></div>
+<div class="card"><h3>Plan 7</h3><button>Choose plan 7</button><button>Details of plan 7</button></div>
+<div class="card"><h3>Plan 8</h3><button>Choose plan 8</button><button>Details of plan 8</button></div>
+<div class="card"><h3>Plan 9</h3><button>Choose plan 9</button><button>Details of plan 9</button></div>
+<div class="card"><h3>Plan 10</h3><button>Choose plan 10</button><button>Details of plan 10</button></div>
+<div class="card"><h3>Plan 11</h3><button>Choose plan 11</button><button>Details of plan 11</button></div></section>
+<table class="compare">
+  <tr><th>Feature</th><th>More</th></tr>
+  <tr><td>Feature 0</td><td><button>info 0</button></td></tr>
+  <tr><td>Feature 1</td><td><button>info 1</button></td></tr>
+  <tr><td>Feature 2</td><td><button>info 2</button></td></tr>
+  <tr><td>Feature 3</td><td><button>info 3</button></td></tr>
+  <tr><td>Feature 4</td><td><button>info 4</button></td></tr>
+  <tr><td>Feature 5</td><td><button>info 5</button></td></tr>
+  <tr><td>Feature 6</td><td><button>info 6</button></td></tr>
+  <tr><td>Feature 7</td><td><button>info 7</button></td></tr>
+  <tr><td>Feature 8</td><td><button>info 8</button></td></tr>
+  <tr><td>Feature 9</td><td><button>info 9</button></td></tr>
+  <tr><td>Feature 10</td><td><button>info 10</button></td></tr>
+  <tr><td>Feature 11</td><td><button>info 11</button></td></tr>
+  <tr><td>Feature 12</td><td><button>info 12</button></td></tr>
+  <tr><td>Feature 13</td><td><button>info 13</button></td></tr>
+  <tr><td>Feature 14</td><td><button>info 14</button></td></tr>
+  <tr><td>Feature 15</td><td><button>info 15</button></td></tr>
+  <tr><td>Feature 16</td><td><button>info 16</button></td></tr>
+  <tr><td>Feature 17</td><td><button>info 17</button></td></tr>
+  <tr><td>Feature 18</td><td><button>info 18</button></td></tr>
+  <tr><td>Feature 19</td><td><button>info 19</button></td></tr>
+  <tr><td>Feature 20</td><td><button>info 20</button></td></tr>
+  <tr><td>Feature 21</td><td><button>info 21</button></td></tr>
+  <tr><td>Feature 22</td><td><button>info 22</button></td></tr>
+  <tr><td>Feature 23</td><td><button>info 23</button></td></tr>
+  <tr><td>Feature 24</td><td><button>info 24</button></td></tr>
+  <tr><td>Feature 25</td><td><button>info 25</button></td></tr>
+  <tr><td>Feature 26</td><td><button>info 26</button></td></tr>
+  <tr><td>Feature 27</td><td><button>info 27</button></td></tr>
+  <tr><td>Feature 28</td><td><button>info 28</button></td></tr>
+  <tr><td>Feature 29</td><td><button>info 29</button></td></tr>
+</table>
+<section class="faqs">
+  <div class="faqs__header">Have questions about our plans &amp; pricing?</div>
+  <div class="faq-item"><p class="faq-item__q" style="cursor:pointer">Question number 0?</p><div class="faq-item__a"><p>Answer 0 with a <a href="#x">link</a> in it.</p></div></div>
+  <div class="faq-item"><p class="faq-item__q" style="cursor:pointer">Question number 1?</p><div class="faq-item__a">Answer 1 plain.</div></div>
+  <div class="faq-item"><p class="faq-item__q" style="cursor:pointer">Question number 2?</p><div class="faq-item__a">Answer 2 plain.</div></div>
+  <div class="faq-item"><p class="faq-item__q" style="cursor:pointer">Question number 3?</p><div class="faq-item__a">Answer 3 plain.</div></div>
+  <div class="faq-item"><p class="faq-item__q" style="cursor:pointer">Question number 4?</p><div class="faq-item__a">Answer 4 plain.</div></div>
+  <div class="faq-item"><p class="faq-item__q" style="cursor:pointer">Question number 5?</p><div class="faq-item__a">Answer 5 plain.</div></div>
+</section>
+<script>for (const q of document.querySelectorAll('.faq-item__q')) q.addEventListener('click', () => q.parentElement.classList.toggle('open'));</script>

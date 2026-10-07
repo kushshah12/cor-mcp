@@ -106,7 +106,7 @@ test('P8a a control that opens another page records leadsTo; that page records h
   const { dir, call } = await connect(t);
   await call('cor_open', { url: `${base}/p8a-start` });
   await call('cor_fill', { target: 'input[name=q]', value: 'mug' });
-  await call('cor_click', { target: 'a' });
+  await call('cor_click', { target: 'a[href="/p8a-next"]' });
   const heading = idOf(await call('cor_inspect', { selector: 'h1' }));
   assert.equal(json(join(dir, `.cor/pending/${heading}.json`)).state, 'initial', 'a new page starts as opened');
   const reach = json(join(dir, '.cor/pages/p8a-next.json')).reach;
@@ -143,7 +143,7 @@ test('P8a with records off, acts write nothing', async (t) => {
   await Promise.all([server.connect(s), client.connect(c)]);
   t.after(() => client.close());
   await client.callTool({ name: 'cor_open', arguments: { url: `${base}/p8a-start` } });
-  await client.callTool({ name: 'cor_click', arguments: { target: 'a' } });
+  await client.callTool({ name: 'cor_click', arguments: { target: 'a[href="/p8a-next"]' } });
   await client.callTool({ name: 'cor_inspect', arguments: { selector: 'h1' } });
   assert.equal(existsSync(join(dir, '.cor')), false);
 });

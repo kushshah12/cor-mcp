@@ -121,6 +121,23 @@ function sectionHeadings(leaf, headings) {
   return chain;
 }
 
+/**
+ * P3 (run f1380230): an unlabelled <section> with no heading, named by its first short line of text — BrowserStack's FAQ is a
+ * <section> whose header is a <div> ("Have questions about our plans & pricing?"). Without it the FAQ was in no region, its
+ * questions sank into "outside any region … 49 more", and both agents spent 3–8 turns finding it.
+ */
+export function headerSection(n) {
+  if (!n.matches('section:not([aria-label]):not([aria-labelledby])') || [...n.querySelectorAll(HEADING)].some(isVisible)) return null;
+  // its first visible line outside a control, as a heading would name it (a header runs longer than an item's name: 80, shown as 50)
+  const walker = document.createTreeWalker(n, NodeFilter.SHOW_TEXT);
+  for (let t = walker.nextNode(); t; t = walker.nextNode()) {
+    const raw = squash(t.nodeValue);
+    if (!raw || !t.parentElement || closestControl(t.parentElement) || !isVisible(t.parentElement)) continue;
+    return raw.length <= 80 ? label(raw) : null;
+  }
+  return null;
+}
+
 /** The containers that identify `leaf`, outermost first. */
 export function containersFor(leaf, headings) {
   const ancestors = [];
@@ -148,6 +165,8 @@ export function containersFor(leaf, headings) {
     } else if (n.matches(ITEM)) {
       const text = ownText(n, ITEM);
       if (text) kept.push({ node: n, type: 'item', label: text });
+    } else if (headerSection(n)) {
+      kept.push({ node: n, type: 'section', label: headerSection(n) });
     }
   }
 

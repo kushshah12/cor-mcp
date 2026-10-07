@@ -51,7 +51,12 @@ const expectsNavigation = (handle) =>
     .catch(() => false);
 
 /** The one element a ref or selector names. */
-async function resolveElement(session, page, { ref, target: selector }) {
+async function resolveElement(session, page, { ref: given, target }) {
+  // P3 (run f1380230): a ref passed as target ("e130") is a ref — no CSS selector is a bare e<digits> tag name worth meaning;
+  // the agent passed refs as target four times and read "No element matches" each time.
+  const asRef = !given && /^e\d+$/.test(target ?? '');
+  const ref = given ?? (asRef ? target : null);
+  const selector = asRef ? null : target;
   if (Boolean(ref) === Boolean(selector)) throw new Error('Pass exactly one of ref (from cor_snapshot) or target (a CSS selector).');
   if (ref) {
     checkRef(session, ref);
@@ -87,16 +92,16 @@ async function act(session, page, perform, { expectNavigation = false } = {}) {
     // (and our injected runtime) survives it: BrowserStack's Monthly toggle
     // rewrites the URL in place. Only a new document expires the refs.
     const sameDocument = await page.evaluate(() => Boolean(window.__corMcp)).catch(() => false);
-    if (!sameDocument) return { navigated: true, headings: await headingsWithRefs(session, page) };
+    if (!sameDocument) return { navigated: true, headings: await newPageHeadings(session, page) };
   }
   try {
     const after = await callPage(page, 'afterAct');
     session.rebindRefs(after.live, after.refs.dropped);
     return after;
   } catch {
-    // The page changed under us (a late navigation): nothing to re-check.
+    // The page changed under us (a late navigation): nothing to re-check — but the new page's headings are the reply.
     session.invalidateRefs('the page changed during the act');
-    return { navigated: true };
+    return { navigated: true, headings: await newPageHeadings(session, page) };
   }
 }
 
@@ -110,6 +115,19 @@ async function headingsWithRefs(session, page) {
   } catch {
     return [];
   }
+}
+
+/**
+ * P3 (run f1380230): the new page's headings, waiting for them when the navigation lands on an interim page first —
+ * BrowserStack's Choose shows "Loading https://…/orders/new" before the checkout, and the reply listed no headings, so the
+ * agent wrote the checkout assertion by hand. ponytail: 5 s caps each wait; a page with no h1–h3 costs them once.
+ */
+async function newPageHeadings(session, page) {
+  const now = await headingsWithRefs(session, page);
+  if (now.length) return now;
+  await page.waitForLoadState('load', { timeout: 5000 }).catch(() => {});
+  await page.waitForSelector('h1, h2, h3', { state: 'visible', timeout: 5000 }).catch(() => {});
+  return headingsWithRefs(session, page);
 }
 
 /** Run `fn(element, arg)` in the page on `handle`; throws the page-side error message if it returns one. */
