@@ -32,7 +32,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@corlabs/engine": "file:../../../cor-locator-engine"
+    "@corlabs/engine": "github:kushshah12/cor-locator-engine#v3.1.0"
   },
   "engines": {
     "node": ">=18.0.0"
