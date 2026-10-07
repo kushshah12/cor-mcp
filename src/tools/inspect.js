@@ -291,7 +291,7 @@ export function createInspector(session, idCache = new Map(), records = null) {
     // Review fix: a record that could not be written does not fail the inspect — the reply says heal has nothing for it.
     const entryLines = records?.lastError && !reuseId ? [...entry.lines.slice(0, -1), `  (record not saved: ${records.lastError} — cor_heal will have no record for this id)`, ''] : entry.lines;
     const reply = renderInspect(result, { refsLive, framework, all, dataCyNote, typescript, major: detected?.version ?? null, testingLibrary: Boolean(detected?.testingLibrary), entry: entryLines, parts });
-    return { reply, entry: entryLines, declined, info: entry, brief: renderBrief(result, parts, entry, { framework, refsLive }), id, value: entryLead?.value ?? null };
+    return { reply, entry: entryLines, declined, info: entry, brief: renderBrief(result, parts, entry, { framework, refsLive }), id, value: entryLead?.value ?? null, template: lead?.template?.playwright?.selectorTemplate ?? null };
   };
 }
 const renamed = (info, member) => ({ ...info, member, body: info.body?.replace(info.member, member), comment: info.comment?.replace(`· ${info.member}`, `· ${member}`), click: info.click?.map((l) => l.split(info.member).join(member)) });

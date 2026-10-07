@@ -7,6 +7,7 @@ import { parseGradable } from '../grade-parse.js';
 import { callPage, handleFromPage } from '../page-runtime.js';
 import { ID_PATTERN, pathOf, recordPage } from '../records.js';
 import { rootedExpression } from '../check-scan.js';
+import { verifyRecord } from '../verify.js';
 
 const text = (value, isError = false) => ({ content: [{ type: 'text', text: value }], ...(isError ? { isError: true } : {}) });
 
@@ -50,6 +51,17 @@ export function strategyLocator(page, { kind, value }) {
   return page.locator(value);
 }
 
+/** P6: a template member's own line, run for every recorded item — one element each. Not readable: false. */
+async function lineFindsEvery(page, line, expr, values) {
+  const param = /\(\s*(\w+)(?:\s*:[^)]*)?\)\s*=>/.exec(line)?.[1];
+  if (!param || !expr) return false;
+  try {
+    const parsed = parseGradable(expr, { param });
+    for (const v of values) if (await parsed.build(page, v).count() !== 1) return false;
+    return true;
+  } catch { return false; }
+}
+
 /** P3: the record of an every-item locator (a template's items), not of one element. */
 const isEvery = (record) => record.strategies.some((s) => s.kind === 'every');
 
@@ -72,24 +84,35 @@ export async function propose(page, record) {
     if (rel >= STORED_MIN && sameIdentity(record.fingerprint, live)) return { handle, evidence: `stored ${s.kind} locator ${s.value} still finds exactly one element, and it matches the recorded fingerprint (${Math.round(rel * 100)}% of a full match)` };
     await handle.dispose().catch(() => {});
   }
-  // 2. Fingerprint similarity, with a clear lead.
+  // 2. Fingerprint similarity, with a clear lead. P6: relative to the most this fingerprint can score — a plain
+  // <p class="price"> tops out at 0.45 and could never reach 0.7; one with attributes (max 1.0) keeps the calibrated bar.
+  const max = maxSimilarity(record.fingerprint);
   const { best, next } = await callPage(page, 'healScores', { fingerprint: record.fingerprint });
-  const found = await handleFromPage(page, 'healBest', { fingerprint: record.fingerprint, min: SIMILARITY_MIN, margin: SIMILARITY_MARGIN });
+  const found = await handleFromPage(page, 'healBest', { fingerprint: record.fingerprint, min: SIMILARITY_MIN * max, margin: SIMILARITY_MARGIN * max });
   const handle = found.asElement();
   if (handle && sameIdentity(record.fingerprint, await callPage(page, 'fingerprintOf', { element: handle }).catch(() => null))) {
-    return { handle, evidence: `no stored locator finds it; fingerprint similarity ${best.toFixed(2)} (next element ${next.toFixed(2)})` };
+    return { handle, evidence: `no stored locator finds it; fingerprint similarity ${best.toFixed(2)} of a possible ${max.toFixed(2)} (next element ${next.toFixed(2)})` };
   }
   await found.dispose();
-  return { handle: null, evidence: `no stored locator finds it, and no element is close enough — best similarity ${best.toFixed(2)}, next ${next.toFixed(2)}; a heal needs ≥ ${SIMILARITY_MIN} and a lead of ${SIMILARITY_MARGIN}` };
+  return { handle: null, evidence: `no stored locator finds it, and no element is close enough — best similarity ${best.toFixed(2)}, next ${next.toFixed(2)}; a heal needs ≥ ${(SIMILARITY_MIN * max).toFixed(2)} and a lead of ${(SIMILARITY_MARGIN * max).toFixed(2)}` };
 }
 
 export function healTools(session, inspector, records = null) {
   async function proposalLines(page, record) {
     const { handle, evidence } = await propose(page, record);
     if (!handle) return { ok: false, lines: [`Declined — ${evidence}. The element may be gone or changed beyond recognition: cor_snapshot the page and cor_inspect it if it still exists.`] };
-    const { entry } = await inspector({ element: handle, quiet: true, reuseId: record.id }).finally(() => handle.dispose());
+    const { entry, template } = await inspector({ element: handle, quiet: true, reuseId: record.id }).finally(() => handle.dispose());
     if (!entry) return { ok: false, lines: [`Found the element (${evidence}), but COR has no durable locator for it — cor_inspect it for the recommendation.`] };
-    return { ok: true, lines: [`Evidence: ${evidence}.`, 'Proposed — not applied. Replace the entry with (same id):', ...entry.filter(Boolean).map((l) => `  ${l}`)] };
+    return { ok: true, lines: [`Evidence: ${evidence}.`, ...await itemsLine(page, record, template), 'Proposed — not applied. Replace the entry with (same id):', ...entry.filter(Boolean).map((l) => `  ${l}`)] };
+  }
+
+  /** P6 template heal: the proposed template is checked against every item the record knew, before it is offered. */
+  async function itemsLine(page, record, template) {
+    if (!record.values?.length || record.kind !== 'item') return [];
+    if (!template) return [`The record held a template for ${record.values.length} items; the proposal is for this one element only — cor_inspect one item for a template.`];
+    const check = await verifyRecord(page, { ...record, strategies: [{ kind: 'template', value: template }] });
+    return [check.ok ? `The proposed template finds every recorded item (${record.values.length}: ${record.values.map((v) => `"${v}"`).join(', ')}).`
+      : `The proposed template does not reach every recorded item — ${check.why ?? check.skip}. Check those items before applying it.`];
   }
 
   return [{
@@ -113,9 +136,12 @@ export function healTools(session, inspector, records = null) {
 
       // The locator still works: not a heal case (C1).
       const expr = locator ? rootedExpression(locator) : null;
+      let lineRuns = false; // P6: the given line runs on its own (not a template member taking a parameter)
       if (expr) {
         try {
-          if (await parseGradable(expr).build(page).count() === 1) {
+          const n = await parseGradable(expr).build(page).count();
+          lineRuns = true;
+          if (n === 1) {
             return text('Healthy — it still finds exactly one element on this page. The failure is in the product or the assertion, not this locator. No heal.');
           }
         } catch { /* not runnable here: carry on */ }
@@ -149,8 +175,14 @@ export function healTools(session, inspector, records = null) {
       // Review fix: by path, so a record made on localhost heals on staging too.
       if (isEvery(record)) return text(`cor:${id} is an every-item locator — it finds every item, not one element, so there is nothing to heal to. cor_inspect one item for its entry; the entry carries the every-item locator again.`, true);
       if (pathOf(record.page) !== pathOf(recordPage(page.url()))) return text(`cor:${id} was recorded on the page ${pathOf(record.page)}; this page is ${pathOf(page.url())}. cor_open that page and run cor_heal again.`, true);
+      // P6 template heal: an item template that still finds one element for every recorded item is healthy — said
+      // outright for a template member's line; with an id only, the code may hold another form, so it is a note.
+      const templateOk = record.kind === 'item' && record.values?.length && !lineRuns
+        && (locator ? await lineFindsEvery(page, locator, expr, record.values) : (await verifyRecord(page, record)).ok);
+      if (templateOk && locator) return text(`Healthy — cor:${id}'s template still finds every recorded item (${record.values.length}) on this page, and the recorded one is among them. The failure is in the product or the assertion, not this locator. No heal.`);
       const { ok, lines } = await proposalLines(page, record);
-      return text([`Heal for cor:${id} (recorded ${record.created}).`, ...lines].join('\n'), !ok); // a decline is not a success
+      const note = templateOk ? [`Note: the template COR issued for cor:${id} still finds every recorded item (${record.values.length}) — if your code uses it, it needs no heal.`] : [];
+      return text([`Heal for cor:${id} (recorded ${record.created}).`, ...note, ...lines].join('\n'), !ok); // a decline is not a success
     },
   }];
 }

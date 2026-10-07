@@ -1,0 +1,10 @@
+<!doctype html>
+<title>P6 cards</title>
+<!-- P6 template heal: plan cards with a price each. ?release=2 renames the card class (.card → .plan): the template
+     breaks for every item, the price element itself is unchanged. -->
+<div class="grid">
+  <div class="card"><h3>Basic</h3><p class="price">$10</p><button>Buy</button></div>
+  <div class="card"><h3>Pro</h3><p class="price">$20</p><button>Buy</button></div>
+  <div class="card"><h3>Team</h3><p class="price">$30</p><button>Buy</button></div>
+</div>
+<script>if (location.search.includes('release=2')) for (const c of document.querySelectorAll('.card')) c.className = 'plan';</script>

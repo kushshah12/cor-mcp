@@ -13,22 +13,22 @@
         },
         "leaf.aria": {
           "ok": true,
-          "checks": 11,
+          "checks": 13,
           "failures": []
         },
         "every": {
           "ok": true,
-          "checks": 11,
+          "checks": 12,
           "failures": []
         },
         "every.leaf": {
           "ok": true,
-          "checks": 26,
+          "checks": 28,
           "failures": []
         },
         "item.label": {
           "ok": true,
-          "checks": 16,
+          "checks": 20,
           "failures": []
         },
         "leaf.css": {

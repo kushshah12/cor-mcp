@@ -4,7 +4,7 @@
 // ranked strategies as data ({ kind, value }), masked (src/redact.js). It holds no ready-to-paste code,
 // and COR never puts a record's contents in a reply: records are COR's, not advice for the agent (README).
 import { createHash, randomBytes } from 'node:crypto';
-import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, rmdirSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pageKey, redactFingerprint, redactLocator, redactText } from './redact.js';
 
@@ -225,6 +225,14 @@ export function createRecordStore({ root, enabled = true, newId = randomId, now 
   function link(fileKey, id) {
     if (!enabled) return;
     const file = join(root(), '.cor', 'ids.json');
+    // P6: two COR sessions on one repo read, change and write this file — under a lock, so neither loses the other's ids.
+    try { mkdirSync(join(root(), '.cor'), { recursive: true }); } catch { /* reported by the write below */ }
+    const release = lock(`${file}.lock`);
+    if (!release) { store.lastError = '.cor/ids.json is locked by another COR session — not changed'; return; }
+    try { linkLocked(file, fileKey, id); } finally { release(); }
+  }
+
+  function linkLocked(file, fileKey, id) {
     let ids = {};
     try {
       ids = JSON.parse(readFileSync(file, 'utf8'));
@@ -238,6 +246,22 @@ export function createRecordStore({ root, enabled = true, newId = randomId, now 
       writeAtomic(file, `${JSON.stringify(Object.fromEntries(Object.entries(ids).sort()), null, 2)}\n`);
     } catch (error) {
       store.lastError = error.message;
+    }
+  }
+
+  /**
+   * P6: a directory lock (mkdir is atomic on every filesystem COR runs on). Waits up to 2 s; a lock older than 10 s is a
+   * crashed session's and is taken over. Returns the release function, or null when it could not be had.
+   */
+  function lock(path) {
+    const until = Date.now() + 2000;
+    for (;;) {
+      try { mkdirSync(path); return () => { try { rmdirSync(path); } catch { /* gone */ } }; } catch (error) {
+        if (error.code !== 'EEXIST') return null;
+        try { if (Date.now() - statSync(path).mtimeMs > 10_000) { rmdirSync(path); continue; } } catch { continue; }
+        if (Date.now() > until) return null;
+        Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 10); // ponytail: a 10 ms sleep; link() is synchronous
+      }
     }
   }
 

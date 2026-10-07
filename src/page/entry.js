@@ -8,7 +8,7 @@ import { scopedSnapshot } from './scope.js';
 import { beginAct, collapsedAway, endAct, identityOf, revalidate, structuralPath } from './acts.js';
 import { itemTexts, parameterise, stableScope, xpathLiteral } from './params.js';
 import { stateBound } from './state.js';
-import { removedMatch, saferScope } from './removed.js';
+import { namesOf, removedMatch, saferScope } from './removed.js';
 
 let refs = new Map(); // ref -> element, replaced on every full snapshot
 const meta = new Map(); // ref -> { identity, path } — what the ref was issued for (U16)
@@ -125,6 +125,7 @@ function inspect({ ref, selector, element, framework, max, testIdAttribute = nul
   return {
     ...candidates,
     stateOnly: markStateOnly(candidates.locators, target.el),
+    renamed: namesOf(target.el),
     viaLabel: (() => { const l = visibleLabelOf(target.el); return l ? squash(l.textContent) : null; })(),
     lookalikes: lookalikes(target.el),
     collapsed: collapsedAway(target.el, new Map()),

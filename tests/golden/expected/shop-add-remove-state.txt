@@ -103,7 +103,7 @@ Alternatives:
 2. page.getByTestId('remove-pen')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_inspect {"selector":"#cart-link"} (1309 chars)
+--- cor_inspect {"selector":"#cart-link"} (1461 chars)
 Best locator (playwright):
   page.getByRole('link', { name: 'Cart, 1 item' })
   Point-in-time — true on this page now: 79 Good · 1 match
@@ -114,6 +114,8 @@ Best locator (playwright):
 Entry — place in tests/pages/inventory.page.js, member cart1ItemLink (cor_check reads the cor: id; keep the comment):
   // COR cor:{id} · cart1ItemLink
   cart1ItemLink = () => this.page.getByRole('link', { name: 'Cart, 1 item' });
+Facts:
+  • its name changes with the page state ("Cart, empty" → "Cart, 1 item") — this locator holds in one state only: inspect it in each state, or …
 
 Why this order: Ranked role=link, name=Cart, 1 item (score 79) above #cart-link (score 93) — playwright guidance prefers role over id. Both resolve to exactly one element.
 Framework convention applied: playwright (published guidance).

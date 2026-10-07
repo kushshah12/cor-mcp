@@ -83,7 +83,10 @@ test('U12 (AE9) renamed test attribute: a stored locator finds the same button; 
   const { id, line } = await issue(call, '[data-test="add-to-cart-pen"]');
   const before = readdirSync(dir).sort();
   await call('cor_open', { url: `${base}?m=renamed` });
-  const out = (await call('cor_heal', { locator: line })).text;
+  // P6: the entry COR issued is the card template, named by the heading — the renamed attribute does not break it.
+  assert.match((await call('cor_heal', { locator: line })).text, /^Healthy — cor:\w+'s template still finds every recorded item/);
+  // A test-id locator for the same element does break: that is the heal case.
+  const out = (await call('cor_heal', { locator: `// COR cor:${id}\nthis.page.locator('[data-test="add-to-cart-pen"]')` })).text;
   assert.match(out, new RegExp(`^Heal for cor:${id} `), out);
   assert.match(out, /Evidence: stored .* still finds exactly one element, and it matches the recorded fingerprint/);
   assert.match(out, /Proposed — not applied/);
@@ -127,7 +130,7 @@ test('U12 similarity heal: no stored locator works, one element matches the fing
   writeFileSync(join(dir, '.cor/records/abcabc.json'), JSON.stringify({ v: 1, id: 'abcabc', page: `${page.origin}${page.pathname}`, elementKey: 'x',
     fingerprint: { tag: 'button', attrs: { type: 'submit', name: 'go' }, text: 'Go', classes: ['go'] }, strategies: [{ kind: 'testId', value: '[data-test="go-old"]' }], created: '2026-10-05' }));
   const out = (await call('cor_heal', { id: 'abcabc' })).text;
-  assert.match(out, /Evidence: no stored locator finds it; fingerprint similarity 1\.00 \(next element 0\.\d\d\)/, out);
+  assert.match(out, /Evidence: no stored locator finds it; fingerprint similarity 1\.00 of a possible 1\.00 \(next element 0\.\d\d\)/, out);
   assert.equal(await proposedTarget(session, out), 'go');
 });
 

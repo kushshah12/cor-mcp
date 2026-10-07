@@ -32,5 +32,7 @@ export const CASES = [
   { id: 'transformed', fixture: 'p3a-transformed.html', target: '.row:nth-child(1) button', none: /text-transform/ },
   // U10: the U6 shapes — a test-attribute item scope and name slot, a per-item test-id leaf — on frozen saucedemo and a fixture.
   { id: 'u10-saucedemo-add', fixture: 'u10-saucedemo-inventory.html', target: '[data-test="add-to-cart-sauce-labs-backpack"]', idioms: ['item.label.attr', 'leaf.aria'], cy: ['item.label', 'leaf.css'] },
+  // P6: <input type="submit" value="Choose"> per card (BrowserStack's shape) — named by value; WebdriverIO's aria/ finds it.
+  { id: 'p6-submit-input', fixture: 'p6-submit-input.html', target: '.card:nth-child(2) input', idioms: ['leaf.aria'], cy: ['leaf.css'] },
   { id: 'u10-prefix-leaf', fixture: 'u10-slots.html', target: '[data-test="add-to-basket-pen"]', idioms: ['item.label', 'leaf.aria'], cy: ['item.label', 'leaf.css'] },
 ];

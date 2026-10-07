@@ -142,11 +142,11 @@ Proposed — not applied. Replace the entry with (same id):
   Entry — place in tests/pages/inventory.page.js, member sortBy (cor_check reads the cor: id; keep the comment):
     // COR cor:000001 · sortBy
     sortBy = () => this.page.getByRole('combobox', { name: 'Sort' });
---- cor_heal {"id":"000002"} (306 chars)
+--- cor_heal {"id":"000002"} (307 chars)
 [error] Heal for cor:000002 (recorded {date}).
-Declined — no stored locator finds it, and no element is close enough — best similarity 0.42, next 0.42; a heal needs ≥ 0.7 and a lead of 0.15. The element may be gone or changed beyond recognition: cor_snapshot the page and cor_inspect it if it still exists.
---- cor_heal {"id":"000004"} (306 chars)
+Declined — no stored locator finds it, and no element is close enough — best similarity 0.42, next 0.42; a heal needs ≥ 0.70 and a lead of 0.15. The element may be gone or changed beyond recognition: cor_snapshot the page and cor_inspect it if it still exists.
+--- cor_heal {"id":"000004"} (307 chars)
 [error] Heal for cor:000004 (recorded {date}).
-Declined — no stored locator finds it, and no element is close enough — best similarity 0.42, next 0.42; a heal needs ≥ 0.7 and a lead of 0.15. The element may be gone or changed beyond recognition: cor_snapshot the page and cor_inspect it if it still exists.
+Declined — no stored locator finds it, and no element is close enough — best similarity 0.42, next 0.42; a heal needs ≥ 0.70 and a lead of 0.15. The element may be gone or changed beyond recognition: cor_snapshot the page and cor_inspect it if it still exists.
 --- cor_heal {"id":"000003"} (199 chars)
 [error] cor:000003 is an every-item locator — it finds every item, not one element, so there is nothing to heal to. cor_inspect one item for its entry; the entry carries the every-item locator again.

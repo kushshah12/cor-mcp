@@ -62,3 +62,17 @@ export function saferScope(target, css) {
   }
   return null;
 }
+
+// P6 (R8): controls whose accessible name an act changed ("Cart, empty" → "Cart, 1 item", "Add to cart" → "Remove"),
+// remembered for the life of the document — a locator on the name finds the element in one state only.
+const renamed = new WeakMap(); // el → every name it has had, oldest first
+
+/** Called by endAct when an act changed a control's name. */
+export function rememberRenamed(el, was, is) {
+  const names = renamed.get(el) ?? [was];
+  if (names[names.length - 1] !== is) names.push(is);
+  renamed.set(el, names.slice(-4));
+}
+
+/** The names this element has had in this document, or null when an act never changed it. */
+export const namesOf = (el) => renamed.get(el) ?? null;

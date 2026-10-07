@@ -23,7 +23,7 @@ const many = (n, one, other) => (n === 1 ? one : other);
 
 /** Facts in severity order: hidden copies, collapsed content, variants, label-operated inputs, then the rest. */
 export function factsFor(result) {
-  const { params, viaLabel, lookalikes, stateOnly, collapsed, shadow, locators = [] } = result;
+  const { params, viaLabel, lookalikes, stateOnly, collapsed, shadow, renamed, locators = [] } = result;
   const [best] = locators;
   const facts = [];
 
@@ -60,6 +60,11 @@ export function factsFor(result) {
   const loose = locators.find((l) => l.matchCount > 1 && AMBIGUITY[l.resolution?.failureMode] && !BARE_TAG.test(l.value ?? ''));
   if (loose) {
     facts.push({ type: 'ambiguity-consequence', text: `a locator matching ${loose.matchCount} elements: ${AMBIGUITY[loose.resolution.failureMode]}` });
+  }
+  // P6 (R8): seen live — an act changed this control's name. A name locator holds in one of its states only.
+  if (renamed?.length > 1) {
+    const onName = best && renamed.some((n) => String(best.value ?? '').includes(n));
+    facts.push({ type: 'state-name', text: `its name changes with the page state (${renamed.map((n) => `"${n}"`).join(' → ')})${onName ? ' — this locator holds in one state only: inspect it in each state, or use one not on the name' : ''}` });
   }
   if (stateOnly) {
     facts.push({ type: 'state-only-unique', text: `unique only in this state (${stateOnly.what} was removed by the last act)` });

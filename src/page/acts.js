@@ -18,7 +18,7 @@
 import { computeFingerprint } from '@corlabs/engine/core';
 import { HEADING, clip, closestControl, deepQueryAll, isControl, isShown, isVisible, roleAndName, squash } from './dom.js';
 import { containersFor, label, statesOf } from './outline.js';
-import { rememberRemoved } from './removed.js';
+import { rememberRemoved, rememberRenamed } from './removed.js';
 
 const visibleHeadings = () => [...document.querySelectorAll(HEADING)].filter(isVisible);
 
@@ -255,6 +255,7 @@ export function endAct(issueRef) {
       continue;
     }
     const is = describe(el);
+    if (is.name !== was.name && was.name && is.name) rememberRenamed(el, was.name, is.name);
     if (is.states !== was.states || is.value !== was.value || is.name !== was.name) {
       changes.push({ kind: 'changed', role: is.role, name: is.name, was, is });
     }
