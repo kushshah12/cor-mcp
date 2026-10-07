@@ -215,3 +215,12 @@ test('P3 a cell image template is scoped to the shown table when a hidden copy h
   assert.match(out, /^✓ cellAtImg\(featureList, column\) → /m, out);
   assert.match(out, /const tables = "\/\/div\[@data-product='live'\]\/\/table/, out);
 });
+
+test('P3 (WebdriverIO live cells) a selector constant may pass 120 characters; logic lines and interpolated strings may not', async () => {
+  const { withinBar } = await import('../src/idioms/shared.js');
+  const long = '//div[@data-plan-type=\'teams\']//table[contains(concat(\' \', normalize-space(@class), \' \'), \' comparison-table__table \')]';
+  assert.equal(withinBar(['const cell = () => {', `  const tables = "${long}";`, '};']), true, 'a selector constant');
+  assert.equal(withinBar(['const cell = () => {', `  return $("${long}");`, '};']), false, 'a call is logic');
+  assert.equal(withinBar(['const cell = () => {', `  const row = \`\${tables}${long}\`;`, '};']), false, 'an interpolated string is logic');
+  assert.equal(withinBar(Array.from({ length: 9 }, () => 'x')), false, 'still at most 8 lines');
+});

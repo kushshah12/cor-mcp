@@ -16,8 +16,15 @@ export function helperName(css) {
 
 export const MAX_LINE = 120;
 export const MAX_LINES = 8;
-/** R4: the helper is at most 8 lines; no line of it or of its uses is over 120 characters. */
-export const withinBar = (define, uses = []) => define.length <= MAX_LINES && [...define, ...uses].every((l) => l.length <= MAX_LINE);
+/**
+ * A line that only names a selector string (`const tables = "//div[…]//table[…]";`) — data, not logic. It is exempt from the
+ * width limit: splitting a selector reads worse, and the Playwright helper places the same line (live BrowserStack's scoped
+ * table XPath alone is over 120 characters, which left WebdriverIO with no cell helper at all).
+ */
+const SELECTOR_CONST = /^\s*const \w+ = (["'])(?:(?!\1)[^\\]|\\.)*\1;$/;
+/** R4: the helper is at most 8 lines; no line of it or of its uses is over 120 characters, except a selector constant. */
+export const withinBar = (define, uses = []) => define.length <= MAX_LINES
+  && [...define, ...uses].every((l) => l.length <= MAX_LINE || SELECTOR_CONST.test(l));
 
 /** P3: the cell helper's name — `cell`, or `cellImg` when it reaches an element inside the cell (both may sit in one file). */
 export const cellHelperName = (model) => { const tag = /^\/\/([a-z0-9]+)/.exec(model.inner ?? '')?.[1]; return tag ? `cell${tag[0].toUpperCase()}${tag.slice(1)}` : 'cell'; };

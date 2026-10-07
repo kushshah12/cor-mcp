@@ -23,6 +23,9 @@ export const CASES = [
   { id: 'p3-card-name-label', fixture: 'p3-card-price.html', target: 'label[for=t2]', idioms: ['item.either', 'leaf.name'], cy: ['item.either', 'leaf.name'] },
   // P3 (run b14ddae4): an image as a cell's content — cells without it find nothing in every framework.
   { id: 'p3-cell-image', fixture: 'p3-cell-image.html', target: 'tr:nth-child(2) td:nth-child(3) img', idioms: ['cell.xpath'], cy: ['cell.css'] },
+  // P3: BrowserStack's long scoped table XPath — a selector constant over 120 characters still gets a WebdriverIO helper.
+  { id: 'p3-cell-long', fixture: 'p3-cell-long.html', target: 'div[data-plan-type="teams"] tr:nth-child(2) td:nth-child(2)', idioms: ['cell.xpath'], cy: ['cell.css'] },
+  { id: 'p3-cell-long-img', fixture: 'p3-cell-long.html', target: 'div[data-plan-type="teams"] tr:nth-child(2) td:nth-child(3) img', idioms: ['cell.xpath'], cy: ['cell.css'] },
   { id: 'transformed', fixture: 'p3a-transformed.html', target: '.row:nth-child(1) button', none: /text-transform/ },
   // U10: the U6 shapes — a test-attribute item scope and name slot, a per-item test-id leaf — on frozen saucedemo and a fixture.
   { id: 'u10-saucedemo-add', fixture: 'u10-saucedemo-inventory.html', target: '[data-test="add-to-cart-sauce-labs-backpack"]', idioms: ['item.label.attr', 'leaf.aria'], cy: ['item.label', 'leaf.css'] },
