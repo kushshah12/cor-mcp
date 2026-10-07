@@ -666,7 +666,10 @@ function cellTemplate(target) {
   // A hidden copy of the table (another product's tab) needs a stable scope.
   let parts = partsFor('');
   let scopeCss = '';
-  if (parts && !soleHit(fill(parts), target)) {
+  // P3: with an element inside the cell, the cell itself must be singled out too — the target's own combination can be unique
+  // across every product's table (one checkmark) while another row's is not (live BrowserStack: Geolocation counted 3).
+  const cellOnly = (parts) => fill(parts).slice(0, fill(parts).length - inner.length);
+  if (parts && (!soleHit(fill(parts), target) || (inner && !soleHit(cellOnly(parts), cell)))) {
     const scope = stableScope(own ? [table] : [table, header0.closest('table')], 'table');
     parts = scope ? partsFor(scope.xpath) : null;
     if (scope) scopeCss = `${scope.css} `;

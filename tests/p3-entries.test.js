@@ -192,8 +192,8 @@ for (const [fw, name] of [
 
 for (const [fw, body] of [
   ['playwright', /return this\.page\.locator\(`xpath=\$\{row\}\/\*\[\$\{columnNo\}\]\/\/img`\);/],
-  ['cypress', /^ {2}const cellImg = \(featureList, column\) => \{[\s\S]*\.children\(\)\.eq\(i\)\.find\('img'\)\);/m],
-  ['webdriverio', /^ {2}const cellImg = \(featureList, column\) => \{[\s\S]*return \$\(`\$\{row\}\/\*\[\$\{columnNo\}\]\/\/img`\);/m],
+  ['cypress', /^ {2}const cellImg = \(featureList, column\) => \{[\s\S]*const inner = 'img';[\s\S]*\.children\(\)\.eq\(i\)\.find\(inner\)\);/m],
+  ['webdriverio', /^ {2}const cellImg = \(featureList, column\) => \{[\s\S]*const inner = "\/\/img";\n {4}return \$\(`\$\{row\}\/\*\[\$\{columnNo\}\]\$\{inner\}`\);/m],
 ]) {
   test(`P3 an image that is a cell's content has a ref of its own and a cell template that reaches it (${fw})`, async (t) => {
     const { call } = await connect(t, fw);
@@ -207,3 +207,11 @@ for (const [fw, body] of [
     assert.match(out, body, out);
   });
 }
+
+test('P3 a cell image template is scoped to the shown table when a hidden copy holds more images in another row (live BrowserStack)', async (t) => {
+  const { call } = await connect(t);
+  await call('cor_open', { url: `${base}/p3-cell-image-copies` });
+  const out = (await call('cor_inspect', { selector: 'div[data-product="live"] tr:nth-child(2) td:nth-child(3) img' })).text;
+  assert.match(out, /^✓ cellAtImg\(featureList, column\) → /m, out);
+  assert.match(out, /const tables = "\/\/div\[@data-product='live'\]\/\/table/, out);
+});

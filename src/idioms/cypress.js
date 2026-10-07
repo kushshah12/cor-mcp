@@ -88,13 +88,14 @@ function cell(params, ts) {
   if (![...rows, ...columns].every(plainValue)) return { none: 'a row or column name has a quote or backtick in it' };
   const [r, c] = model.vars;
   const t = ts ? ': string' : '';
-  const inner = model.cy.innerCss ? `.find(${js(model.cy.innerCss)})` : '';
+  const inner = model.cy.innerCss ? '.find(inner)' : ''; // P3: named on its own line, so a long class keeps lines under 120
   // The selectors and the anchored name are named once, so a scoped selector does not push a line past 120 characters.
   const define = [
     `const ${cellHelperName(model)} = (${r}${t}, ${c}${t}) => {`,
     `  const header = ${js(model.cy.headerSel)};`,
     `  const key = ${js(model.cy.keySel)};`,
     `  const is = (text${t}) => ${exactName('text')};`,
+    ...(model.cy.innerCss ? [`  const inner = ${js(model.cy.innerCss)};`] : []),
     `  return cy.contains(header, is(${c})).invoke('index')`,
     `    .then((i) => cy.contains(key, is(${r})).closest('tr').children().eq(i)${inner});`,
     '};',

@@ -101,7 +101,8 @@ function cell(params, ts) {
     `  const header = ${model.headerExpr};`,
     `  const row = \`\${tables}//tr[*[${model.k}][${is(model.rowPart, `"\${${r}}"`)}]]\`;`,
     `  const columnNo = \`count(\${header}/*[${is(model.colPart, `"\${${c}}"`)}]/preceding-sibling::*) + 1\`;`,
-    `  return $(\`\${row}/*[\${columnNo}]${model.inner}\`);`,
+    // P3: an element inside the cell is named on its own line, so a long class keeps the return under 120 characters
+    ...(model.inner ? [`  const inner = ${JSON.stringify(model.inner)};`, '  return $(`${row}/*[${columnNo}]${inner}`);'] : ['  return $(`${row}/*[${columnNo}]`);']),
     '};',
   ].join('\n');
   if (!withinBar(define.split('\n'))) return { none: 'the helper does not fit the readability bar (8 lines, 120 characters)' };

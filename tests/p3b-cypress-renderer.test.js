@@ -243,7 +243,7 @@ test('P3b idiom cell.css: the header cell\'s position, then the row by its key c
   ].join('\n'));
   assert.deepEqual(out.idioms, ['cell.css']);
   assert.doesNotMatch(out.code, /xpath|evaluate/i);
-  assert.match(cy({ model: cellModel({ cy: { ...cellModel().cy, innerCss: 'img.tick' } }), rows: ['a'], columns: ['b'] }).define, /\.eq\(i\)\.find\('img\.tick'\)\);\n\};$/);
+  assert.match(cy({ model: cellModel({ cy: { ...cellModel().cy, innerCss: 'img.tick' } }), rows: ['a'], columns: ['b'] }).define, / {2}const inner = 'img\.tick';\n[\s\S]*\.eq\(i\)\.find\(inner\)\);\n\};$/); // P3: the inner part on its own line
 });
 
 test('P3b cell R1/R2/R3: names that are only part of their cell, or carry a quote, get no form', () => {
