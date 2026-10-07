@@ -83,6 +83,15 @@ test('P8a an element revealed by an act records that state; placing it keeps the
   assert.deepEqual(ids(dir, 'records'), [price, step.id].sort(), 'the toggle is kept: the price\'s state depends on it');
 });
 
+test('P8a an element seen in an earlier state keeps it when re-inspected after more acts (b14ddae4)', async (t) => {
+  const { dir, call } = await connect(t);
+  await call('cor_open', { url: `${base}/p3-card-price` });
+  const h3 = idOf(await call('cor_inspect', { selector: '.card:nth-child(2) h3' }));
+  await call('cor_click', { target: 'label[for=t2]' });
+  assert.equal(idOf(await call('cor_inspect', { selector: '.card:nth-child(2) h3' })), h3);
+  assert.equal(json(join(dir, `.cor/pending/${h3}.json`)).state, 'initial');
+});
+
 test('P8a a step on a template element carries its value', async (t) => {
   const { dir, call } = await connect(t);
   await call('cor_open', { url: `${base}/p3-card-price` });
@@ -137,4 +146,13 @@ test('P8a with records off, acts write nothing', async (t) => {
   await client.callTool({ name: 'cor_click', arguments: { target: 'a' } });
   await client.callTool({ name: 'cor_inspect', arguments: { selector: 'h1' } });
   assert.equal(existsSync(join(dir, '.cor')), false);
+});
+
+test('P8a (b14ddae4) a step added to a member is not runnable alone: cor_check says so instead of "open the page"', async (t) => {
+  const { dir, call } = await connect(t);
+  await call('cor_open', { url: `${base}/p8a-start` });
+  writeFileSync(join(dir, 'start.spec.js'), "test('x', async ({ page }) => {\n  const q = await start.items().locator('p.question');\n});\n");
+  const out = await call('cor_check', { files: ['start.spec.js'] });
+  assert.match(out, /COR cannot run this locator on its own \(it builds on another member\)/, out);
+  assert.doesNotMatch(out, /Open the page it targets/);
 });

@@ -141,7 +141,9 @@ export function checkTools(session, inspector, records = null) {
       /** COR's fix for a site: run its locator on the open page; the element it finds gets an entry (or its existing id). */
       async function fixFor(site) {
         if (fixes++ >= MAX_FIXES) return ['Fix the ones above and run cor_check again for this one.'];
-        if (!page || !site.expression) return [`Open the page it targets (cor_open) and run cor_check again for COR's entry — or cor_inspect the element.`];
+        if (!page) return [`Open the page it targets (cor_open) and run cor_check again for COR's entry — or cor_inspect the element.`];
+        // b14ddae4: a step added to a member (items().locator(…)) cannot be run on its own — the page being open does not help.
+        if (!site.expression) return ['COR cannot run this locator on its own (it builds on another member) — cor_inspect the element (cor_snapshot within its region for a ref) and place its entry.'];
         let parsed;
         try { parsed = parseGradable(site.expression, { framework: session.resolveFramework() ?? undefined }); } catch (error) { return [`Not readable as a locator COR can run (${error.message}) — cor_inspect the element and place its entry.`]; }
         let handle = null;

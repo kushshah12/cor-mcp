@@ -89,6 +89,12 @@ export function createRecordStore({ root, enabled = true, newId = randomId, now 
     try {
       const placed = isPlaced(id);
       const before = read(id);
+      // P8a: an element already seen in an earlier state of this visit keeps it — the steps since then did not reveal it
+      // (b14ddae4: the plan-type toggle, on the page as opened, was re-recorded three clicks deep).
+      const stepsOf = (key) => (key === 'initial' ? [] : readPage(page)?.states?.[key]?.steps);
+      const was = before?.state != null && pathOf(before.page) === pathOf(page) ? stepsOf(before.state) : null;
+      const steps = stepsOf(state);
+      if (was && steps && was.length <= steps.length && JSON.stringify(steps.slice(0, was.length)) === JSON.stringify(was)) state = before.state;
       const record = {
         v: RECORD_VERSION,
         id,
