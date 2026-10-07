@@ -55,7 +55,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
 - link "Read More" [ref=e70]
 - textbox "Email" [ref=e71]
 - button "Subscribe to Newsletter" [ref=e72]
---- cor_inspect {"selector":"[id=\"2\"] .shelf-item__buy-btn"} (2958 chars)
+--- cor_inspect {"selector":"[id=\"2\"] .shelf-item__buy-btn"} (3064 chars)
 Recommended — parameterised: 25 items share this shape; every value checked, each finds exactly its own item (25/25).
   Proof: counted by Playwright, every value.
   title = "iPhone 12 Mini"   (also: "iPhone 12", "iPhone 12 Pro Max", "iPhone 12 Pro", "iPhone 11", … 20 more)
@@ -77,6 +77,8 @@ Entry — place in tests/pages/bstackdemo.page.js, member addToCart (cor_check r
   addToCart = (title) => this.page.locator('div.shelf-item').filter({ has: this.page.locator('p.shelf-item__title').getByText(title, { exact: true }) }).getByText('Add to cart', { exact: true });
   // COR cor:{id} · shelfItems
   shelfItems = () => this.page.locator('div.shelf-item');
+  // COR cor:{id} · addToCartOf
+  addToCartOf = (item) => item.getByText('Add to cart', { exact: true });
 Facts:
   • a locator matching 25 elements: the test fails at once
   • 24 other visible clickable "Add to cart"s look the same

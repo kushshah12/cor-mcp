@@ -75,9 +75,9 @@ test('P8a an element revealed by an act records that state; placing it keeps the
   assert.deepEqual(record.values, ['Team', 'Team Ultimate']);
   const page = json(join(dir, '.cor/pages/p3-card-price.json'));
   const [step] = page.states[record.state].steps;
-  // the label is one element: its record names it, no value needed (a template's step carries its value)
-  assert.deepEqual([step.action, step.value], ['click', null]);
-  assert.equal(json(join(dir, `.cor/pending/${step.id}.json`)).member, 'teamPro', 'the toggle is a record: the step names it, never a selector');
+  // the label names its card (P3 name leaf): the step carries the label's own value
+  assert.deepEqual([step.action, step.value], ['click', 'Team Pro']);
+  assert.equal(json(join(dir, `.cor/pending/${step.id}.json`)).member, 'cardName', 'the toggle is a record: the step names it, never a selector');
   placeIn(dir, 'pricing.spec.js', [price]); // the agent wrote its own toggle click
   await call('cor_check', { files: ['pricing.spec.js'] });
   assert.deepEqual(ids(dir, 'records'), [price, step.id].sort(), 'the toggle is kept: the price\'s state depends on it');

@@ -55,7 +55,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
 - link "Read More" [ref=e70]
 - textbox "Email" [ref=e71]
 - button "Subscribe to Newsletter" [ref=e72]
---- cor_inspect {"selector":"[id=\"2\"] .shelf-item__buy-btn","framework":"cypress"} (3310 chars)
+--- cor_inspect {"selector":"[id=\"2\"] .shelf-item__buy-btn","framework":"cypress"} (3415 chars)
 Recommended — parameterised: 25 items share this shape; every value checked, each finds exactly its own item (25/25).
   Proof: emulated — not run in Cypress. The template was checked in the page for every value; its Cypress idioms were not conformance-tested on this version.
   title = "iPhone 12 Mini"   (also: "iPhone 12", "iPhone 12 Pro Max", "iPhone 12 Pro", "iPhone 11", … 20 more)
@@ -85,6 +85,8 @@ Entry — place in tests/pages/bstackdemo.page.js, member addToCart (cor_check r
   addToCart = (title) => shelfItem(title).find('div.shelf-item__buy-btn');
   // COR cor:{id} · shelfItems
   shelfItems = () => cy.get('div.shelf-item');
+  // COR cor:{id} · addToCartOf
+  addToCartOf = (item) => cy.wrap(item).find('div.shelf-item__buy-btn');
 Facts:
   • a locator matching 25 elements: an action fails, an assertion runs on all of them
   • 24 other visible clickable "Add to cart"s look the same

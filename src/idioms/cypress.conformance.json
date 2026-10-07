@@ -4,7 +4,7 @@
     {
       "major": 16,
       "version": "16.1.1",
-      "date": "2026-10-06",
+      "date": "2026-10-07",
       "idioms": {
         "item.attribute": {
           "ok": true,
@@ -18,7 +18,7 @@
         },
         "every": {
           "ok": true,
-          "checks": 18,
+          "checks": 20,
           "failures": []
         },
         "item.label": {
@@ -26,9 +26,14 @@
           "checks": 58,
           "failures": []
         },
+        "every.leaf": {
+          "ok": true,
+          "checks": 31,
+          "failures": []
+        },
         "item.either": {
           "ok": true,
-          "checks": 30,
+          "checks": 46,
           "failures": []
         },
         "leaf.css.shown": {
@@ -58,7 +63,12 @@
         },
         "cell.css": {
           "ok": true,
-          "checks": 15,
+          "checks": 21,
+          "failures": []
+        },
+        "leaf.name": {
+          "ok": true,
+          "checks": 8,
           "failures": []
         },
         "leaf.role": {

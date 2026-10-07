@@ -53,7 +53,8 @@ test('P3 the every-item locator is a member with its own id; a loop written with
   const block = first.split('\n').filter((l) => /^ {2}(\/\/ COR|\w+ = )/.test(l)).join('\n');
   writeFileSync(join(dir, 'faq.page.js'), `export class FaqPage {\n  constructor(page) { this.page = page; }\n${block}\n}\n`);
   const check = (await call('cor_check', { files: ['faq.page.js'] })).text;
-  assert.match(check, /^cor_check: 2 locators in 1 file \(the given files\) — 2 carry a COR id, 0 to fix\./, check);
+  // the question, the every-item locator, and the question inside each item (run b14ddae4) — all carry an id
+  assert.match(check, /^cor_check: 3 locators in 1 file \(the given files\) — 3 carry a COR id, 0 to fix\./, check);
   const heal = await call('cor_heal', { id: every.exec(first)[1] });
   assert.match(heal.text, /is an every-item locator — it finds every item, not one element/);
   // P8a: cor_check placed the question and the every-item locator; the answer, shown but not placed, stays pending
@@ -145,3 +146,64 @@ test('P3 per-card entries: no template when a card shows two of the element, or 
   // the reason is the page's own, not a later count's
   assert.match((await call('cor_inspect', { selector: '.a .tile:nth-child(2) .cost', detail: true })).text, /the element is not the only one of its kind inside its item/);
 });
+
+// ── run b14ddae4 follow-ups ──
+for (const [fw, of] of [
+  ['playwright', /^ {2}faqItemQuestionOf = \(item\) => item\.locator\('p\.faq-item__question'\);$/m],
+  ['cypress', /^ {2}faqItemQuestionOf = \(item\) => cy\.wrap\(item\)\.find\('p\.faq-item__question'\);$/m],
+  ['webdriverio', /^ {2}faqItemQuestionOf = \(item\) => item\.\$\('p\.faq-item__question'\);$/m],
+]) {
+  test(`P3 the every-item loop comes with the element inside each item (${fw}), under the entry's id`, async (t) => {
+    const { call } = await connect(t, fw);
+    await call('cor_open', { url: `${base}/faq` });
+    const out = (await call('cor_inspect', { selector: '.faq-item:nth-child(2) .faq-item__question' })).text;
+    assert.match(out, of, out);
+    const id = /cor:([0-9a-f]{6}) · faqItemQuestion\n/.exec(out)[1];
+    assert.match(out, new RegExp(`// COR cor:${id} · faqItemQuestionOf$`, 'm'));
+    assert.match(out, /^every item: faqItems\(\) — .*; faqItemQuestionOf\(item\) is this element inside each\.$/m);
+  });
+}
+
+test('P3 no per-item form when it could reach another element: a control\'s CSS leaf (Cypress), or an item\'s name', async (t) => {
+  const { call } = await connect(t, 'cypress');
+  await call('cor_open', { url: `${base}/p3a-either` });
+  assert.doesNotMatch((await call('cor_inspect', { selector: '.grid .plan:nth-child(2) button' })).text, /Of = /);
+  await call('cor_open', { url: `${base}/p3-card-price` });
+  assert.doesNotMatch((await call('cor_inspect', { selector: '.card:nth-child(2) h3' })).text, /Of = /);
+});
+
+for (const [fw, name] of [
+  ['playwright', /^ {2}cardName = \(title\) => this\.page\.locator\('div\.card'\)\.filter\(.*\)\.locator\('h3\.card__title, label'\)\.getByText\(title, \{ exact: true \}\);$/m],
+  ['cypress', /^ {2}cardName = \(title\) => card\(title\)\.contains\('h3\.card__title, label', new RegExp/m],
+  ['webdriverio', /^ {2}cardName = \(title\) => card\(title\)\.\$\$\('h3\.card__title, label'\)\.find\(async \(el\) => \(await el\.getText\(\)\) === title\);$/m],
+]) {
+  test(`P3 an item's name is one member whichever element holds it — an h3 on one card, a toggle label on another (${fw})`, async (t) => {
+    const { call } = await connect(t, fw);
+    await call('cor_open', { url: `${base}/p3-card-price` });
+    for (const sel of ['.card:nth-child(2) h3', 'label[for=t1]']) {
+      const out = (await call('cor_inspect', { selector: sel })).text;
+      assert.match(out, /^✓ cardName\(title\) → .* — 4\/4 items checked$/m, out); // Team, Team Ultimate, Volume, Team Pro
+      assert.match(out, name, out);
+    }
+    // a price still gets its own leaf (a slot of prices names nothing)
+    assert.match((await call('cor_inspect', { selector: '.card:nth-child(2) .card__price' })).text, /^✓ cardPrice\(title\)/m);
+  });
+}
+
+for (const [fw, body] of [
+  ['playwright', /return this\.page\.locator\(`xpath=\$\{row\}\/\*\[\$\{columnNo\}\]\/\/img`\);/],
+  ['cypress', /^ {2}const cellImg = \(featureList, column\) => \{[\s\S]*\.children\(\)\.eq\(i\)\.find\('img'\)\);/m],
+  ['webdriverio', /^ {2}const cellImg = \(featureList, column\) => \{[\s\S]*return \$\(`\$\{row\}\/\*\[\$\{columnNo\}\]\/\/img`\);/m],
+]) {
+  test(`P3 an image that is a cell's content has a ref of its own and a cell template that reaches it (${fw})`, async (t) => {
+    const { call } = await connect(t, fw);
+    await call('cor_open', { url: `${base}/p3-cell-image` });
+    const row = (await call('cor_snapshot', { within: 'Bug Capture' })).text;
+    const ref = /cell "Team Ultimate" \[ref=e\d+\]: img "Feature included" \[ref=(e\d+)\]/.exec(row)?.[1];
+    assert.ok(ref, row);
+    assert.match(row, new RegExp(`^${ref} → cellAtImg — 6/6 items checked$`, 'm'), 'its entry comes with the row');
+    const out = (await call('cor_inspect', { ref })).text;
+    assert.match(out, /^✓ cellAtImg\(featureList, column\) → .* — 6\/6 items checked$/m, out); // cells without an image find none
+    assert.match(out, body, out);
+  });
+}

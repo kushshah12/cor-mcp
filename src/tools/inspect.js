@@ -62,7 +62,10 @@ export async function verifyTemplate(page, params) {
     const combos = [...params.columns.map((c) => [params.row, c]), ...params.rows.map((r) => [r, params.column])];
     const fill = (r, c) => params.template.playwright.selectorTemplate.replace(`__${rv}__`, () => xpathLiteralOf(r)).replace(`__${cv}__`, () => xpathLiteralOf(c));
     const counts = await Promise.all(combos.map(([r, c]) => page.locator(fill(r, c)).count().catch(() => -1)));
-    const bad = counts.findIndex((n) => n !== 1);
+    // P3: a template reaching an element inside the cell (an image) finds none where a cell lacks it — that is the answer
+    // there (no tick); more than one, or nothing parseable, still fails.
+    const ok = (n) => n === 1 || (params.model?.inner && n === 0);
+    const bad = counts.findIndex((n) => !ok(n));
     if (bad !== -1) {
       params.reason = `the template matched ${counts[bad] < 0 ? 'nothing parseable' : counts[bad]} for ${combos[bad].join(' / ')} when Playwright counted it`;
       delete params.template;
@@ -71,7 +74,7 @@ export async function verifyTemplate(page, params) {
     params.counted = combos.length;
     // P1c: WebdriverIO and Cypress hand the XPath to the browser as it is, so it is also counted with the browser's own XPath engine.
     const browser = await callPage(page, 'countXpaths', { xpaths: combos.map(([r, c]) => params.template.xpath.selectorTemplate.replace(`__${rv}__`, () => xpathLiteralOf(r)).replace(`__${cv}__`, () => xpathLiteralOf(c))) });
-    if (browser.some((n) => n !== 1)) params.template.xpath = null;
+    if (browser.some((n) => !ok(n))) params.template.xpath = null;
     return;
   }
   // A variant (Team Pro) must find its item too.
@@ -386,7 +389,7 @@ export function inspectTools(session, idCache = new Map(), inspector = createIns
         }
         if (scoped.error === 'ambiguous') return text(renderAmbiguousScope(scoped, within));
         // P2a: the region's entries come with it — its controls and texts, a template's items sharing one entry.
-        const targets = scoped.lines.filter((l) => l.ref).map((l) => ({ label: l.ref, args: { ref: l.ref } }));
+        const targets = scoped.lines.flatMap((l) => [l.ref, l.contentRef]).filter(Boolean).map((ref) => ({ label: ref, args: { ref } }));
         const entries = targets.length ? await compactEntries(inspector, targets, { max: WITHIN_ENTRIES }) : [];
         return text([renderScoped(scoped, within, { unstableIds }), ...(entries.length ? ['', ...entries] : [])].join('\n'));
       },

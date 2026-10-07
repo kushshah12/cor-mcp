@@ -43,7 +43,7 @@ test('a row\'s scoped snapshot lists its cells by column, each with a ref', asyn
   const out = await raw('cor_snapshot', { within: 'Bug Capture' });
   assert.match(out, /^- cell "Feature List" \[ref=e\d+\]: "Bug Capture"$/m, out);
   assert.match(out, /^- cell "Team" \[ref=e\d+\]: \(empty\)$/m);
-  assert.match(out, /^- cell "Team Ultimate" \[ref=e\d+\]: img "Feature included"$/m);
+  assert.match(out, /^- cell "Team Ultimate" \[ref=e\d+\]: img "Feature included" \[ref=e\d+\]$/m); // P3 (run b14ddae4): the image has a ref of its own
   assert.match(out, /^- cell "Enterprise" \[ref=e\d+\]: "Contact Sales"$/m);
 });
 

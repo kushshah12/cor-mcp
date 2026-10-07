@@ -18,3 +18,6 @@ export const MAX_LINE = 120;
 export const MAX_LINES = 8;
 /** R4: the helper is at most 8 lines; no line of it or of its uses is over 120 characters. */
 export const withinBar = (define, uses = []) => define.length <= MAX_LINES && [...define, ...uses].every((l) => l.length <= MAX_LINE);
+
+/** P3: the cell helper's name — `cell`, or `cellImg` when it reaches an element inside the cell (both may sit in one file). */
+export const cellHelperName = (model) => { const tag = /^\/\/([a-z0-9]+)/.exec(model.inner ?? '')?.[1]; return tag ? `cell${tag[0].toUpperCase()}${tag.slice(1)}` : 'cell'; };

@@ -6,10 +6,12 @@ Locators: page objects in tests/pages/ (default — no specs found).
 "Parent attribute" {base}/fixture/p3-parent-attr — 0 interactive elements
 Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
 
---- cor_inspect {"selector":"[data-plan-key=team] .price-amount","detail":false} (428 chars)
+--- cor_inspect {"selector":"[data-plan-key=team] .price-amount","detail":false} (574 chars)
 ✓ priceAmount(planKey) → tests/pages/p3ParentAttr.page.js — 3/3 items checked
   // COR cor:{id} · priceAmount
   priceAmount = (planKey) => this.page.locator(`div.price-slot[data-plan-key="${planKey}"]`).locator('span.price-amount');
   // COR cor:{id} · priceSlots
   priceSlots = () => this.page.locator('div.price-slot');
-every item: priceSlots() — loop over it when the test covers every item, so one added later is tested too.
+  // COR cor:{id} · priceAmountOf
+  priceAmountOf = (item) => item.locator('span.price-amount');
+every item: priceSlots() — loop over it when the test covers every item, so one added later is tested too; priceAmountOf(item) is this element inside each.

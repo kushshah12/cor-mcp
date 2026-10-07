@@ -18,6 +18,11 @@ export const CASES = [
   { id: 'cell-copies', fixture: 'p3b-tables-copies.html', target: 'div[data-product="live"] tbody tr:nth-child(2) td:nth-child(2)', idioms: ['cell.xpath'], cy: ['cell.css'] },
   // P3: a per-card text leaf with a hidden twin first in one card, and a card that has no such leaf.
   { id: 'p3-card-price', fixture: 'p3-card-price.html', target: '.card:nth-child(2) .card__price', idioms: ['item.either', 'leaf.css.shown'], not: ['leaf.css'], cy: ['item.either', 'leaf.css.shown'] },
+  // P3 (run b14ddae4): the card's name, an h3 on one card and a toggle label on another — from either element.
+  { id: 'p3-card-name-h3', fixture: 'p3-card-price.html', target: '.card:nth-child(2) h3', idioms: ['item.either', 'leaf.name'], cy: ['item.either', 'leaf.name'] },
+  { id: 'p3-card-name-label', fixture: 'p3-card-price.html', target: 'label[for=t2]', idioms: ['item.either', 'leaf.name'], cy: ['item.either', 'leaf.name'] },
+  // P3 (run b14ddae4): an image as a cell's content — cells without it find nothing in every framework.
+  { id: 'p3-cell-image', fixture: 'p3-cell-image.html', target: 'tr:nth-child(2) td:nth-child(3) img', idioms: ['cell.xpath'], cy: ['cell.css'] },
   { id: 'transformed', fixture: 'p3a-transformed.html', target: '.row:nth-child(1) button', none: /text-transform/ },
   // U10: the U6 shapes — a test-attribute item scope and name slot, a per-item test-id leaf — on frozen saucedemo and a fixture.
   { id: 'u10-saucedemo-add', fixture: 'u10-saucedemo-inventory.html', target: '[data-test="add-to-cart-sauce-labs-backpack"]', idioms: ['item.label.attr', 'leaf.aria'], cy: ['item.label', 'leaf.css'] },

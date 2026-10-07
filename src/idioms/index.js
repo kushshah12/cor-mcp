@@ -31,4 +31,13 @@ export function renderHelper(framework, params, { typescript = false, major = nu
 }
 
 export const everyItem = (framework, model) => TABLES[framework]?.every(model) ?? null;
+/** P3: the leaf inside one item of the every-item loop, from `from` (the loop's item) — null when the renderer has no leaf form. */
+export function leafIn(framework, model, from, opts = {}) {
+  const out = TABLES[framework]?.leaf(model, from, opts);
+  // A control's CSS leaf ignores its name: in an item without that control (Volume holds Contact Sales, no Choose) it finds
+  // another one. Inside the named-item template that cannot happen; in a loop over every item it can (conformance, Cypress).
+  if (!out || ((model.leaf?.role || model.leaf?.control) && out.idiom.startsWith('leaf.css'))) return null;
+  if (out.idiom === 'leaf.name') return null; // the name compares the item's value — a loop has no value to pass
+  return out.code;
+}
 export const idiomsOf = (framework) => TABLES[framework]?.IDIOMS ?? [];

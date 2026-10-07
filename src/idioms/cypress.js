@@ -1,9 +1,9 @@
 // P3b: Cypress idiom table (spec §7.2, D2) — composition only; never `cy.xpath` (needs a plugin, §12).
 // Names are matched with an anchored regex through `Cypress._.escapeRegExp`, never a plain `cy.contains(sel, text)` (a substring match).
-import { helperName, js, plainValue, withinBar } from './shared.js';
+import { cellHelperName, helperName, js, plainValue, withinBar } from './shared.js';
 
 /** Idioms this renderer can emit (each has a conformance case, §10). */
-export const IDIOMS = ['item.attribute', 'item.label', 'item.either', 'leaf.css', 'leaf.css.shown', 'leaf.role', 'every', 'variant.click',
+export const IDIOMS = ['item.attribute', 'item.label', 'item.either', 'leaf.css', 'leaf.css.shown', 'leaf.role', 'leaf.name', 'every', 'variant.click',
   'group.role', 'group.label', 'group.label-click', 'group.tl', 'cell.css'];
 
 // The anchored, whitespace-tolerant name (a wrapping label puts spaces around the text — found by E1 in real Cypress 16).
@@ -30,9 +30,11 @@ function item(model, values, ts) {
 }
 
 /** The target inside the found item: Testing Library's role query when the project has it, else the checked CSS. */
-function leaf(model, from, { testingLibrary }) {
+export function leaf(model, from, { testingLibrary } = {}) {
   const l = model.leaf;
   if (testingLibrary && l?.role && l.name && !/['\\]/.test(l.name)) return { idiom: 'leaf.role', code: `${from}.findByRole(${js(l.role)}, { name: ${js(l.name)} })` };
+  // P3: the item's name, whichever of its naming elements holds it — compared exactly, like the item helper.
+  if (l?.nameSels) return { idiom: 'leaf.name', code: `${from}.contains(${js(l.nameSels)}, ${exactName(model.param)})` };
   if (l?.cy) return { idiom: l.cy.shown ? 'leaf.css.shown' : 'leaf.css', code: `${from}.find(${js(l.cy.css)})${l.cy.shown ? ".filter(':visible')" : ''}` };
   return null;
 }
@@ -89,7 +91,7 @@ function cell(params, ts) {
   const inner = model.cy.innerCss ? `.find(${js(model.cy.innerCss)})` : '';
   // The selectors and the anchored name are named once, so a scoped selector does not push a line past 120 characters.
   const define = [
-    `const cell = (${r}${t}, ${c}${t}) => {`,
+    `const ${cellHelperName(model)} = (${r}${t}, ${c}${t}) => {`,
     `  const header = ${js(model.cy.headerSel)};`,
     `  const key = ${js(model.cy.keySel)};`,
     `  const is = (text${t}) => ${exactName('text')};`,
@@ -98,7 +100,7 @@ function cell(params, ts) {
     '};',
   ].join('\n');
   if (!withinBar(define.split('\n'))) return { none: 'the helper does not fit the readability bar (8 lines, 120 characters)' };
-  return { define, uses: [], idioms: ['cell.css'], code: define, kind: 'cell', call: `cell(${r}, ${c})` };
+  return { define, uses: [], idioms: ['cell.css'], code: define, kind: 'cell', call: `${cellHelperName(model)}(${r}, ${c})` };
 }
 
 /**

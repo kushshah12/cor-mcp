@@ -44,7 +44,7 @@ Alternatives:
 2. page.getByTestId('sort')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_check {"all":true} (1837 chars)
+--- cor_check {"all":true} (1969 chars)
 [error] cor_check: 4 locators in 2 files (all project files) — 1 carry a COR id, 3 to fix.
 
 ✗ tests/cart.spec.js:6 — await page.locator('.card button').first().click(); — picks by position (.first/.nth/.eq/[n]): a reorder silently changes the element.
@@ -55,6 +55,8 @@ Alternatives:
       addToCart = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true });
       // COR cor:000003 · items
       items = () => this.page.locator('[data-test="inventory-item"]');
+      // COR cor:000002 · addToCartOf
+      addToCartOf = (item) => item.getByRole('button', { name: 'Add to cart', exact: true });
 
 ✗ tests/cart.spec.js:8 — cor:abcdef is not a record COR issued in this project (copied from elsewhere, or edited?).
   On /app/inventory.html (if this locator targets another page, cor_open it and run cor_check again):

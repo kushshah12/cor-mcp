@@ -1,10 +1,10 @@
 // P3a: WebdriverIO idiom table (spec §7.2, D2) — composition only. The leaf inside the item comes from the page check.
 // Measured in real WebdriverIO 9.32 (scripts/conformance): `$$(css).filter(fn).find(fn)` takes async callbacks and chains;
 // `tag.class=text` is an exact text match; a selector with a space before `=` is invalid.
-import { helperName, js, plainValue, withinBar } from './shared.js';
+import { cellHelperName, helperName, js, plainValue, withinBar } from './shared.js';
 
 /** Idioms this renderer can emit (each has a conformance fixture, §10). */
-export const IDIOMS = ['item.attribute', 'item.label', 'item.label.attr', 'item.either', 'leaf.aria', 'leaf.aria.shown', 'leaf.css', 'leaf.css.shown', 'every', 'variant.click',
+export const IDIOMS = ['item.attribute', 'item.label', 'item.label.attr', 'item.either', 'leaf.aria', 'leaf.aria.shown', 'leaf.css', 'leaf.css.shown', 'leaf.name', 'every', 'variant.click',
   'group.aria', 'group.label-input', 'group.label-click', 'cell.xpath'];
 
 function item(model, values, ts) {
@@ -41,6 +41,8 @@ export function leaf(model, from) {
   if (l?.aria && l.twins) return { idiom: 'leaf.aria.shown', code: `${from}.$$(${js(`aria/${l.name}`)}).find((el) => el.isDisplayed())` };
   if (l?.aria) return { idiom: 'leaf.aria', code: `${from}.$(${js(`aria/${l.name}`)})` };
   if (l?.css) return { idiom: 'leaf.css', code: `${from}.$(${js(l.css)})` };
+  // P3: the item's name, whichever of its naming elements holds it (getText is compared, so a text-transform declines: item()).
+  if (l?.nameSels) return { idiom: 'leaf.name', code: `${from}.$$(${js(l.nameSels)}).find(async (el) => (await el.getText()) === ${model.param})` };
   // P3: hidden twins of a CSS leaf (a price per toggle state) — the shown one.
   if (l?.shownCss) return { idiom: 'leaf.css.shown', code: `${from}.$$(${js(l.shownCss)}).find((el) => el.isDisplayed())` };
   return null;
@@ -94,7 +96,7 @@ function cell(params, ts) {
   const is = (part, v) => (part ? `descendant-or-self::*[normalize-space()=${v}]` : `normalize-space()=${v}`);
   const t = ts ? ': string' : '';
   const define = [
-    `const cell = (${r}${t}, ${c}${t}) => {`,
+    `const ${cellHelperName(model)} = (${r}${t}, ${c}${t}) => {`,
     `  const tables = ${JSON.stringify(model.tables)};`,
     `  const header = ${model.headerExpr};`,
     `  const row = \`\${tables}//tr[*[${model.k}][${is(model.rowPart, `"\${${r}}"`)}]]\`;`,
@@ -103,7 +105,7 @@ function cell(params, ts) {
     '};',
   ].join('\n');
   if (!withinBar(define.split('\n'))) return { none: 'the helper does not fit the readability bar (8 lines, 120 characters)' };
-  return { define, uses: [], idioms: ['cell.xpath'], code: define, kind: 'cell', call: `cell(${r}, ${c})` };
+  return { define, uses: [], idioms: ['cell.xpath'], code: define, kind: 'cell', call: `${cellHelperName(model)}(${r}, ${c})` };
 }
 
 /**

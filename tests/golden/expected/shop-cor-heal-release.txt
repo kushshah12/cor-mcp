@@ -44,7 +44,7 @@ Alternatives:
 2. page.getByTestId('sort')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_inspect {"selector":"[data-test=\"add-to-cart-pen\"]"} (2138 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-pen\"]"} (2262 chars)
 Recommended — parameterised: 4 items share this shape; every value checked, each finds exactly its own item (4/4).
   Proof: counted by Playwright, every value.
   title = "Gel Pen"   (also: "Coffee Mug", "Baseball Cap", "Logo T-Shirt")
@@ -65,6 +65,8 @@ Entry — place in tests/pages/inventory.page.js, member addToCart (cor_check re
   addToCart = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true });
   // COR cor:000003 · items
   items = () => this.page.locator('[data-test="inventory-item"]');
+  // COR cor:000002 · addToCartOf
+  addToCartOf = (item) => item.getByRole('button', { name: 'Add to cart', exact: true });
 Facts:
   • 3 other visible button "Add to cart"s look the same
 Framework convention applied: playwright (published guidance).
@@ -76,7 +78,7 @@ Alternatives:
 2. page.locator('button[data-test="add-to-cart-pen"][name="add-to-cart-pen"]')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_inspect {"selector":"[data-test=\"add-to-cart-cap\"]"} (2138 chars)
+--- cor_inspect {"selector":"[data-test=\"add-to-cart-cap\"]"} (2262 chars)
 Recommended — parameterised: 4 items share this shape; every value checked, each finds exactly its own item (4/4).
   Proof: counted by Playwright, every value.
   title = "Baseball Cap"   (also: "Coffee Mug", "Gel Pen", "Logo T-Shirt")
@@ -97,6 +99,8 @@ Entry — place in tests/pages/inventory.page.js, member addToCart (cor_check re
   addToCart = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true });
   // COR cor:000003 · items
   items = () => this.page.locator('[data-test="inventory-item"]');
+  // COR cor:000004 · addToCartOf
+  addToCartOf = (item) => item.getByRole('button', { name: 'Add to cart', exact: true });
 Facts:
   • 3 other visible button "Add to cart"s look the same
 Framework convention applied: playwright (published guidance).

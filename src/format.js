@@ -377,7 +377,7 @@ export function renderBrief(result, parts, info, { framework = result.framework,
   }
   for (const v of parts.entryLead?.variants ?? []) notes.push(`note: ${v.values.map((x) => `"${x}"`).join(', ')} sit${v.values.length === 1 ? 's' : ''} behind the "${v.of}" item's toggle — ${info.showVariant ? `showVariant(${JSON.stringify(v.values[0])})` : 'click it'} first.`);
   notes.push(...(info.notes ?? []));
-  if (info.everyMember) notes.push(`every item: ${info.everyMember}() — loop over it when the test covers every item, so one added later is tested too.`);
+  if (info.everyMember) notes.push(`every item: ${info.everyMember}() — loop over it when the test covers every item, so one added later is tested too${info.ofMember ? `; ${info.ofMember}(item) is this element inside each` : ''}.`);
   if (info.itemOnly) notes.push(`note: ${info.member}(…) finds the item, not the element you inspected — no form for it held in every item; cor_inspect detail: true shows its single-item locator.`);
   if (info.declined) {
     const fix = addTestId(result);

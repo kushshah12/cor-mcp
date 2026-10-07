@@ -56,7 +56,7 @@ test('P4 notes ride along: the every-item loop for a template; a declined elemen
   assert.match(choose, /^✓ choose\(value\) → tests\/pages\/cards\.page\.js — 2\/2 items checked$/m);
   assert.match(choose, /^ {2}cards = \(\) => this\.page\.locator\('div\.card'\);$/m); // P3: the every-item locator is a member with its own id
   assert.match(choose, /^every item: cards\(\) — loop over it/m);
-  assert.ok(choose.split('\n').length <= 6, choose);
+  assert.ok(choose.split('\n').length <= 8, choose); // run b14ddae4: + the element inside each item (chooseOf), 2 lines
   await call('cor_open', { url: `${base}/p1-no-durable` });
   const declined = await call('cor_inspect', { selector: '.list > div:nth-child(2) .dot' });
   assert.match(declined, /^✗ element — declined: no durable locator/);

@@ -7,7 +7,7 @@ import cypress from 'cypress';
 import { createSession } from '../../src/session.js';
 import { callPage } from '../../src/page-runtime.js';
 import { verifyTemplate } from '../../src/tools/inspect.js';
-import { renderHelper } from '../../src/idioms/index.js';
+import { leafIn, renderHelper } from '../../src/idioms/index.js';
 import { CASES } from './cases.mjs';
 
 const HERE = new URL('.', import.meta.url).pathname;
@@ -76,6 +76,15 @@ for (const tl of [false, true]) for (const c of CASES) {
   if (!isGroup) {
     const wantEvery = await new Function('page', `return ${params.every}`)(pw).count();
     specs.push({ id: `${mode}|${c.id}||every`, fixture: c.fixture, define: '', names: [params.model.param], args: [''], expr: require_every(params.model), wantEvery, idioms: ['every'] });
+    // P3: the leaf inside each item of the every-item loop (the entry's <member>Of(item)) reaches what Playwright's does there.
+    const ofCode = params.leafCode && leafIn('cypress', params.model, 'cy.wrap(item)', { testingLibrary: tl });
+    if (ofCode) {
+      for (let i = 0; i < wantEvery; i++) {
+        const loc = new Function('page', 'i', `return ${params.every}.nth(i)${params.leafCode}`)(pw, i);
+        const want = await loc.count() === 1 ? await loc.evaluate((el) => [...document.body.getElementsByTagName('*')].indexOf(el)) : null;
+        specs.push({ id: `${mode}|${c.id}|item ${i}|of`, fixture: c.fixture, define: '', names: [], args: [], expr: `${require_every(params.model)}.eq(${i}).then((item) => ${ofCode})`, want, idioms: ['every.leaf'] });
+      }
+    }
   }
 }
 
@@ -87,6 +96,7 @@ mkdirSync(`${WORK}/support`, { recursive: true });
 writeFileSync(`${WORK}/support/e2e.js`, "import '@testing-library/cypress/add-commands';\n");
 writeFileSync(`${WORK}/e2e/p3b.cy.js`, `
 const CASES = ${JSON.stringify(specs.map((s) => ({ ...s, define: undefined })))};
+const LOUD = ${JSON.stringify(process.env.LOUD ?? '')}; // debugging: this case's failure is shown, not swallowed
 const DEFINE = ${JSON.stringify(Object.fromEntries(specs.map((s) => [s.id, s.define])))};
 // U10: counted within <body> — Cypress injects into <head> on pages that have one (frozen saucedemo), which shifted every index by one.
 const indexOf = (el) => Array.from(el.ownerDocument.body.getElementsByTagName('*')).indexOf(el);
@@ -94,9 +104,11 @@ describe('P3b conformance', () => {
   for (const c of CASES) {
     it(c.id, () => {
       let failed = null;
-      cy.on('fail', (e) => { failed = e.message.split('\\n')[0]; return false; });
+      cy.on('fail', (e) => { failed = e.message.split('\\n')[0]; if (c.id === LOUD) throw e; return false; });
       const run = new Function('cy', 'Cypress', ...c.names, DEFINE[c.id] + '\\nreturn ' + c.expr);
       cy.visit('/' + c.fixture);
+      // the commands after a swallowed failure are skipped: a case that started and recorded nothing failed
+      cy.task('record', { id: c.id, started: true });
       if (c.wantEvery !== undefined) {
         run(cy, Cypress, ...c.args).then(($els) => cy.task('record', { id: c.id, got: $els.length, want: c.wantEvery }));
       } else if (c.after) {
@@ -133,7 +145,8 @@ for (const s of specs) {
   else if (s.after) { ok = r.selected === true; note = `selected after its label was clicked: ${r.selected}`; }
   else if (s.toggled) { const v = s.args[0]; ok = Array.isArray(r.checked) && r.checked.includes(v); note = `checked after the click: ${(r.checked ?? []).join(', ') || 'none'}${r.threw ? ` (${r.threw})` : ''}`; }
   else if (s.negative) { ok = r.threw !== undefined || r.got === null || r.got === undefined; note = 'a partial name reached an element'; }
-  else { ok = r.got === s.want && r.threw === undefined; note = `Playwright ${s.want}, Cypress ${r.got ?? r.threw ?? 'nothing'}`; }
+  // an item without the leaf (Volume has no price): Playwright finds none, and Cypress's .find fails — both say "not there"
+  else { ok = (r.got === s.want && r.threw === undefined) || (s.want === null && (r.got === null || (r.started && r.got === undefined))); note = `Playwright ${s.want}, Cypress ${r.got ?? r.threw ?? 'nothing'}`; }
   for (const id of s.idioms) mark(id, ok, `${s.id}: ${note}`);
   if (!ok) report.push(`FAIL ${s.id}: ${note}`);
 }

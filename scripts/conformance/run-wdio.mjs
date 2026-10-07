@@ -7,7 +7,7 @@ import { remote } from 'webdriverio';
 import { createSession } from '../../src/session.js';
 import { callPage } from '../../src/page-runtime.js';
 import { verifyTemplate } from '../../src/tools/inspect.js';
-import { renderHelper, everyItem } from '../../src/idioms/index.js';
+import { renderHelper, everyItem, leafIn } from '../../src/idioms/index.js';
 import { CASES } from './cases.mjs';
 
 const OUT = new URL('../../src/idioms/webdriverio.conformance.json', import.meta.url);
@@ -131,10 +131,26 @@ for (const c of CASES) {
     }
   }
   if (isGroup) continue;
+  await browser.url(`${base}/${c.fixture}`); // the variant clicks above changed which twin is shown
   const every = await new Async('$', '$$', `return ${everyItem('webdriverio', params.model)}`)(browser.$.bind(browser), browser.$$.bind(browser));
   const wantEvery = await new Function('page', `return ${params.every}`)(pw).count();
   mark('every', every.length === wantEvery, `${c.id}: WebdriverIO ${every.length}, Playwright ${wantEvery}`);
   report.push(`     every → ${every.length} items (Playwright ${wantEvery})`);
+  // P3: the leaf inside each item of the every-item loop (the entry's <member>Of(item)) reaches what Playwright's does there.
+  const ofCode = params.leafCode && leafIn('webdriverio', params.model, 'item');
+  if (ofCode) {
+    for (let i = 0; i < every.length; i++) {
+      const loc = new Function('page', 'i', `return ${params.every}.nth(i)${params.leafCode}`)(pw, i);
+      const want = await loc.count() === 1 ? await loc.evaluate((el) => [...document.getElementsByTagName('*')].indexOf(el)) : null;
+      let got = null;
+      try {
+        const el = await new Async('item', `return ${ofCode}`)(every[i]);
+        if (el && await el.isExisting()) got = await browser.execute((e) => [...document.getElementsByTagName('*')].indexOf(e), el);
+      } catch { /* not there */ }
+      mark('every.leaf', want === got, `${c.id} item ${i}: Playwright ${want}, WebdriverIO ${got}`);
+      if (want !== got) report.push(`FAIL ${c.id} item ${i} (leaf): Playwright ${want}, WebdriverIO ${got}`);
+    }
+  }
 }
 
 await browser.deleteSession();

@@ -714,7 +714,8 @@ function cellTemplate(target) {
         return innerCss && c ? c.querySelector(innerCss) : c;
       };
       const combos = [...columns.map((cv) => [rows[body.indexOf(row)], cv]), ...rows.map((rv) => [rv, headers[cell.cellIndex]])];
-      ok = combos.every(([rv, cv]) => { const want = expectedFor(rv, cv); return want && emulate(rv, cv) === want; });
+      // P3: with an element inside the cell, a cell lacking it is found as nothing by both (the XPath's count was checked).
+      ok = combos.every(([rv, cv]) => { const want = expectedFor(rv, cv); return (want || innerCss) && emulate(rv, cv) === want; });
     } catch {
       ok = false;
     }
@@ -760,13 +761,38 @@ function cssInner(target, targetItem, items) {
   const holding = items.filter((it) => it.querySelector(sel));
   if (holding.length < 2 || !holding.every((it) => pick(it).length === 1) || pick(targetItem)[0] !== target) return null;
   const twins = holding.some((it) => it.querySelectorAll(sel).length > 1);
+  // A per-item form by class alone is unsafe when the class names different repeated controls (Remove in one item, Add to cart
+  // in five): one name everywhere (Choose) or a name per item (each FAQ question) is safe.
+  const names = holding.map((it) => pick(it)[0]).map((el) => (isControl(el) ? roleAndName(el).name : text(el)));
+  const own = names[holding.indexOf(targetItem)];
+  const mixed = isControl(target) && new Set(names).size < names.length && names.some((n) => n !== own);
   return {
     items: holding,
     code: `.locator(${q(sel)})${twins ? '.filter({ visible: true })' : ''}`, pw: twins ? `${sel}:visible` : sel,
     // XPath cannot say "visible": with twins there is no XPath form.
     xpath: twins ? null : `//${tag}${cls ? `[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]` : ''}`,
     count: (it) => pick(it).length,
-    leaf: { role: null, name: text(target), css: twins ? null : sel, shownCss: twins ? sel : null, aria: false, cy: { css: sel, shown: twins } },
+    // control: the class also names other controls in other items — no per-item form (see `mixed`)
+    leaf: { role: null, name: text(target), css: twins ? null : sel, shownCss: twins ? sel : null, aria: false, cy: { css: sel, shown: twins }, control: mixed },
+  };
+}
+
+/**
+ * P3 (run b14ddae4): the target IS what names its item, and the items are named by one of two elements (BrowserStack: an h3 on
+ * Team Ultimate, a toggle label on Team). The leaf is then the name, whichever element holds it — a title template built on the
+ * h3 alone left the Team card out, and the agent composed and graded its own. The slot is fixed, so the name compares the param.
+ */
+function nameInner(target, targetItem, items) {
+  const own = text(target);
+  const slot = eitherSlots(items).find((sl) => sl.sels.some((x) => target.matches(x.sel)) && sl.matches(targetItem, own));
+  if (!slot) return null;
+  const sels = slot.sels.map((x) => x.sel).join(', ');
+  return {
+    slot,
+    codeFor: (p) => `.locator(${q(sels)}).getByText(${p}, { exact: true })`,
+    pwFor: (ph) => `:is(${sels}):text-is("${ph}")`,
+    xpath: null,
+    leaf: { role: null, name: own, css: null, aria: false, nameSels: sels, cy: null },
   };
 }
 
@@ -777,6 +803,10 @@ function structuralTemplate(target) {
   const { item: targetItem, items } = found;
   const itemSel = itemSelector(items);
   if (!itemSel) return { count: items.length, reason: 'the items share no class or tag that names them' };
+  const named = nameInner(target, targetItem, items);
+  // (a slot that reads prices or numbers names nothing — the plain leaf below is the answer then)
+  const byName = named && templateFor(target, targetItem, items, itemSel, named, { allowSelf: true, only: named.slot });
+  if (byName?.template) return byName;
   const inner = cssInner(target, targetItem, items);
   if (!inner) return { count: items.length, reason: 'the element is not the only one of its kind inside its item' };
   return templateFor(target, targetItem, inner.items, itemSel, inner, { allowSelf: true });
@@ -832,7 +862,7 @@ const hasIn = (item, sel) => Boolean(item.querySelector(sel));
  * the first whose every value picks exactly its own item; else the reason the
  * best option failed.
  */
-function templateFor(target, targetItem, items, itemSel0, inner, { allowSelf = false } = {}) {
+function templateFor(target, targetItem, items, itemSel0, inner, { allowSelf = false, only = null } = {}) {
   let all = [...document.querySelectorAll(itemSel0.css)];
   // Hidden copies of the items (BrowserStack keeps every product's cards in
   // the page) make the plain item selector ambiguous; the template then names
@@ -857,7 +887,7 @@ function templateFor(target, targetItem, items, itemSel0, inner, { allowSelf = f
   // Every way of naming the items, best first: a test attribute, a name
   // before the controls (on its own, or a heading-or-label pair), then text
   // after the controls, then other attributes.
-  const slots = [...slotsFor(targetItem, target, { allowSelf }), ...eitherSlots(items)].sort((a, b) => a.rank - b.rank);
+  const slots = only ? [only] : [...slotsFor(targetItem, target, { allowSelf }), ...eitherSlots(items)].sort((a, b) => a.rank - b.rank);
   for (const slot of slots) {
     const what = slot.kind === 'attribute' ? slot.attr : `${slot.sel} "${slot.valueOf(targetItem)}"`;
     const values = items.map((i) => slot.valueOf(i));
@@ -906,9 +936,11 @@ function namedBy(sel, p, items) {
 
 const nameSels = (slot) => (slot.kind === 'either' ? slot.sels.map((x) => x.sel) : [slot.sel]);
 
-function render(slot, itemSel, inner, values, self, items) {
+function render(slot, itemSel, inner0, values, self, items) {
   const p = slot.param;
   const ph = `__${p}__`;
+  // P3: a name leaf compares the parameter, so its code is built for it
+  const inner = inner0.codeFor ? { ...inner0, code: inner0.codeFor(p), pw: inner0.pwFor(ph) } : inner0;
   let code; let pw; let xpath;
   const vis = itemSel.visible ? '.filter({ visible: true })' : '';
   const css = itemSel.visible ? `${itemSel.css}:visible` : itemSel.css;
@@ -929,11 +961,14 @@ function render(slot, itemSel, inner, values, self, items) {
   return {
     count: values.length,
     param: p,
-    value: values[self],
+    value: inner0.codeFor ? inner0.leaf.name : values[self], // P3: a name leaf's value is its own text (the "Team Pro" label, not its card's "Team")
     values,
     code,
     // Every item, to loop over when the test covers them all (plain-prompt run: the FAQ questions were typed in).
     every: `page.locator(${q(itemSel.css)})${vis}`,
+    // P3 (run b14ddae4): the element inside one item of that loop — the agent appended it to the every-item locator by hand.
+    // a name leaf needs the value, and a control found by class can reach another control: no per-item form for either
+    leafCode: inner0.codeFor || inner0.leaf?.control ? null : inner.code,
     // P1c: the same item selector as a plain CSS string, for the WebdriverIO and Cypress lines.
     everyCss: itemSel.css,
     // P3a: what the WebdriverIO and Cypress renderers read (src/idioms/) — the same item, name slot and leaf that were just checked.

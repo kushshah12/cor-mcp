@@ -242,8 +242,11 @@ function cellsOf(row, issueRef) {
       const { role, name } = roleAndName(control);
       content = `${role}${name ? ` "${name}"` : ''}`;
     } else if (text) content = `"${clip(text, TEXT_MAX)}"`;
-    else if (img) content = `img "${clip(squash(img.alt), TEXT_MAX)}"`;
-    return { kind: 'cell', column: columnNameOf(cell) ?? `${i + 1}`, ref: issueRef(cell), content };
+    // P3 (run b14ddae4): an image that is the cell's content gets a ref of its own — the agent asserted on it and had to compose
+    // cellAt(…).getByRole('img') because only the cell had one; its entry is the cell template with the image inside.
+    let contentRef = null;
+    if (content === '(empty)' && img) { contentRef = issueRef(img); content = `img "${clip(squash(img.alt), TEXT_MAX)}" [ref=${contentRef}]`; }
+    return { kind: 'cell', column: columnNameOf(cell) ?? `${i + 1}`, ref: issueRef(cell), content, contentRef };
   });
 }
 

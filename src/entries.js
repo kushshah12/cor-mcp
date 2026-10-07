@@ -3,7 +3,7 @@
 // tools; COR never edits the team's files. cor_check (U9) finds entries again by that id, never by their text.
 
 import { helperUse } from './format.js';
-import { everyItem } from './idioms/index.js';
+import { everyItem, leafIn } from './idioms/index.js';
 
 const camel = (s) => {
   const words = String(s ?? '').replace(/([a-z])([A-Z])/g, '$1 $2').toLowerCase().split(/[^a-z0-9]+/).filter(Boolean);
@@ -24,9 +24,15 @@ export function pageName(url) {
 
 /** The member's name: a parameterised entry by its action (`addToCart`), a single one by its test id or role + name. */
 export function memberName(result, lead) {
-  if (lead?.kind === 'cell') return 'cellAt'; // P1: not `cell` — the Cypress / WebdriverIO helper already has that name
+  if (lead?.kind === 'cell') {
+    // P1: not `cell` — the Cypress / WebdriverIO helper already has that name. P3: an element inside the cell (an image) is cellAtImg.
+    const tag = /^\/\/([a-z0-9]+)/.exec(lead.model?.inner ?? '')?.[1];
+    return tag ? `cellAt${tag[0].toUpperCase()}${tag.slice(1)}` : 'cellAt';
+  }
   if (lead) {
     const leaf = result.params?.model?.leaf;
+    // P3: the name of an item named by either of two elements: the item's name (`simplificationCardName`).
+    if (leaf?.nameSels) return `${camel(/\.([\w-]+)[^.]*$/.exec(lead.model?.item?.css ?? '')?.[1]) ?? 'item'}Name`;
     // P2a: a leaf whose name differs per item (an item's own title, one FAQ answer's words) is named by its class instead
     // (`faq-item__answer` → faqItemAnswer), else by the parameter (`titleText`).
     const css = leaf?.css ?? leaf?.shownCss; // P3: a leaf with hidden twins keeps its CSS as shownCss
@@ -170,11 +176,21 @@ export function entryFor({ result, lead, helper, framework, conventions, typescr
       ? `  ${everyMember}: (page) => ${everyCode},`
       : `  ${everyMember}${store === 'page-object-class' ? ' =' : ':'} () => ${framework === 'playwright' ? everyCode.replace(/\bpage\./g, 'this.page.') : everyCode}${store === 'page-object-class' ? ';' : ','}`,
   ] : [];
-  const extra = [...click, ...show, ...every];
+  // P3 (run b14ddae4): the element inside each item of that loop, under this entry's id — the agent had appended the leaf to the
+  // every-item locator itself (items().locator('p.question')), and cor_check could not tie it to anything.
+  const ofMember = everyCode && !itemOnly ? `${member}Of` : null;
+  const ofCode = !ofMember ? null : framework === 'playwright' ? (lead.leafCode ? `item${lead.leafCode}` : null)
+    : leafIn(framework, lead.model, framework === 'cypress' ? 'cy.wrap(item)' : 'item', { testingLibrary: helper?.idioms?.includes('leaf.role') });
+  const itemType = !typescript ? '' : { playwright: ": import('@playwright/test').Locator", cypress: ': JQuery<HTMLElement>', webdriverio: ': WebdriverIO.Element' }[framework] ?? '';
+  const of = ofCode ? [
+    `  // COR cor:${id} · ${ofMember}`,
+    store === 'page-object-class' ? `  ${ofMember} = (item${itemType}) => ${ofCode};` : `  ${ofMember}: (item${itemType}) => ${ofCode},`,
+  ] : [];
+  const extra = [...click, ...show, ...every, ...of];
   // P3: a state the test must check before acting — an item that starts open closes on the first click.
   const notes = [];
   if (lead?.startsOpen) notes.push(`note: ${lead.startsOpen.map((v) => `"${v}"`).join(', ')} ${lead.startsOpen.length === 1 ? 'is' : 'are'} open now — clicking it closes it; check its state before clicking`);
   // P3: a closed item clips this element to 0 height instead of hiding it, so the framework's visibility check passes anyway.
   if (lead?.collapsedWhenClosed) notes.push(`note: when its item is closed, ${member} is clipped to 0 height, not hidden — ${VISIBLE_CHECK[framework] ?? 'a visibility check'} still passes; assert the item's open state or ${member}'s height instead`);
-  return { lines: [head, ...preamble, comment, body, ...extra, ...notes.map((n) => `  ${n}`), ''], member, file, store, preamble, comment, body, click: extra, proof: grade, itemOnly, everyMember, notes, showVariant: show.length > 0 };
+  return { lines: [head, ...preamble, comment, body, ...extra, ...notes.map((n) => `  ${n}`), ''], member, file, store, preamble, comment, body, click: extra, proof: grade, itemOnly, everyMember, ofMember: of.length ? ofMember : null, notes, showVariant: show.length > 0 };
 }
