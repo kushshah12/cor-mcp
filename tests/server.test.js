@@ -26,7 +26,7 @@ test('lists exactly the registered tools — no placeholders', async (t) => {
   const client = await connect(t, createServer());
   const { tools } = await client.listTools();
   assert.deepEqual(tools.map((t) => t.name), defaultTools(createSession()).map((t) => t.name));
-  assert.deepEqual(tools.map((t) => t.name), ['cor_open', 'cor_click', 'cor_fill', 'cor_press', 'cor_close', 'cor_snapshot', 'cor_inspect', 'cor_grade', 'cor_check', 'cor_heal']);
+  assert.deepEqual(tools.map((t) => t.name), ['cor_open', 'cor_click', 'cor_fill', 'cor_press', 'cor_close', 'cor_snapshot', 'cor_inspect', 'cor_grade', 'cor_check', 'cor_heal', 'cor_explore']);
 });
 
 test('a throwing tool returns an error result and the session survives', async (t) => {

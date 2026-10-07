@@ -7,6 +7,7 @@ import { gradeTools } from './tools/grade.js';
 import { checkTools } from './tools/check.js';
 import { healTools } from './tools/heal.js';
 import { createInspector, pageOutline } from './tools/inspect.js';
+import { exploreTools } from './tools/explore.js';
 
 const { name, version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -16,7 +17,8 @@ export function defaultTools(session, records = null) {
   const idCache = new Map(); // id-stability verdicts, shared by inspect and grade
   const inspector = createInspector(session, idCache, records); // shared: cor_check and cor_heal issue entries too
   const outline = (page) => pageOutline(session, page, { idCache });
-  return [...sessionTools(session, inspector, outline, records), ...inspectTools(session, idCache, inspector, records), ...gradeTools(session, idCache), ...checkTools(session, inspector, records), ...healTools(session, inspector, records)];
+  const tools = [...sessionTools(session, inspector, outline, records), ...inspectTools(session, idCache, inspector, records), ...gradeTools(session, idCache), ...checkTools(session, inspector, records), ...healTools(session, inspector, records)];
+  return [...tools, ...exploreTools(session, tools)]; // P2b: runs the others' handlers, step by step
 }
 
 // Sent once at connect. The user asks the agent for tests, not for locators,
@@ -26,7 +28,7 @@ export function defaultTools(session, records = null) {
 export const INSTRUCTIONS = [
   'COR finds, checks and grades locators on a live page and gives you entries to place. Workflow:',
   '1. cor_open the page: the reply lists its controls with refs (a region index on a large page — cor_snapshot within a region for its text, controls and entries).',
-  '2. Get every element you need in one call: cor_inspect targets: [refs]. To see what an action changes, act with cor_click, cor_fill or cor_press and read the reply: it lists changed and new text, and the new page\'s headings, with their entries. Do not write scripts to read the page.',
+  '2. Get every element you need in one call: cor_inspect targets: [refs]. To see what an action changes, act (cor_click, cor_fill, cor_press; many steps: cor_explore) and read the reply: it lists changed and new text, new page headings, with entries. Do not write scripts to read the page.',
   '3. Place each entry as given, its // COR cor:… comment included, in the file it names. An entry taking a parameter (title, question) is one function for every item: write one function that takes the parameter, not a locator per item; when the test covers every item, loop over the every-item locator instead of typing the values. A · label member is what you click for a hidden input; assert the input\'s checked state.',
   '4. Every locator comes from COR, including elements you only assert on. Never match by partial text (*=, a substring cy.contains, getByText without exact). Pass a locator you wrote or extended yourself to cor_grade, with param when it takes one (a step added to a template can match several elements inside an item); keep the page open — no cor_close — until you have graded them.',
   '5. Before running the tests, run cor_check: it fails on any locator without a COR id and returns the entry to paste. An existing method for the element: fix it in place rather than adding a second one.',

@@ -81,7 +81,7 @@ test('the instructions tell the agent to read what an act changed instead of wri
   const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
   const client = new Client({ name: 'i', version: '0' });
   await Promise.all([createServer({ session }).connect(serverSide), client.connect(clientSide)]);
-  assert.match(client.getInstructions(), /To see what an action changes, act with cor_click, cor_fill or cor_press and read the reply/); // P4 wording
+  assert.match(client.getInstructions(), /To see what an action changes, act \(cor_click, cor_fill, cor_press; many steps: cor_explore\) and read the reply/); // P4 wording; P2b adds cor_explore
 });
 
 test('a control whose own text changes is reported once, as a control — not again as text', async () => {
