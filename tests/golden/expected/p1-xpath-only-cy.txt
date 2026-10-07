@@ -6,13 +6,18 @@ Locators: page objects in cypress/pages/ (default — no specs found).
 "Compare" {base}/fixture/p1-xpath-only — 0 interactive elements
 Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
 
---- cor_inspect {"selector":"div[data-product-id=\"live\"] table:nth-of-type(3) tr:nth-child(2) td:nth-child(4)"} (2500 chars)
+--- cor_inspect {"selector":"div[data-product-id=\"live\"] table:nth-of-type(3) tr:nth-child(2) td:nth-child(4)"} (2786 chars)
 Recommended — parameterised by row and column: 1 rows × 4 columns; every row and column checked (5/5).
-  Proof: checked with the browser's XPath engine for every value; the XPath is used as it is.
+  Proof: rendered from a checked template (every value checked in the page); Cypress 16.1.1 idioms conformance-tested.
   featureList = "Priority Support"   (also: )
   column = "Enterprise"   (also: "Feature List", "Team", "Team Ultimate")
-  XPath: //table[contains(concat(' ', normalize-space(@class), ' '), ' cmp__table ')]//tr[*[1][normalize-space()=__featureList__]]/*[count((//table[contains(concat(' ', normalize-space(@class), ' '), ' cmp__table ')]//tr[count(th)>1])[1]/*[descendant-or-self::*[normalize-space()=__column__]]/preceding-sibling::*)+1]
-  Registry template (xpath-literal): //table[contains(concat(' ', normalize-space(@class), ' '), ' cmp__table ')]//tr[*[1][normalize-space()=__featureList__]]/*[count((//table[contains(concat(' ', normalize-space(@class), ' '), ' cmp__table ')]//tr[count(th)>1])[1]/*[descendant-or-self::*[normalize-space()=__column__]]/preceding-sibling::*)+1]   (__featureList__ / __column__ are quoted XPath literals)
+  const cell = (featureList, column) => {
+    const header = 'table.cmp__table tr:has(th) th, table.cmp__table tr:has(th) th span.toggle, table.cmp__table tr:has(th) th h3.plan, table.cmp__table tr:has(th) th span';
+    const key = 'table.cmp__table tr > :nth-child(1)';
+    const is = (text) => new RegExp(`^\\s*${Cypress._.escapeRegExp(text)}\\s*$`);
+    return cy.contains(header, is(column)).closest('th').invoke('index')
+      .then((i) => cy.contains(key, is(featureList)).closest('tr').children().eq(i));
+  };
   When the test reads more than one cell, write one function taking featureList and column.
 
 For this one item alone there is no durable locator (best is Unstable) — a test attribute would fix that: <td data-testid="td-target">.
@@ -24,8 +29,17 @@ Declined as the answer — the most durable single-item locator today:
    ! Unique only by position — matches whatever occupies that slot, not this element
    ! Long selector (69 chars) — hard to read and usually over-specified
 
-Entry — declined: no durable locator — the best is Unstable. COR issues no locator for this element. If the test must use it, put this line above the locator you write; cor_check then reports it as declined, cited (the app needs a test attribute):
-  // COR cor:{id} · declined — no durable locator — the best is Unstable
+Entry — place in cypress/pages/p1XpathOnly.page.js, member cellAt (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · cellAt · helper, once per file (module scope)
+  const cell = (featureList, column) => {
+    const header = 'table.cmp__table tr:has(th) th, table.cmp__table tr:has(th) th span.toggle, table.cmp__table tr:has(th) th h3.plan, table.cmp__table tr:has(th) th span';
+    const key = 'table.cmp__table tr > :nth-child(1)';
+    const is = (text) => new RegExp(`^\\s*${Cypress._.escapeRegExp(text)}\\s*$`);
+    return cy.contains(header, is(column)).closest('th').invoke('index')
+      .then((i) => cy.contains(key, is(featureList)).closest('tr').children().eq(i));
+  };
+  // COR cor:{id} · cellAt
+  cellAt = (featureList, column) => cell(featureList, column);
 Facts:
   • column headers are in a separate table above the rows
 Note: Cypress guidance prefers data-cy attributes and this page has none — ask for data-cy on the elements you test.

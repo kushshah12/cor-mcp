@@ -258,3 +258,23 @@ test('P3 a navigation through an interim page with no headings still lists the d
   const out = (await call('cor_click', { target: 'a[href="/p3-interim"]' })).text;
   assert.match(out, /^ {2}h1 "Next" \[ref=e\d+\]$/m, out);
 });
+
+// ── Cypress cells on BrowserStack ──
+test('P3 Cypress cells where the names sit inside their cells: found by the holder element, then .closest() the cell', async (t) => {
+  const { call } = await connect(t, 'cypress');
+  await call('cor_open', { url: `${base}/p3-cell-holder` });
+  const out = (await call('cor_inspect', { selector: 'div[data-plan-type="teams"] tr:nth-child(2) td:nth-child(4)' })).text;
+  assert.match(out, /^✓ cellAt\(featureList, column\) → /m, out);
+  assert.match(out, /const header = '.*th, .*th label\.toggle-label, .*th h3\.col-title';/, 'the plain header, the label and the h3');
+  assert.match(out, /const key = '.*tr > :nth-child\(1\) span\.feature-name';/);
+  assert.match(out, /return cy\.contains\(header, is\(column\)\)\.closest\('th'\)\.invoke\('index'\)/);
+});
+
+test('P3 a cell template is scoped when any checked combination is ambiguous, not only the target\'s own', async (t) => {
+  const { call } = await connect(t);
+  await call('cor_open', { url: `${base}/p3-cell-holder` });
+  // Geolocation Testing × Volume is unique page-wide; Bug Capture × Volume is not (the hidden copy has that row)
+  const out = (await call('cor_inspect', { selector: 'div[data-plan-type="teams"] tr:nth-child(3) td:nth-child(4)' })).text;
+  assert.match(out, /^✓ cellAt\(featureList, column\) → /m, out);
+  assert.match(out, /const tables = "\/\/div\[@data-plan-type='teams'\]/, out);
+});

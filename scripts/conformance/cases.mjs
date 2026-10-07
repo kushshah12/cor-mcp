@@ -26,6 +26,9 @@ export const CASES = [
   // P3: BrowserStack's long scoped table XPath — a selector constant over 120 characters still gets a WebdriverIO helper.
   { id: 'p3-cell-long', fixture: 'p3-cell-long.html', target: 'div[data-plan-type="teams"] tr:nth-child(2) td:nth-child(2)', idioms: ['cell.xpath'], cy: ['cell.css'] },
   { id: 'p3-cell-long-img', fixture: 'p3-cell-long.html', target: 'div[data-plan-type="teams"] tr:nth-child(2) td:nth-child(3) img', idioms: ['cell.xpath'], cy: ['cell.css'] },
+  // P3: names held inside their cells (a span beside a tooltip; an h3 or a toggle label) — Cypress finds them by the holder.
+  { id: 'p3-cell-holder', fixture: 'p3-cell-holder.html', target: 'div[data-plan-type="teams"] tr:nth-child(2) td:nth-child(4)', idioms: ['cell.xpath'], cy: ['cell.css'] },
+  { id: 'p3-cell-holder-img', fixture: 'p3-cell-holder.html', target: 'div[data-plan-type="teams"] tr:nth-child(3) td:nth-child(3) img', idioms: ['cell.xpath'], cy: ['cell.css'] },
   { id: 'transformed', fixture: 'p3a-transformed.html', target: '.row:nth-child(1) button', none: /text-transform/ },
   // U10: the U6 shapes — a test-attribute item scope and name slot, a per-item test-id leaf — on frozen saucedemo and a fixture.
   { id: 'u10-saucedemo-add', fixture: 'u10-saucedemo-inventory.html', target: '[data-test="add-to-cart-sauce-labs-backpack"]', idioms: ['item.label.attr', 'leaf.aria'], cy: ['item.label', 'leaf.css'] },

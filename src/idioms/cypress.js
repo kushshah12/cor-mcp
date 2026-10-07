@@ -96,7 +96,8 @@ function cell(params, ts) {
     `  const key = ${js(model.cy.keySel)};`,
     `  const is = (text${t}) => ${exactName('text')};`,
     ...(model.cy.innerCss ? [`  const inner = ${js(model.cy.innerCss)};`] : []),
-    `  return cy.contains(header, is(${c})).invoke('index')`,
+    // P3: a header name held by an element inside the header cell (an h3) — its cell's position, not the h3's
+    `  return cy.contains(header, is(${c}))${model.cy.headerInCell ? ".closest('th')" : ''}.invoke('index')`,
     `    .then((i) => cy.contains(key, is(${r})).closest('tr').children().eq(i)${inner});`,
     '};',
   ].join('\n');

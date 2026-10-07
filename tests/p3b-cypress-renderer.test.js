@@ -262,12 +262,13 @@ test('P3b cell: cor_inspect for Cypress renders the cell helper, and the page em
   assert.doesNotMatch(out.split('\n\n')[0], /XPath:|Registry template/);
 });
 
-test('P3b cell: a cell named by a heading inside it (BrowserStack comparison) keeps the XPath line — no CSS form', async (t) => {
+test('P3b cell: a cell named by a heading inside it (BrowserStack comparison) gets the CSS form — the heading found, then its cell', async (t) => {
   const call = await connect(t, { deps: { cypress: '^16.1.0' } });
   await call('cor_open', { url: `${base}/p3a-compare.html` });
   const out = await call('cor_inspect', { selector: 'div[data-product-id="live"] table:nth-of-type(3) tr:nth-child(2) td:nth-child(4)' });
-  assert.match(out, /Proof: checked with the browser's XPath engine/);
-  assert.doesNotMatch(out.split('\n\n')[0], /cy\.contains/);
+  assert.match(out, /Proof: rendered from a checked template .* Cypress 16\.1\.1 idioms conformance-tested\./);
+  assert.match(out, /return cy\.contains\(header, is\(column\)\)\.closest\('th'\)\.invoke\('index'\)/);
+  assert.doesNotMatch(out, /cy\.xpath/);
 });
 
 test('P3b group: a label text another label repeats (no shared container to scope by) gets no Cypress form', async (t) => {

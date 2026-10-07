@@ -669,7 +669,11 @@ function cellTemplate(target) {
   // P3: with an element inside the cell, the cell itself must be singled out too — the target's own combination can be unique
   // across every product's table (one checkmark) while another row's is not (live BrowserStack: Geolocation counted 3).
   const cellOnly = (parts) => fill(parts).slice(0, fill(parts).length - inner.length);
-  if (parts && (!soleHit(fill(parts), target) || (inner && !soleHit(cellOnly(parts), cell)))) {
+  // …and every combination the template is checked on: Bug Capture × Volume was unique page-wide, Bug Capture × Feature List
+  // was not (a hidden product's copy), so the unscoped template was refused for the whole Volume and Enterprise columns.
+  const ambiguous = (p) => [...columns.map((cv) => [rows[body.indexOf(row)], cv]), ...rows.map((rv) => [rv, headers[cell.cellIndex]])]
+    .some(([rv, cv]) => { const x = xpathOf(p, xpathLiteral(rv), xpathLiteral(cv)); return (xpathCount(inner ? x.slice(0, -inner.length) : x)?.snapshotLength ?? 0) > 1; });
+  if (parts && (!soleHit(fill(parts), target) || (inner && !soleHit(cellOnly(parts), cell)) || ambiguous(parts))) {
     const scope = stableScope(own ? [table] : [table, header0.closest('table')], 'table');
     parts = scope ? partsFor(scope.xpath) : null;
     if (scope) scopeCss = `${scope.css} `;
@@ -691,7 +695,23 @@ function cellTemplate(target) {
   // P3b: Cypress has no XPath, so the same lookup in CSS — the header cell's position, then the row by its key cell. Only for plain
   // cell names (text is the name); each combination is emulated here and must reach the very cell the XPath form proved.
   const cyModel = (() => {
-    if (rowPart || colPart || !parts) return null;
+    if (!parts) return null;
+    // P3: a name that is part of its cell (BrowserStack: the feature name in a span beside a tooltip; the plan name in an h3 above
+    // the price) is found by the element holding it — tag and class, a list when the cells differ — then .closest() the cell.
+    const holderSel = (cells, vals) => {
+      const sels = new Set();
+      cells.forEach((c, i) => {
+        if (!vals[i]) return;
+        // a cell whose whole text is its name ("Feature List") is its own holder: '' means the cell itself
+        const el = text(c) === vals[i] ? null
+          : [...c.querySelectorAll('*')].find((e) => isVisible(e) && text(e) === vals[i] && ![...e.children].some((ch) => text(ch) === vals[i]));
+        sels.add(el ? `${el.tagName.toLowerCase()}${namingClasses(el)[0] ? `.${cssEscape(namingClasses(el)[0])}` : ''}` : text(c) === vals[i] ? '' : '?');
+      });
+      return sels.size && !sels.has('?') ? [...sels] : null;
+    };
+    const rowHolder = rowPart ? holderSel(body.map((r) => r.cells[k]), rows) : null;
+    const colHolder = colPart ? holderSel([...header0.cells], headers) : null;
+    if ((rowPart && !rowHolder) || (colPart && !colHolder)) return null;
     const tcss = (t) => {
       if (t.id && !/\d{3,}/.test(t.id)) return `table#${cssEscape(t.id)}`;
       const c = namingClasses(t)[0];
@@ -700,8 +720,9 @@ function cellTemplate(target) {
     const T = tcss(table);
     const HT = own ? T : tcss(header0.closest('table'));
     if (!T || !HT) return null;
-    const headerSel = `${scopeCss}${HT} tr:has(th) th`;
-    const keySel = `${scopeCss}${T} tr > :nth-child(${k + 1})`;
+    const under = (base, holder) => (holder ? holder.map((h) => (h ? `${base} ${h}` : base)).join(', ') : base);
+    const headerSel = under(`${scopeCss}${HT} tr:has(th) th`, colHolder);
+    const keySel = under(`${scopeCss}${T} tr > :nth-child(${k + 1})`, rowHolder);
     let innerCss = '';
     if (target !== cell) innerCss = `${target.tagName.toLowerCase()}${namingClasses(target)[0] ? `.${cssEscape(namingClasses(target)[0])}` : ''}`;
     let ok = true;
@@ -711,7 +732,7 @@ function cellTemplate(target) {
         return hits?.snapshotLength === 1 ? hits.snapshotItem(0) : null;
       };
       const emulate = (rv, cv) => {
-        const th = [...document.querySelectorAll(headerSel)].find((x) => text(x) === cv);
+        const th = [...document.querySelectorAll(headerSel)].find((x) => text(x) === cv)?.closest('th');
         const key = [...document.querySelectorAll(keySel)].find((x) => text(x) === rv);
         const c = th && key ? key.closest('tr')?.children[[...th.parentElement.children].indexOf(th)] : null;
         return innerCss && c ? c.querySelector(innerCss) : c;
@@ -722,7 +743,7 @@ function cellTemplate(target) {
     } catch {
       ok = false;
     }
-    return ok ? { headerSel, keySel, innerCss } : null;
+    return ok ? { headerSel, keySel, innerCss, headerInCell: Boolean(colHolder) } : null;
   })();
   return {
     // P3a: the same parts the Playwright helper is built from — WebdriverIO takes XPath natively.

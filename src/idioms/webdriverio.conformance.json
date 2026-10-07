@@ -68,7 +68,7 @@
         },
         "cell.xpath": {
           "ok": true,
-          "checks": 38,
+          "checks": 52,
           "failures": []
         },
         "leaf.css.shown": {
