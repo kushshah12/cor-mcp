@@ -1,4 +1,4 @@
-# @corlabs/mcp
+# @corlabsdev/mcp
 
 An MCP server that lets a coding agent open a page, pick an element, and get ranked, graded locators for it in the test framework you use.
 

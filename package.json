@@ -1,30 +1,31 @@
 {
-  "name": "@corlabs/mcp",
+  "name": "@corlabsdev/mcp",
   "version": "0.1.0",
   "description": "MCP server that gives coding agents ranked, graded locators from a live page",
   "type": "module",
   "bin": {
-    "cor-mcp": "./bin/cor-mcp.js"
+    "cor-mcp": "./dist/cor-mcp.js"
   },
   "exports": {
     ".": "./src/server.js"
   },
   "files": [
-    "bin",
-    "src"
+    "dist"
   ],
   "scripts": {
     "build": "tsup",
     "pretest": "tsup",
     "test": "node --test \"tests/**/*.test.js\"",
-    "test:golden": "node --test tests/golden/golden.test.js"
+    "test:golden": "node --test tests/golden/golden.test.js",
+    "dev:local-engine": "npm --prefix ../.. run dev:local-engine",
+    "dev:pinned-engine": "npm --prefix ../.. run dev:pinned-engine",
+    "prepublishOnly": "node scripts/release-guard.js && npm run build && npm test",
+    "release:check": "npm run dev:pinned-engine && npm run build && npm test && node scripts/release-guard.js && npm pack --dry-run",
+    "release:smoke": "npm run build && node scripts/smoke.js",
+    "release:patch": "npm version patch --tag-version-prefix=mcp-v -m \"mcp %s\"",
+    "release:publish": "npm publish --access public"
   },
   "license": "UNLICENSED",
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/corlabs/sdk.git",
-    "directory": "packages/mcp"
-  },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.30.1",
     "playwright-core": "1.63.0",
@@ -35,5 +36,8 @@
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "publishConfig": {
+    "access": "public"
   }
 }

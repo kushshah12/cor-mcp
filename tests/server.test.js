@@ -69,7 +69,7 @@ test('manifest: engine is not a published dependency, playwright-core not playwr
 });
 
 test('production install tree has playwright-core, not playwright, and no engine', () => {
-  // --omit=dev is what a customer's `npx @corlabs/mcp` installs.
+  // --omit=dev is what a customer's `npx @corlabsdev/mcp` installs.
   const tree = JSON.parse(execFileSync('npm', ['ls', '--omit=dev', '--all', '--json', '-w', pkg.name], { cwd: pkgDir, encoding: 'utf8' }));
   const names = new Set();
   const walk = (deps = {}) => { for (const [n, d] of Object.entries(deps)) { names.add(n); walk(d.dependencies); } };
