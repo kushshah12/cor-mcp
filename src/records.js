@@ -45,7 +45,7 @@ export function createRecordStore({ root, enabled = true, newId = randomId, now 
   const pagesDir = () => join(root(), '.cor', 'pages');
   const fileOf = (id) => join(dir(), `${id}.json`);
   const pendingOf = (id) => join(pendingDir(), `${id}.json`);
-  const store = { issue, link, read, list, listPending, isPlaced, promote, demote, place, prune, readPage, recordState, recordReach, leadsTo, enabled, dir, lastError: null };
+  const store = { issue, link, read, list, listPending, isPlaced, promote, demote, place, prune, readPage, listPages, recordState, recordReach, leadsTo, enabled, dir, lastError: null };
 
   /** A fresh id — regenerated if a record by that name already exists. */
   function issueId() {
@@ -180,6 +180,12 @@ export function createRecordStore({ root, enabled = true, newId = randomId, now 
   // ── P8a: page files — how a page is reached and the states inside it ──
   const pageFile = (url) => join(pagesDir(), `${pageSlug(url)}.json`);
   function readPage(url) { return readJson(pageFile(url)); }
+  /** P8b: every recorded page, by its file name (a reach's `from`). */
+  function listPages() {
+    const pages = {};
+    try { for (const n of readdirSync(pagesDir())) if (n.endsWith('.json')) { const p = readJson(join(pagesDir(), n)); if (p) pages[n.slice(0, -5)] = p; } } catch { /* none yet */ }
+    return pages;
+  }
   function writePage(url, update) {
     if (!enabled) return;
     try {

@@ -1,0 +1,24 @@
+<!doctype html>
+<title>P8b shop</title>
+<!-- P8b: a page whose records are verified on the next open. ?release=2 changes it under the records:
+     the heading keeps its element but not its text (AE1), and the Team Pro toggle is renamed (AE2).
+     ?release=3 renames the second card only: an item template is checked for every value. -->
+<style>.grid { display: flex; gap: 12px } .card { border: 1px solid #ccc; padding: 8px; width: 200px } .toggle input { position: absolute; opacity: 0; width: 0; height: 0 }</style>
+<h1 class="shop__title">Pricing</h1>
+<div class="grid">
+  <div class="card">
+    <div class="toggle"><input type="radio" id="t1" name="tv" checked><label for="t1">Team</label><input type="radio" id="t2" name="tv"><label for="t2">Team Pro</label></div>
+    <p class="card__price" hidden>$200 / month</p><p class="card__price">$150 / month</p><button>Choose</button>
+  </div>
+  <div class="card"><h3 class="card__title">Team Ultimate</h3><p class="card__price">$375 / month</p><button>Choose</button></div>
+</div>
+<script>
+  for (const r of document.querySelectorAll('input[name="tv"]')) {
+    r.addEventListener('change', () => { const [pro, team] = r.closest('.card').querySelectorAll('.card__price'); pro.hidden = r.id !== 't2'; team.hidden = r.id === 't2'; });
+  }
+  if (location.search.includes('release=2')) {
+    document.querySelector('h1').textContent = 'Plans and offers';
+    document.querySelector('label[for=t2]').textContent = 'Team Plus';
+  }
+  if (location.search.includes('release=3')) document.querySelector('h3').textContent = 'Team Max'; // the second card only
+</script>

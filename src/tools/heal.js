@@ -53,36 +53,37 @@ export function strategyLocator(page, { kind, value }) {
 /** P3: the record of an every-item locator (a template's items), not of one element. */
 const isEvery = (record) => record.strategies.some((s) => s.kind === 'every');
 
-export function healTools(session, inspector, records = null) {
-  async function propose(page, record) {
-    // 1. A stored strategy that still finds exactly one element that still looks like the recorded one.
-    for (const s of record.strategies) {
-      const loc = strategyLocator(page, s);
-      if (!loc) continue;
-      let handle = null;
-      try { if (await loc.count() === 1) handle = await loc.elementHandle(); } catch { continue; }
-      if (!handle) continue;
-      let sim = 0;
-      let live = null;
-      try {
-        sim = await callPage(page, 'similarityTo', { element: handle, fingerprint: record.fingerprint });
-        live = await callPage(page, 'fingerprintOf', { element: handle });
-      } catch { /* the element went away mid-check: try the next strategy */ }
-      const rel = sim / maxSimilarity(record.fingerprint);
-      if (rel >= STORED_MIN && sameIdentity(record.fingerprint, live)) return { handle, evidence: `stored ${s.kind} locator ${s.value} still finds exactly one element, and it matches the recorded fingerprint (${Math.round(rel * 100)}% of a full match)` };
-      await handle.dispose().catch(() => {});
-    }
-    // 2. Fingerprint similarity, with a clear lead.
-    const { best, next } = await callPage(page, 'healScores', { fingerprint: record.fingerprint });
-    const found = await handleFromPage(page, 'healBest', { fingerprint: record.fingerprint, min: SIMILARITY_MIN, margin: SIMILARITY_MARGIN });
-    const handle = found.asElement();
-    if (handle && sameIdentity(record.fingerprint, await callPage(page, 'fingerprintOf', { element: handle }).catch(() => null))) {
-      return { handle, evidence: `no stored locator finds it; fingerprint similarity ${best.toFixed(2)} (next element ${next.toFixed(2)})` };
-    }
-    await found.dispose();
-    return { handle: null, evidence: `no stored locator finds it, and no element is close enough — best similarity ${best.toFixed(2)}, next ${next.toFixed(2)}; a heal needs ≥ ${SIMILARITY_MIN} and a lead of ${SIMILARITY_MARGIN}` };
+/** A stored strategy that still finds the recorded element, else a clear fingerprint match, else a decline (P8b uses it too). */
+export async function propose(page, record) {
+  // 1. A stored strategy that still finds exactly one element that still looks like the recorded one.
+  for (const s of record.strategies) {
+    const loc = strategyLocator(page, s);
+    if (!loc) continue;
+    let handle = null;
+    try { if (await loc.count() === 1) handle = await loc.elementHandle(); } catch { continue; }
+    if (!handle) continue;
+    let sim = 0;
+    let live = null;
+    try {
+      sim = await callPage(page, 'similarityTo', { element: handle, fingerprint: record.fingerprint });
+      live = await callPage(page, 'fingerprintOf', { element: handle });
+    } catch { /* the element went away mid-check: try the next strategy */ }
+    const rel = sim / maxSimilarity(record.fingerprint);
+    if (rel >= STORED_MIN && sameIdentity(record.fingerprint, live)) return { handle, evidence: `stored ${s.kind} locator ${s.value} still finds exactly one element, and it matches the recorded fingerprint (${Math.round(rel * 100)}% of a full match)` };
+    await handle.dispose().catch(() => {});
   }
+  // 2. Fingerprint similarity, with a clear lead.
+  const { best, next } = await callPage(page, 'healScores', { fingerprint: record.fingerprint });
+  const found = await handleFromPage(page, 'healBest', { fingerprint: record.fingerprint, min: SIMILARITY_MIN, margin: SIMILARITY_MARGIN });
+  const handle = found.asElement();
+  if (handle && sameIdentity(record.fingerprint, await callPage(page, 'fingerprintOf', { element: handle }).catch(() => null))) {
+    return { handle, evidence: `no stored locator finds it; fingerprint similarity ${best.toFixed(2)} (next element ${next.toFixed(2)})` };
+  }
+  await found.dispose();
+  return { handle: null, evidence: `no stored locator finds it, and no element is close enough — best similarity ${best.toFixed(2)}, next ${next.toFixed(2)}; a heal needs ≥ ${SIMILARITY_MIN} and a lead of ${SIMILARITY_MARGIN}` };
+}
 
+export function healTools(session, inspector, records = null) {
   async function proposalLines(page, record) {
     const { handle, evidence } = await propose(page, record);
     if (!handle) return { ok: false, lines: [`Declined — ${evidence}. The element may be gone or changed beyond recognition: cor_snapshot the page and cor_inspect it if it still exists.`] };

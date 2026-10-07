@@ -94,7 +94,7 @@ test('U9 an entry placed as given passes, even reformatted, renamed and moved (i
   writeFileSync(join(dir, 'e2e/cart.spec.ts'), `test('t', async ({ page }) => {\n  await expect(page.getByTestId('shopping-cart-badge')).toHaveText('1'); // cor:${id}\n});\n`);
   const out = await call('cor_check', { all: true });
   assert.equal(out.isError, false, out.text);
-  assert.match(out.text, /^cor_check: 2 locators in 2 files \(all project files\) — 2 carry a COR id, 0 to fix\.$/);
+  assert.match(out.text, /^cor_check: 2 locators in 2 files \(all project files\) — 2 carry a COR id, 0 to fix\. Records: 1 of 1 verified on the live page\.$/);
 });
 
 test('U9 (AE13) an inline assertion without an id fails; an id COR did not issue fails', async (t) => {

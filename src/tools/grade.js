@@ -30,7 +30,7 @@ export function gradeTools(session, idCache = new Map()) {
         },
       },
       handler: async ({ selector: given, locator, framework: asked, param, values }) => {
-        const selector = given;
+        const selector = given ?? locator;
         if (!selector) throw new Error('Pass the locator to grade as selector.');
         // The argument wins; else the form of the selector (cy.* is Cypress whatever the project is); else the project's framework.
         const project = session.resolveFramework(asked) ?? undefined;

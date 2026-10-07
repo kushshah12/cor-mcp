@@ -9,13 +9,16 @@ import { scanLocators, scanYaml } from '../check-scan.js';
 import { walkFiles } from '../walk.js';
 import { parseGradable } from '../grade-parse.js';
 import { callPage } from '../page-runtime.js';
-import { ID_PATTERN, pathOf, recordPage } from '../records.js';
+import { ID_PATTERN, pageSlug, pathOf, recordPage } from '../records.js';
+import { verifyPages } from '../verify.js';
 import { bannedSelector, isIndexReason } from '../positional.js';
 
 const text = (value) => ({ content: [{ type: 'text', text: value }] });
 const CODE = /\.[cm]?[jt]sx?$/;
 const MAX_FILES = 2000;
 const MAX_FINDINGS = 15;
+// P8b: how long cor_check spends verifying every placed record on every recorded page; the rest is "not checked".
+export const CHECK_VERIFY_MS = 20_000;
 const posix = (p) => p.split(sep).join('/');
 
 // Review fix: a hung git must not block the MCP server.
@@ -193,9 +196,30 @@ export function checkTools(session, inspector, records = null) {
         records.prune();
       }
 
+      // P8b (R19): every placed record on every recorded page, verified in background tabs — a failure is reported at each
+      // code location that uses it. Only with a browser open: cor_check never launches one for this.
+      const scanFindings = findings.length;
+      let verifiedNote = '';
+      if (recordsOn && records?.enabled && page) {
+        const pages = records.listPages();
+        for (const id of records.list()) { const r = records.read(id); if (r?.usedIn?.length) pages[pageSlug(r.page)] ??= { page: r.page, reach: { open: pathOf(r.page) }, states: {} }; }
+        const results = await verifyPages({ context: page.context(), records, pages, slugs: Object.keys(pages), current: page.url(), capMs: CHECK_VERIFY_MS }).catch(() => new Map());
+        const used = [...results.values()].filter((r) => r.record.usedIn?.length);
+        const tally = (s) => used.filter((r) => r.status === s).length;
+        for (const r of used.filter((x) => ['heal', 'reinspect', 'unreached'].includes(x.status))) {
+          const { id, member } = r.record;
+          const what = r.status === 'unreached' ? `state not reached — ${r.why}` : `broken on ${pathOf(r.record.page)} — ${r.why}`;
+          const fix = r.status === 'heal' ? [`cor_heal cor:${id} (with ${pathOf(r.record.page)} open) proposes the replacement.`]
+            : r.status === 'reinspect' ? [`cor_open ${pathOf(r.record.page)}, cor_inspect the element and replace the entry.`] : ['Fix the step named above first.'];
+          for (const u of r.record.usedIn) findings.push({ where: `${u.file}:${u.line}`, what: `cor:${id}${member ? ` (${member})` : ''} ${what}.`, fix });
+        }
+        const rest = [tally('needs state') && `${tally('needs state')} need a state (cor_inspect them once)`, tally('not checked') && `${tally('not checked')} not checked (time cap)`].filter(Boolean);
+        if (used.length) verifiedNote = ` Records: ${tally('verified')} of ${used.length} verified on the live page${rest.length ? `, ${rest.join(', ')}` : ''}.`;
+      }
+
       const cut = listed.truncated ? ` Scanned the first ${MAX_FILES} files only — pass files to check the rest.` : '';
       const declinedNote = cited.length ? `, ${cited.length} declined (cited)` : '';
-      const head = `cor_check: ${count} locator${count === 1 ? '' : 's'} in ${filesWithLocators} file${filesWithLocators === 1 ? '' : 's'} (${scope}) — ${count - findings.length - cited.length} carry a COR id${declinedNote}, ${findings.length} to fix.${cut}`;
+      const head = `cor_check: ${count} locator${count === 1 ? '' : 's'} in ${filesWithLocators} file${filesWithLocators === 1 ? '' : 's'} (${scope}) — ${count - scanFindings - cited.length} carry a COR id${declinedNote}, ${findings.length} to fix.${cut}${verifiedNote}`;
       const citedLines = cited.length ? ['', 'Declined, cited — COR found no durable locator; each needs a test attribute in the app:', ...cited.map((c) => `  ${c.where} cor:${c.id} — ${c.why}`)] : [];
       if (listed.truncated && !findings.length) return text([head, ...citedLines].join('\n'), true);
       if (!findings.length) return text(`${[head, ...citedLines].join('\n')}${recordsOn ? '' : '\nNo .cor/records/ in this project (records off): ids were checked for presence only.'}`);

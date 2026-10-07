@@ -7,7 +7,11 @@ import { compactEntries } from './inspect.js';
 // P2a: entry blocks an act reply carries; the rest are counted with their refs.
 export const ACT_ENTRIES = 4; // P4: was 6
 import { checkRef, goneError } from './refs.js';
-import { pathOf } from '../records.js';
+import { pageSlug, pathOf, recordPage } from '../records.js';
+import { renderInCode, verifyPages } from '../verify.js';
+
+// P8b: how long cor_open spends verifying what the repo already holds for the page; the rest is "not checked".
+export const OPEN_VERIFY_MS = 8000;
 
 // Act tools only reach a page state so an element can be inspected; nothing
 // here asserts. So they use raw DOM calls through evaluate rather than
@@ -192,6 +196,20 @@ export function sessionTools(session, inspector = null, outline = null, records 
     else from.steps.push(step);
   };
 
+  /** P8b: the "already in your code" block for the page just opened, or null when no code uses a record of it. */
+  const inCodeBlock = async (page) => {
+    if (!records?.enabled) return null;
+    const path = pathOf(recordPage(page.url()));
+    if (!records.list().some((id) => { const r = records.read(id); return r?.usedIn?.length && pathOf(r.page) === path; })) return null;
+    const slug = pageSlug(page.url());
+    const pages = records.listPages();
+    pages[slug] ??= { page: recordPage(page.url()), reach: { open: path }, states: {} }; // version-1 records: no page file yet
+    try {
+      const results = await verifyPages({ context: page.context(), records, pages, slugs: [slug], here: { slug, page }, capMs: OPEN_VERIFY_MS });
+      return renderInCode(results, path);
+    } catch { return null; }
+  };
+
   // U22: said once per session, the first time an act changes something.
   let hinted = false;
   const actReply = async (result, options) => {
@@ -221,7 +239,8 @@ export function sessionTools(session, inspector = null, outline = null, records 
         description:
           'Open a URL in the COR-controlled browser. The browser starts on first use and is reused across calls. ' +
           'For a page behind a login, pass a Playwright storage-state file so the existing session is adopted. ' +
-          'The reply lists the page\'s controls with refs (on a large page, a region index) — no cor_snapshot needed first.',
+          'The reply lists the page\'s controls with refs (on a large page, a region index) — no cor_snapshot needed first — and, when the ' +
+          'project\'s code already uses COR entries for this page, which members those are and whether each still finds its element.',
         inputSchema: {
           url: z.string().url().describe('Page to open.'),
           storageState: z
@@ -243,8 +262,12 @@ export function sessionTools(session, inspector = null, outline = null, records 
         const status = response ? ` (HTTP ${response.status()})` : '';
         startTrail(page);
         // P2a: the page's outline (or region index) comes with the open — no separate cor_snapshot turn.
-        const shown = outline ? `\n\n${await outline(page).catch(() => 'cor_snapshot lists the page\'s controls.')}` : '';
-        return text(`${await pageState(page)}${status}. Browser: ${session.browserLabel}.\n${session.frameworkLine}${shown}`);
+        // P8b: what the repo's code already uses on this page, verified alongside the outline (R18).
+        const [shown, inCode] = await Promise.all([
+          outline ? outline(page).then((o) => `\n\n${o}`, () => '\n\ncor_snapshot lists the page\'s controls.') : '',
+          inCodeBlock(page),
+        ]);
+        return text(`${await pageState(page)}${status}. Browser: ${session.browserLabel}.\n${session.frameworkLine}${inCode ? `\n\n${inCode}` : ''}${shown}`);
       },
     },
     {

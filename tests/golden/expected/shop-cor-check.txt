@@ -44,8 +44,8 @@ Alternatives:
 2. page.getByTestId('sort')
    99 Excellent · 1 match
 (4 more alternatives not shown — cor_inspect with all: true lists every one.)
---- cor_check {"all":true} (1969 chars)
-[error] cor_check: 4 locators in 2 files (all project files) — 1 carry a COR id, 3 to fix.
+--- cor_check {"all":true} (2012 chars)
+[error] cor_check: 4 locators in 2 files (all project files) — 1 carry a COR id, 3 to fix. Records: 1 of 1 verified on the live page.
 
 ✗ tests/cart.spec.js:6 — await page.locator('.card button').first().click(); — picks by position (.first/.nth/.eq/[n]): a reorder silently changes the element.
   On /app/inventory.html (if this locator targets another page, cor_open it and run cor_check again):
