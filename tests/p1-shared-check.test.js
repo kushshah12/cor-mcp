@@ -147,3 +147,24 @@ test('P1 every entry recorded in the golden suite passes the shared check', () =
   }
   assert.ok(entries >= 20, `only ${entries} entries found`);
 });
+
+// G1e: the scanner gaps from the Playwright MCP WebdriverIO run (57969539, 2026-10-07).
+test('G1e: a literal index on an awaited or filtered collection is a positional pick', () => {
+  for (const code of [
+    "const item = (await $$('.pricing-redesign__faqs-section__faq-item').filter(i => i.isDisplayed()))[0]",
+    "const row = (await page.locator('tr').all())[2]",
+    "const cell = (await driver.findElements(By.css('td')))[1]",
+  ]) assert.match(bannedIn(code, null) ?? '', /picks by position/, code);
+  assert.equal(bannedIn("const n = (await $$('.faq-item')).length", null), null);
+  assert.equal(bannedIn("const v = (await price(plan))[0]", null), null, 'an index on a non-collection value');
+});
+
+test('G1e: a text check on the whole page (body) is banned; other uses of body are not', () => {
+  for (const [code, fw] of [
+    ["await expect($('body')).toHaveText(expect.stringContaining('You have selected the Team plan'))", 'webdriverio'],
+    ["await expect(page.locator('body')).toContainText('Order placed')", 'playwright'],
+    ["cy.get('body').should('contain', 'Order placed')", 'cypress'],
+  ]) assert.match(bannedIn(code, fw) ?? '', /whole page/, code);
+  assert.equal(bannedIn("await page.locator('body').press('Escape')", 'playwright'), null);
+  assert.equal(bannedIn("await expect($('#order-status')).toHaveText('Order placed')", 'webdriverio'), null);
+});

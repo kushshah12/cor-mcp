@@ -39,15 +39,25 @@ export function bannedSelector(selector, framework = null, { anchored = false } 
   return null;
 }
 
+// G1e: a literal index on a collection that was awaited or filtered first: `(await $$('.faq').filter(i => …))[0]`.
+const COLLECTION = /\$\$\s*\(|\.all\(\s*\)|querySelectorAll\(|findElements\(/;
+const INDEXED_RESULT = /\)\s*\[\s*\d+\s*\]/;
+// G1e: the whole page as the element, with a text check: `expect($('body')).toHaveText(expect.stringContaining('…'))`.
+const PAGE_ROOT = /^\s*(?:html|body|:root|\*)\s*$/i;
+const TEXT_CHECK = /toHaveText|toContainText|toHaveTextContaining|stringContaining|getText\(|innerText|textContent|should\(\s*['"](?:contain|have\.text|include\.text)|\.contains\(/;
+const WHOLE_PAGE = 'checks text on the whole page (body), not on the element that shows it: it passes wherever the text appears';
+
 /** Why a locator in code is banned for `framework`, or null. Checks the code's own picks and every selector string it passes. */
 export function bannedIn(code, framework = null) {
   const src = String(code ?? '');
   if (POSITIONAL_TEXT.test(src)) return INDEX;
+  if (INDEXED_RESULT.test(src) && COLLECTION.test(src)) return INDEX;
   if (framework === 'cypress' && /\bcy\s*\.\s*xpath\s*\(/.test(src)) return 'cy.xpath needs the cypress-xpath plugin, which this project does not declare';
   if ((framework === 'playwright' || framework === null) && PARTIAL_PW.test(src)) return PARTIAL;
   if ((framework === 'webdriverio' || framework === null) && PARTIAL_WDIO.test(src)) return PARTIAL;
   const anchored = TEXT_ANCHOR.test(src);
   for (const m of src.matchAll(SELECTOR_ARG)) {
+    if (PAGE_ROOT.test(m[2]) && TEXT_CHECK.test(src)) return WHOLE_PAGE;
     const why = bannedSelector(m[2].replace(/^(?:css|xpath)=/, ''), framework, { anchored });
     if (why) return why;
   }
