@@ -1,0 +1,17 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>G1c Tailwind table</title></head>
+<body class="bg-background text-foreground">
+<!-- G1c (gold locators), mode "Tables" on a Tailwind page (shadcn-admin's users and tasks tables): rows and cells carry only
+     utility classes (border-b, ps-3, w-[80px]), which restyle with the design. A row template is keyed by tag and cell. -->
+<main class="flex flex-col gap-4 p-4">
+  <h1 class="text-2xl font-bold">Users</h1>
+  <table class="w-full caption-bottom text-sm">
+    <thead class="[&_tr]:border-b"><tr class="border-b transition-colors"><th class="h-10 px-2"><button role="checkbox" aria-label="Select all"></button></th><th class="h-10 px-2">Username</th><th class="h-10 px-2">Email</th><th class="h-10 px-2"></th></tr></thead>
+    <tbody>
+      <tr class="group/row border-b transition-colors"><td class="p-2"><button role="checkbox" aria-label="Select row"></button></td><td class="p-2"><div class="ps-3 max-w-36">freeman.dicki</div></td><td class="p-2"><div class="w-fit text-nowrap">freeman83@gmail.com</div></td><td class="p-2"><button class="flex h-8 w-8 p-0"><span class="sr-only">Open menu</span></button></td></tr>
+      <tr class="group/row border-b transition-colors"><td class="p-2"><button role="checkbox" aria-label="Select row"></button></td><td class="p-2"><div class="ps-3 max-w-36">ada.lovelace</div></td><td class="p-2"><div class="w-fit text-nowrap">ada@example.com</div></td><td class="p-2"><button class="flex h-8 w-8 p-0"><span class="sr-only">Open menu</span></button></td></tr>
+      <tr class="group/row border-b transition-colors"><td class="p-2"><button role="checkbox" aria-label="Select row"></button></td><td class="p-2"><div class="ps-3 max-w-36">grace.hopper</div></td><td class="p-2"><div class="w-fit text-nowrap">grace@example.com</div></td><td class="p-2"><button class="flex h-8 w-8 p-0"><span class="sr-only">Open menu</span></button></td></tr>
+    </tbody>
+  </table>
+</main>
+</body></html>

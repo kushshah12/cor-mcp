@@ -9,7 +9,7 @@
 // matches 4 cards (12, 12 Mini, 12 Pro, 12 Pro Max); an exact title match gives
 // 25/25. Only trying every value catches that, so a template is offered only
 // when every value passes — otherwise no template, and the reason.
-import { isUnstableClass, isUnstableValue, cssEscape } from '@corlabs/engine/core';
+import { detectCSSFramework, isUnstableClass, isUnstableValue, cssEscape } from '@corlabs/engine/core';
 import { HEADING, INTERACTIVE, deepQueryAll, isControl, isShown, isVisible, roleAndName, squash, visibleLabelOf } from './dom.js';
 
 const TEST_ATTRS = ['data-testid', 'data-test-id', 'data-test', 'data-cy', 'data-qa'];
@@ -39,9 +39,12 @@ const camel = (s) => s.replace(/^data-/, '').replace(/[-_]+([a-z0-9])/g, (_, c) 
  * Classes that can name an element here: not generated, fewest page matches
  * first. Framework classes (Bootstrap's `card`) are allowed — the value check
  * decides whether a selector names exactly the items, not the class's origin.
+ * G1c: on a Tailwind page its utilities (`border-b`, `ps-3`, `w-[80px]`) are not — they style an element, they do not name it.
  */
-const namingClasses = (el) => [...el.classList].filter((c) => !isUnstableClass(c))
-  .sort((a, b) => document.getElementsByClassName(a).length - document.getElementsByClassName(b).length);
+const namingClasses = (el) => {
+  const css = detectCSSFramework(document) === 'tailwind' ? 'tailwind' : null;
+  return [...el.classList].filter((c) => !isUnstableClass(c, null, css)).sort((a, b) => document.getElementsByClassName(a).length - document.getElementsByClassName(b).length);
+};
 
 /** The repeats: visible elements the target could be confused with, same shape. */
 function repeatsOf(target) {
