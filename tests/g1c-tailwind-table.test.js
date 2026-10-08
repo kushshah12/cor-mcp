@@ -5,7 +5,6 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { connect, baseUrl } from './helpers/mcp-site.js';
 
-const NEEDS_ENGINE = { todo: 'G1c: needs engine > 3.1.0 (Tailwind min-/max- sizes and group/peer markers are utilities) — remove when the pin moves' };
 const rowEntry = async (t) => {
   const { call } = await connect(t);
   await call('cor_open', { url: `${baseUrl()}/g1c-tailwind-table` });
@@ -20,7 +19,7 @@ test('G1c Tailwind table: the row template names rows and cells without utility 
   assert.match(code, /getByRole\('button', \{ name: 'Open menu'/, reply);
 });
 
-test('G1c Tailwind table: a max-/min- size (shadcn\'s `max-w-36 ps-3` username cell) and a group/ marker (`tr.group/row`) name nothing either', NEEDS_ENGINE, async (t) => {
+test('G1c Tailwind table: a max-/min- size (shadcn\'s `max-w-36 ps-3` username cell) and a group/ marker (`tr.group/row`) name nothing either', async (t) => {
   const { reply, code } = await rowEntry(t);
   assert.doesNotMatch(code, /max-w-36|group\\\\\/row/, reply);
 });

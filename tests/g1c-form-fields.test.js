@@ -26,9 +26,8 @@ test('G1c form fields: a labelled list outside a form (todos) keeps its per-item
   assert.match(await call('cor_inspect', { selector: '#t2' }), /items checked/);
 });
 
-const NEEDS_ENGINE = { todo: 'G1c: needs engine > 3.1.0 (a <label for> names a <button>) — remove when the pin moves' };
 
-test('G1c form fields: a Radix Select trigger (<button role="combobox">) is named by its <label for>', NEEDS_ENGINE, async (t) => {
+test('G1c form fields: a Radix Select trigger (<button role="combobox">) is named by its <label for>', async (t) => {
   const { call } = await open(t);
   const reply = await call('cor_inspect', { selector: '#f5' });
   assert.match(reply, /= \(\) => this\.page\.(getByRole\('combobox', \{ name: 'Role'|getByLabel\('Role'\))/, reply);

@@ -33,7 +33,7 @@ test('G2 verify: a cell whose text is masked in its record (an email) is verifie
 
 // G1b/G2 (accessible name): WebdriverIO's aria/ needs the browser's whole name, glyph included — angular-realworld's
 // $('aria/New Article') found nothing. The engine no longer offers aria/ when generated content changes the name.
-test('G2 WebdriverIO: a link whose name carries an icon-font glyph is not issued as aria/', { todo: 'G2: needs engine > 3.1.0 (no aria/ under generated content) — remove when the pin moves' }, async (t) => {
+test('G2 WebdriverIO: a link whose name carries an icon-font glyph is not issued as aria/', async (t) => {
   const { call } = await connect(t, 'webdriverio');
   await call('cor_open', { url: `${baseUrl()}/g2-names` });
   const reply = await call('cor_inspect', { selector: 'a[href="/editor"]' });
