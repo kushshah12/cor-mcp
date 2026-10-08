@@ -230,7 +230,7 @@ function paramLead(params, framework, lookalikes, helper = null) {
   const variantLines = (params.variants ?? []).flatMap((v) => v.values.map((x) => (params.variantAct && framework === 'playwright'
     ? `  Variants: "${x}" sits behind the "${v.of}" item's toggle. Show a variant: ${params.variantAct}.click() — one action taking ${params.param}. Then the template finds its item.`
     : framework === 'playwright'
-      ? `  Variants: "${x}" is shown by the "${v.of}" item after clicking its toggle — page.getByText('${x.replace(/'/g, "\\'")}', { exact: true }).click() first; the template then finds that item.`
+      ? `  Variants: "${x}" is shown by the "${v.of}" item after clicking its toggle — page.getByText('${x.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}', { exact: true }).click() first; the template then finds that item.`
       : helper?.idioms.includes('variant.click')
         ? `  Variants: "${x}" sits behind the "${v.of}" item's toggle — the helper's last line clicks it${framework === 'cypress' ? ' and waits until the toggle is checked — act on the item only after that' : ''}, then the helper finds that item.`
         // R5: never Playwright syntax for another framework.

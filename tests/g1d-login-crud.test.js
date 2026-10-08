@@ -9,7 +9,7 @@ import { join } from 'node:path';
 import { baseUrl, connect, entry, members } from './helpers/mcp-site.js';
 import { bannedIn } from '../src/positional.js';
 
-const DELETE = "page.locator('tr').filter({ has: page.locator('td').getByText(name, { exact: true }) }).getByRole('button', { name: 'Delete', exact: true })";
+const DELETE = "page.locator('tr:has(> td)').filter({ has: page.locator('td').getByText(name, { exact: true }) }).getByRole('button', { name: 'Delete', exact: true })";
 const row = (name, button) => `tr:has(td:text-is("${name}")) .${button}`;
 const noPositional = (reply) => {
   assert.ok(members(reply).length, 'the reply has entries');
@@ -89,10 +89,10 @@ test('G1d CRUD records: cor_check verifies the table entries behind the login', 
   assert.match(await call('cor_check', { files: ['crud.spec.js'] }), /Records: 2 of 2 verified on the live page\./);
 });
 
-test('G1d CRUD: "Every item" is the data rows only — not the header row', { todo: 'G1d: forms behind a login (CRUD) — the row template\'s "Every item (3 now)" is page.locator(\'tr\'), which also matches the header row (4); looping it calls deleteOf on the header' }, async (t) => {
+test('G1d CRUD: "Every item" is the data rows only — not the header row', async (t) => {
   const { call } = await signIn(t);
   const reply = await call('cor_inspect', { selector: row('Grace Hopper', 'delete'), detail: true });
-  const every = /Every item \(3 now\): (page\.locator\([^)]*\))/.exec(reply)[1];
+  const every = /Every item \(3 now\): (page\.locator\('[^']*'\))/.exec(reply)[1];
   assert.match(await call('cor_grade', { selector: every }), /matches 3 elements/);
 });
 

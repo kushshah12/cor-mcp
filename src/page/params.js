@@ -77,6 +77,16 @@ function itemOf(el, repeats) {
  * scope has no role or name of its own.
  */
 function itemSelector(items) {
+  const sel = itemSelectorOf(items);
+  // G1d/G1b: rows named by tag or class also take in the header row (all <th>), so "Every item" looped over it.
+  // Data rows hold a <td>; when every item does and a matched non-item does not, say so in the selector.
+  if (sel && items[0].tagName === 'TR' && items.every((r) => r.querySelector(':scope > td'))
+    && [...document.querySelectorAll(sel.css)].some((r) => !items.includes(r) && !r.querySelector(':scope > td'))) {
+    return { css: `${sel.css}:has(> td)`, xpath: `${sel.xpath}[td]` };
+  }
+  return sel;
+}
+function itemSelectorOf(items) {
   const [first] = items;
   const tag = first.tagName.toLowerCase();
   if (!items.every((i) => i.tagName === first.tagName)) return null;
