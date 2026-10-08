@@ -845,6 +845,9 @@ function wrapperOf(target) {
 /** U18b.2. A template over structural repeats, or null when the target has none. */
 function structuralTemplate(target0) {
   const target = isControl(target0) ? target0 : wrapperOf(target0);
+  // G1c: a form's labelled field is named by its own label — rows that share a class are fields, not items
+  // (a list whose labels are its data, a todo list, is not a form and keeps its template)
+  if (isControl(target) && target.closest('form') && [...(target.labels ?? [])].some(isVisible)) return null;
   const found = structuralRepeats(target);
   if (!found) return null;
   const { item: targetItem, items } = found;
