@@ -42,3 +42,7 @@ export async function connect(t, dep = '@playwright/test', { records = false } =
   return { dir, call };
 }
 
+
+// G1d: the member lines of a reply's entries, and the first entry as placed (its // COR line and member line).
+export const members = (reply) => reply.split('\n').filter((l) => /^\s+\w+ = \(/.test(l)).map((l) => l.trim());
+export const entry = (reply) => reply.split('\n').filter((l) => /^\s*\/\/ COR cor:|^\s+\w+ = \(/.test(l)).slice(0, 2).map((l) => l.trim()).join('\n');

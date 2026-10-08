@@ -1,0 +1,45 @@
+<!doctype html>
+<title>G1d virtual list</title>
+<!-- G1d class page, mode "Virtual or lazy lists": 500 users in a windowed list. Only the rows in view (plus a margin)
+     exist, and the row elements are recycled: scrolling rewrites the same nodes with other users, so the n-th row
+     element holds a different user after a scroll. -->
+<style>
+  #list { height: 300px; overflow-y: auto; position: relative; border: 1px solid #999 }
+  #spacer { position: relative }
+  .row { position: absolute; left: 0; right: 0; height: 30px; display: flex; gap: 12px; align-items: center }
+</style>
+<h1>Users</h1>
+<div id="list" role="list" aria-label="Users"><div id="spacer"></div></div>
+<p id="status"></p>
+<script>
+  const H = 30, N = 500, POOL = 14;
+  const users = Array.from({ length: N }, (_, i) => ({ id: i + 1, name: `User ${String(i + 1).padStart(3, '0')}`, email: `user${i + 1}@example.com` }));
+  const list = document.getElementById('list'), spacer = document.getElementById('spacer');
+  spacer.style.height = `${N * H}px`;
+  const rows = Array.from({ length: POOL }, () => {
+    const r = document.createElement('div');
+    r.className = 'row'; r.setAttribute('role', 'listitem');
+    r.innerHTML = '<span class="row__name"></span><span class="row__email"></span><button class="row__open">Open</button>';
+    r.querySelector('.row__open').onclick = () => { document.getElementById('status').textContent = `Opened ${r.querySelector('.row__name').textContent}`; };
+    spacer.append(r);
+    return r;
+  });
+  function render() {
+    const first = Math.max(0, Math.floor(list.scrollTop / H) - 2);
+    rows.forEach((r, k) => {
+      const i = first + k, u = users[i];
+      r.hidden = !u;
+      if (!u) return;
+      r.style.top = `${i * H}px`;
+      r.querySelector('.row__name').textContent = u.name;
+      r.querySelector('.row__email').textContent = u.email;
+    });
+  }
+  list.addEventListener('scroll', render);
+  render();
+  // ponytail: a "Jump to" control stands in for a scroll the tools cannot do; it scrolls the list like a user would.
+  window.jump = (n) => { list.scrollTop = (n - 1) * H; render(); };
+</script>
+<label>Jump to user <input id="jump" type="number" min="1" max="500"></label>
+<button id="go">Go</button>
+<script>document.getElementById('go').onclick = () => jump(Number(document.getElementById('jump').value));</script>

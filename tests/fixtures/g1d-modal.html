@@ -1,0 +1,36 @@
+<!doctype html>
+<title>G1d modal</title>
+<!-- G1d class page, mode "Modals, portals, menus": a dialog and a menu mounted at the end of <body> on open (a portal),
+     removed on close and rebuilt on the next open, so nothing about them exists in the DOM before the act that reveals them. -->
+<style>
+  .backdrop { position: fixed; inset: 0; background: #0006; display: grid; place-items: center }
+  .dialog, .menu { background: #fff; padding: 16px; border: 1px solid #999 }
+  .menu { position: absolute; top: 60px; left: 120px; display: flex; flex-direction: column }
+</style>
+<main>
+  <h1>Projects</h1>
+  <section class="project"><h2>Alpha</h2><button class="project__more" aria-haspopup="menu">More</button><button class="project__delete">Delete</button></section>
+  <section class="project"><h2>Beta</h2><button class="project__more" aria-haspopup="menu">More</button><button class="project__delete">Delete</button></section>
+  <p id="status"></p>
+</main>
+<script>
+  const status = document.getElementById('status');
+  const close = () => document.querySelectorAll('[data-portal]').forEach((n) => n.remove());
+  const portal = (html) => { close(); const d = document.createElement('div'); d.setAttribute('data-portal', ''); d.innerHTML = html; document.body.append(d); return d; };
+  document.querySelectorAll('.project').forEach((p) => {
+    const name = p.querySelector('h2').textContent;
+    p.querySelector('.project__delete').addEventListener('click', () => {
+      const d = portal(`<div class="backdrop"><div class="dialog" role="dialog" aria-modal="true" aria-labelledby="dlg-t">
+        <h2 id="dlg-t">Delete ${name}?</h2><p>This cannot be undone.</p>
+        <button class="dialog__cancel">Cancel</button><button class="dialog__ok">Delete project</button></div></div>`);
+      d.querySelector('.dialog__cancel').onclick = close;
+      d.querySelector('.dialog__ok').onclick = () => { close(); p.remove(); status.textContent = `${name} deleted`; };
+    });
+    p.querySelector('.project__more').addEventListener('click', () => {
+      const d = portal(`<div class="menu" role="menu" aria-label="${name} actions">
+        <button role="menuitem">Rename</button><button role="menuitem">Duplicate</button><button role="menuitem">Archive</button></div>`);
+      d.querySelectorAll('[role=menuitem]').forEach((b) => { b.onclick = () => { close(); status.textContent = `${b.textContent} ${name}`; }; });
+    });
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+</script>

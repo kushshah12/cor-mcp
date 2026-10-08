@@ -1,0 +1,43 @@
+<!doctype html>
+<title>G1d CRUD</title>
+<!-- G1d class page, mode "Forms behind a login (CRUD)": the page behind /g1d-login. A table of customers with Edit and
+     Delete in every row, an inline edit form, and an add form; rows are re-rendered from data on every change. -->
+<script>if (!sessionStorage.getItem('session')) location.replace('/g1d-login');</script>
+<h1>Customers</h1>
+<p>Signed in as <span id="who"></span></p>
+<table>
+  <thead><tr><th>Name</th><th>City</th><th>Actions</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table>
+<form id="add">
+  <h2>Add customer</h2>
+  <label>Name <input name="name"></label>
+  <label>City <input name="city"></label>
+  <button type="submit">Add</button>
+</form>
+<script>
+  document.getElementById('who').textContent = sessionStorage.getItem('session');
+  let data = [{ name: 'Ada Lovelace', city: 'London' }, { name: 'Grace Hopper', city: 'New York' }, { name: 'Alan Turing', city: 'Manchester' }];
+  let editing = null;
+  const tbody = document.getElementById('rows');
+  function render() {
+    tbody.innerHTML = '';
+    data.forEach((c, i) => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = editing === i
+        ? `<td><input aria-label="Name" value="${c.name}"></td><td><input aria-label="City" value="${c.city}"></td><td><button class="save">Save</button></td>`
+        : `<td>${c.name}</td><td>${c.city}</td><td><button class="edit">Edit</button><button class="delete">Delete</button></td>`;
+      tr.querySelector('.edit')?.addEventListener('click', () => { editing = i; render(); });
+      tr.querySelector('.delete')?.addEventListener('click', () => { data = data.filter((_, k) => k !== i); render(); });
+      tr.querySelector('.save')?.addEventListener('click', () => { const [n, ci] = tr.querySelectorAll('input'); data[i] = { name: n.value, city: ci.value }; editing = null; render(); });
+      tbody.append(tr);
+    });
+  }
+  document.getElementById('add').onsubmit = (e) => {
+    e.preventDefault();
+    const f = new FormData(e.target);
+    data = [{ name: f.get('name'), city: f.get('city') }, ...data]; // newest first: every row moves down
+    e.target.reset(); render();
+  };
+  render();
+</script>
