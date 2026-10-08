@@ -6,7 +6,7 @@
 // statuses — never record contents (R20).
 import { callPage } from './page-runtime.js';
 import { pathOf } from './records.js';
-import { maxSimilarity, propose, sameIdentity, STORED_MIN, strategyLocator } from './tools/heal.js';
+import { comparable, maxSimilarity, propose, sameIdentity, STORED_MIN, strategyLocator } from './tools/heal.js';
 
 const placeholders = (tpl) => [...new Set(tpl.match(/__\w+__/g) ?? [])];
 const xpathLiteral = (v) => (!v.includes("'") ? `'${v}'` : !v.includes('"') ? `"${v}"` : `concat(${v.split("'").map((p) => `'${p}'`).join(`, "'", `)})`);
@@ -41,7 +41,8 @@ async function matches(page, handle, fingerprint) {
   return same;
 }
 
-async function looksLike(page, handle, fingerprint) {
+async function looksLike(page, handle, fingerprint0) {
+  const fingerprint = comparable(fingerprint0);
   try {
     const sim = await callPage(page, 'similarityTo', { element: handle, fingerprint });
     const live = await callPage(page, 'fingerprintOf', { element: handle });
@@ -106,12 +107,17 @@ async function failed(page, record, why) {
 
 /** Replay one recorded step on the tab — its target must pass verification first (R15). Returns null, or why it failed. */
 async function replay(tab, records, step) {
+  // G2 (state replay): a press's key is `key`; records written before it kept the key in `value`, with no item.
+  const key = step.action === 'press' ? (step.key ?? step.value) : null;
+  const item = step.action === 'press' && !step.key ? null : step.value;
+  // G1d: a press with no element (Escape closing a dialog) is a page-level key, not an unrecorded element.
+  if (!step.id && key) { await tab.keyboard.press(key); return null; }
   const record = step.id ? records.read(step.id) : null;
   if (!record) return { why: 'its element was never recorded' };
   const t = templateOf(record);
   let target;
   // A template takes the step's value even when the item list does not hold it (the Team card's "Team Pro" label).
-  if (t?.names.length === 1 && step.value != null) target = await one(tab.locator(fill(t.tpl, t.names[0], step.value)));
+  if (t?.names.length === 1 && item != null) target = await one(tab.locator(fill(t.tpl, t.names[0], item)));
   else {
     const check = await verifyRecord(tab, record);
     if (check.skip) return { why: `cannot be replayed — ${check.skip}` };
@@ -125,7 +131,7 @@ async function replay(tab, records, step) {
     // Raw DOM acts, as the act tools do (src/tools/session-tools.js): a hidden radio is clicked through its label.
     if (step.action === 'click') await target.handle.evaluate((el) => { el.scrollIntoView({ block: 'center' }); el.click(); });
     else if (step.action === 'fill') await target.handle.fill(step.value ?? '');
-    else if (step.action === 'press') { await target.handle.focus(); await tab.keyboard.press(step.value); }
+    else if (step.action === 'press') { await target.handle.focus(); await tab.keyboard.press(key); }
   } catch (error) { return { record, status: 'reinspect', why: `the ${step.action} failed (${error.message.split('\n')[0]})` }; } finally { await target.handle.dispose().catch(() => {}); }
   await landed;
   if (navigates) await tab.waitForLoadState('load', { timeout: 5000 }).catch(() => {});

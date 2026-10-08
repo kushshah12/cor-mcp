@@ -178,12 +178,13 @@ export function sessionTools(session, inspector = null, outline = null, records 
   // P8a: the steps acted since this page was opened. An inspect records the state they reach; an act that opens another
   // document records that page's reach (this page plus the steps) and the control's leadsTo. A step names a record.
   const startTrail = (page) => { session.trail = { page: pathOf(page.url()), url: page.url(), steps: [] }; };
-  const stepFor = async (page, handle, action, value = null) => {
+  // G2 (state replay): a press keeps its key apart from the item value, which a template's replay fills in.
+  const stepFor = async (page, handle, action, value = null, key = null) => {
     if (!records?.enabled || !inspector) return null;
     if (session.trail?.page !== pathOf(page.url())) startTrail(page);
     let target = null;
     if (handle) try { target = await inspector({ element: handle, quiet: true }); } catch { /* not inspectable: the step names no record */ }
-    return { id: target?.id ?? null, action, value: value ?? target?.value ?? null };
+    return { id: target?.id ?? null, action, value: value ?? target?.value ?? null, ...(key ? { key } : {}) };
   };
   const endStep = (page, step, result) => {
     if (!step) return;
@@ -316,7 +317,7 @@ export function sessionTools(session, inspector = null, outline = null, records 
       handler: async ({ key, ref: r, target: selector }) => {
         const page = await openPage();
         const handle = r || selector ? await resolveElement(session, page, { ref: r, target: selector }) : null;
-        const step = await stepFor(page, handle, 'press', key);
+        const step = await stepFor(page, handle, 'press', null, key);
         const result = await act(session, page, async () => {
           if (handle) await onHandle(handle, focus);
           // A real key event, so Enter submits a form and Escape closes a dialog.

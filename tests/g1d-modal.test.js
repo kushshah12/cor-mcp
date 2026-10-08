@@ -76,11 +76,20 @@ test('G1d portal records: cor_check verifies the dialog button through its repla
   assert.match(await call('cor_check', { files: ['p.spec.js'] }), /Records: 1 of 1 verified on the live page\./);
 });
 
-test('G1d portal records: a menu reached after closing a dialog with Escape (a press with no target) is verified', { todo: 'G1d: modals, portals, menus — a recorded reach with a target-less press (Escape) is not replayable: "state not reached — step press "Escape" its element was never recorded"' }, async (t) => {
+test('G1d portal records: a menu reached after closing a dialog with Escape (a press with no target) is verified', async (t) => {
   const { call, dir } = await open(t, { records: true });
   await call('cor_click', { target: '.project:nth-of-type(2) .project__delete' });
   await call('cor_press', { key: 'Escape' });
   await call('cor_click', { target: '.project:nth-of-type(1) .project__more' });
+  writeFileSync(join(dir, 'p.spec.js'), `${entry(await call('cor_inspect', { selector: '[role=menuitem]:text-is("Archive")' }))}\n`);
+  assert.match(await call('cor_check', { files: ['p.spec.js'] }), /Records: 1 of 1 verified on the live page\./);
+});
+
+// G2 (state replay): shadcn-admin's row menu opened with Enter — the replay filled the trigger's card template with the
+// key ("Enter") instead of the card, found nothing, and called the menu entries "state not reached".
+test('G2 portal records: a menu opened by pressing Enter on one card\'s trigger is verified — the key is not the item', async (t) => {
+  const { call, dir } = await open(t, { records: true });
+  await call('cor_press', { key: 'Enter', target: '.project:nth-of-type(2) .project__more' });
   writeFileSync(join(dir, 'p.spec.js'), `${entry(await call('cor_inspect', { selector: '[role=menuitem]:text-is("Archive")' }))}\n`);
   assert.match(await call('cor_check', { files: ['p.spec.js'] }), /Records: 1 of 1 verified on the live page\./);
 });

@@ -28,6 +28,15 @@ const IDENTIFYING = ['aria-label', 'aria-labelledby', 'name', 'placeholder', 'ti
 export const maxSimilarity = (fp) => 0.25 + (Object.keys(fp.attrs ?? {}).length ? 0.55 : 0) + (fp.text ? 0.2 : 0);
 
 /** Is the live element plausibly the recorded one? Same tag; and if its text changed, an identifying attribute kept. */
+// G2 (tables): a record masks account data ("[email]", src/redact.js); the live page never matches the mask, so a masked
+// field is left out of every comparison instead of counting against the element — shadcn's email cell never verified.
+const MASK = /\[(?:email|token|number)\]/;
+export function comparable(fp) {
+  if (!fp) return fp;
+  const attrs = Object.fromEntries(Object.entries(fp.attrs ?? {}).filter(([, v]) => !MASK.test(String(v))));
+  return { ...fp, attrs, text: MASK.test(fp.text ?? '') ? null : fp.text, classes: (fp.classes ?? []).filter((c) => !MASK.test(c)) };
+}
+
 export function sameIdentity(recorded, live) {
   if (!live || recorded.tag !== live.tag) return false;
   if (!recorded.text || !live.text || recorded.text === live.text) return true;
@@ -39,9 +48,16 @@ export function strategyLocator(page, { kind, value }) {
   if (kind === 'template') return null; // takes a parameter: not one element
   if (/:nth-|nth=|\[\d+\]$/.test(value)) return null; // a position finds whatever is there now — never evidence (review fix)
   if (/^aria\//.test(value)) return null; // WebdriverIO's accessible-name form: no role to run it with here
+  // G2 (scoped entries): `div.banner >> role=link, name=Edit Article` is the scope, then the stored strategy inside it.
+  const scoped = /^(.+?) >> (.+)$/.exec(value);
+  if (scoped) {
+    return strategyLocator(page.locator(scoped[1]), { kind, value: scoped[2] });
+  }
   if (kind === 'role' || kind === 'roleExact') {
-    const m = /^role=([\w-]+)(?:, name=(.*?))?(?: \(exact\))?$/.exec(value);
-    return m ? page.getByRole(m[1], m[2] !== undefined ? { name: m[2], exact: true } : {}) : null;
+    const m = /^role=([\w-]+)(?:, name=(.*?))?( \(exact\))?$/.exec(value);
+    // G2: as exact as the code COR issued — getByRole's name is a substring match unless the entry says exact. An icon
+    // font's ::before glyph is part of the browser's name ("\uf12c New Article") and not of the engine's.
+    return m ? page.getByRole(m[1], m[2] !== undefined ? { name: m[2], exact: kind === 'roleExact' || Boolean(m[3]) } : {}) : null;
   }
   if (['text', 'textExact', 'linkText'].includes(kind)) return page.getByText(value.replace(/^"(.*)"$/, '$1'), { exact: true });
   if (kind === 'label') return page.getByLabel(value, { exact: true });
@@ -66,7 +82,8 @@ async function lineFindsEvery(page, line, expr, values) {
 const isEvery = (record) => record.strategies.some((s) => s.kind === 'every');
 
 /** A stored strategy that still finds the recorded element, else a clear fingerprint match, else a decline (P8b uses it too). */
-export async function propose(page, record) {
+export async function propose(page, record0) {
+  const record = { ...record0, fingerprint: comparable(record0.fingerprint) };
   // 1. A stored strategy that still finds exactly one element that still looks like the recorded one.
   for (const s of record.strategies) {
     const loc = strategyLocator(page, s);
