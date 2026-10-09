@@ -9,4 +9,10 @@
   <tr class="border-b transition-colors"><td class="p-2"><button role="checkbox" aria-label="Select row"></button></td><td class="p-2"><div class="max-w-36">ada.lovelace</div></td><td class="p-2"><div class="w-fit text-nowrap">ada@example.com</div></td><td class="p-2"><div class="flex"><span class="badge">active</span></div></td></tr>
   <tr class="border-b transition-colors"><td class="p-2"><button role="checkbox" aria-label="Select row"></button></td><td class="p-2"><div class="max-w-36">freeman.dicki</div></td><td class="p-2"><div class="w-fit text-nowrap">freeman@example.com</div></td><td class="p-2"><div class="flex"><span class="badge">inactive</span></div></td></tr>
   <tr class="border-b transition-colors"><td class="p-2"><button role="checkbox" aria-label="Select row"></button></td><td class="p-2"><div class="max-w-36">grace.hopper</div></td><td class="p-2"><div class="w-fit text-nowrap">grace@example.com</div></td><td class="p-2"><div class="flex"><span class="badge">active</span></div></td></tr>
-</tbody></table></main></body></html>
+</tbody></table>
+<!-- G2 (masked attributes): shadcn-admin's sign-in — the placeholder is an email, masked in the record -->
+<form class="grid gap-3"><label for="em">Email</label><input id="em" name="email" placeholder="name@example.com"><label for="pw">Password</label><input id="pw" name="password" type="password" placeholder="********"></form>
+<!-- G2 (attribute churn): angular-realworld's settings bio — the next release adds name="bio" (?release=2) -->
+<form class="settings"><textarea class="form-control" rows="8" placeholder="Short bio about you"></textarea></form>
+<script>if (/release=2/.test(location.search)) document.querySelector('.settings textarea').setAttribute('name', 'bio');</script>
+</main></body></html>

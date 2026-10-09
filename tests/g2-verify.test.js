@@ -31,6 +31,26 @@ test('G2 verify: a cell whose text is masked in its record (an email) is verifie
   assert.match(await call('cor_check', { files: ['p.spec.js'] }), /Records: 1 of 1 verified on the live page\./);
 });
 
+// G2 (masked attributes): shadcn-admin's email inputs (sign-in, Add User) — the record masks the placeholder
+// ("name@example.com" → "[email]") and the comparison dropped it from the record only. The live element still has it, so it
+// counted as a miss (0.53 of 0.8, under the 0.7 bar): "finds one element, but not the recorded one", at A already.
+test('G2 verify: an input whose placeholder is masked in its record (an email) is verified, not "not the recorded one"', async (t) => {
+  const { call, dir } = await connect(t, '@playwright/test', { records: true });
+  await call('cor_open', { url: `${baseUrl()}/g2-cells` });
+  writeFileSync(join(dir, 'p.spec.js'), `${entry(await call('cor_inspect', { selector: '#em' }))}\n`);
+  assert.match(await call('cor_check', { files: ['p.spec.js'] }), /Records: 1 of 1 verified on the live page\./);
+});
+
+// G2 (attribute churn): angular-realworld's bio and body textareas gain name= at the next release; the record had only the
+// placeholder, and the new attribute counted as a miss (0.53 of 0.8) — "not the recorded one" on an unchanged element.
+test('G2 verify: an attribute the next release adds does not make the element "not the recorded one"', async (t) => {
+  const { call, dir } = await connect(t, '@playwright/test', { records: true });
+  await call('cor_open', { url: `${baseUrl()}/g2-cells` });
+  writeFileSync(join(dir, 'p.spec.js'), `${entry(await call('cor_inspect', { selector: '.settings textarea' }))}\n`);
+  await call('cor_open', { url: `${baseUrl()}/g2-cells?release=2` });
+  assert.match(await call('cor_check', { files: ['p.spec.js'] }), /Records: 1 of 1 verified on the live page\./);
+});
+
 // G1b/G2 (accessible name): WebdriverIO's aria/ needs the browser's whole name, glyph included — angular-realworld's
 // $('aria/New Article') found nothing. The engine no longer offers aria/ when generated content changes the name.
 test('G2 WebdriverIO: a link whose name carries an icon-font glyph is not issued as aria/', async (t) => {

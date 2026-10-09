@@ -1,7 +1,7 @@
 // Runs inside the page. Built to dist/page.js (IIFE, engine inlined) and
 // evaluated on demand — see src/page-runtime.js. Only JSON crosses back to
 // Node; no DOM handle leaves the page.
-import { LocatorEngine, computeFingerprint, extractElementInfo, findByFingerprint, scoreLocator, scoreSimilarity } from '@corlabs/engine/core';
+import { LocatorEngine, computeFingerprint, extractElementInfo, scoreLocator, scoreSimilarity } from '@corlabs/engine/core';
 import { deepQueryAll, isControl, hintsFor, isShown, isVisible, roleAndName, squash, visibleLabelOf } from './dom.js';
 import { buildOutline } from './outline.js';
 import { scopedSnapshot } from './scope.js';
@@ -345,14 +345,30 @@ function fingerprintOf({ element: el }) {
   return el ? computeFingerprint(el) : null;
 }
 
+/**
+ * G2: the live element's fingerprint on the record's attributes only. One the live element has and the record does not is
+ * new — a release added it (angular's textareas gained `name=`), or the record masked it (shadcn's `[email]` placeholder) —
+ * not evidence of another element; scored, it counted as a miss and dropped the element under the bar.
+ */
+function liveFingerprint(el, fingerprint) {
+  const live = computeFingerprint(el);
+  live.attrs = Object.fromEntries(Object.entries(live.attrs).filter(([k]) => k in (fingerprint.attrs ?? {})));
+  return live;
+}
+
 /** U12: how closely a live element matches a stored fingerprint (0–1). */
 function similarityTo({ element: el, fingerprint }) {
-  return el ? scoreSimilarity(fingerprint, computeFingerprint(el)) : 0;
+  return el ? scoreSimilarity(fingerprint, liveFingerprint(el, fingerprint)) : 0;
 }
+
+/** The page's elements of the fingerprint's tag, most similar first (the engine's findByFingerprint, on the record's attributes). */
+const ranked = (fingerprint) => [...document.querySelectorAll(fingerprint.tag)]
+  .map((element) => ({ element, similarity: scoreSimilarity(fingerprint, liveFingerprint(element, fingerprint)) }))
+  .sort((a, b) => b.similarity - a.similarity);
 
 /** U12: the page's elements ranked by similarity to a stored fingerprint — the top two scores, for the evidence line. */
 function healScores({ fingerprint }) {
-  const [a, b] = findByFingerprint(fingerprint).filter((c) => isVisible(c.element));
+  const [a, b] = ranked(fingerprint).filter((c) => isVisible(c.element));
   return { best: a?.similarity ?? 0, next: b?.similarity ?? 0 };
 }
 
@@ -361,7 +377,7 @@ function healScores({ fingerprint }) {
  * alike; picking one of them would be a wrong-element heal, so a near tie returns null (decline).
  */
 function healBest({ fingerprint, min, margin }) {
-  const [a, b] = findByFingerprint(fingerprint).filter((c) => isVisible(c.element));
+  const [a, b] = ranked(fingerprint).filter((c) => isVisible(c.element));
   if (!a || a.similarity < min || (b && a.similarity - b.similarity < margin)) return null;
   return a.element;
 }
