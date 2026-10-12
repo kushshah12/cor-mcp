@@ -31,3 +31,19 @@ test('G1 review: a select option mirrored in a hidden native <select> is getByRo
   const { call } = await open(t);
   assert.match(member(await call('cor_inspect', { selector: '[role=option] >> nth=1' })), /getByRole\('option', \{ name: 'Admin', exact: true \}\)$/);
 });
+
+// G1 review (table scope): rows keyed by `tr:has(> td)` alone take in every table on the page — "5/5 items checked" and an
+// every-item loop over the users AND the pending invitations. Scoped to the target's table only when another table collides.
+test('G1 review: a row template is scoped to its own table when another table on the page has rows of the same shape', async (t) => {
+  const { call } = await connect(t);
+  await call('cor_open', { url: `${baseUrl()}/g1-review-tables` });
+  const reply = await call('cor_inspect', { selector: 'table[aria-label=Users] tr:nth-child(2) button' });
+  assert.match(reply, /3\/3 items checked/, reply);
+  assert.match(reply, /this\.page\.locator\('table\[aria-label="Users"\] tr:has\(> td\)'\)/, reply);
+});
+
+test('G1 review: one table on the page — the row template stays unscoped', async (t) => {
+  const { call } = await connect(t);
+  await call('cor_open', { url: `${baseUrl()}/g1c-tailwind-table` });
+  assert.match(await call('cor_inspect', { selector: 'tr:nth-child(2) button:has(.sr-only)' }), /this\.page\.locator\('tr:has\(> td\)'\)/);
+});

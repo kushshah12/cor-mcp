@@ -80,7 +80,7 @@ function itemOf(el, repeats) {
  * scope has no role or name of its own.
  */
 function itemSelector(items) {
-  const sel = itemSelectorOf(items);
+  const sel = tableScoped(items, itemSelectorOf(items));
   // G1d/G1b: rows named by tag or class also take in the header row (all <th>), so "Every item" looped over it.
   // Data rows hold a <td>; when every item does and a matched non-item does not, say so in the selector.
   if (sel && items[0].tagName === 'TR' && items.every((r) => r.querySelector(':scope > td'))
@@ -88,6 +88,27 @@ function itemSelector(items) {
     return { css: `${sel.css}:has(> td)`, xpath: `${sel.xpath}[td]` };
   }
   return sel;
+}
+/**
+ * G1 review: rows named by tag or class also take in another table's rows of the same shape — "5/5 items" over the users
+ * and the pending invitations. Then the selector is scoped to the rows' own table, by the shortest thing that names
+ * exactly that table (aria-label, a stable id, a test attribute, a naming class); left as it is when nothing else collides.
+ */
+function tableScoped(items, sel) {
+  const table = items[0]?.tagName === 'TR' ? items[0].closest('table') : null;
+  if (!sel || !table || ![...document.querySelectorAll(sel.css)].some((r) => !table.contains(r))) return sel;
+  const id = table.getAttribute('id');
+  const label = table.getAttribute('aria-label');
+  const testAttr = TEST_ATTRS.find((a) => table.getAttribute(a) && !isUnstableValue(table.getAttribute(a), a));
+  const cls = namingClasses(table)[0];
+  const scopes = [
+    label && { css: `table[aria-label=${cssString(label)}]`, xpath: `//table[@aria-label=${xpathLiteral(label)}]` },
+    id && !isUnstableValue(id, 'id') && { css: `table#${cssEscape(id)}`, xpath: `//table[@id=${xpathLiteral(id)}]` },
+    testAttr && { css: `table[${testAttr}=${cssString(table.getAttribute(testAttr))}]`, xpath: `//table[@${testAttr}=${xpathLiteral(table.getAttribute(testAttr))}]` },
+    cls && { css: `table.${cssEscape(cls)}`, xpath: `//table[contains(concat(' ', normalize-space(@class), ' '), ' ${cls} ')]` },
+  ].filter(Boolean);
+  const scope = scopes.find((x) => document.querySelectorAll(x.css).length === 1);
+  return scope ? { css: `${scope.css} ${sel.css}`, xpath: `${scope.xpath}${sel.xpath.replace(/^\/\//, '//')}` } : sel;
 }
 function itemSelectorOf(items) {
   const [first] = items;
@@ -441,7 +462,9 @@ export function parameterise(target) {
   if (repeats.length < 2) return structuralTemplate(target);
   const targetItem = itemOf(target, repeats);
   if (targetItem === target) return null; // the repeat IS the item: nothing contains it
-  const items = repeats.map((r) => itemOf(r, repeats)).filter((i) => i.tagName === targetItem.tagName);
+  // G1 review: rows are items of their own table — another table's rows of the same shape are not
+  const table = targetItem.tagName === 'TR' ? targetItem.closest('table') : null;
+  const items = repeats.map((r) => itemOf(r, repeats)).filter((i) => i.tagName === targetItem.tagName && (!table || i.closest('table') === table));
   // Lookalikes of other shapes (a card's "Choose" and the comparison table's)
   // can leave the target the only item of its shape: nothing to parameterise.
   // BrowserStack pricing rendered "1 items share this shape (1/1)" without this.

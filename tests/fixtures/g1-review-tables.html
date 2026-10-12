@@ -1,0 +1,19 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>G1 review tables</title></head>
+<body>
+<!-- G1 review (table scope): two tables with the same row shape on one page — users and pending invitations. A row
+     template keyed by `tr:has(> td)` alone would loop over both tables' rows. -->
+<main>
+  <h2>Users</h2>
+  <table aria-label="Users"><thead><tr><th>Username</th><th>Email</th><th></th></tr></thead><tbody>
+    <tr><td><div>freeman.dicki</div></td><td>freeman@example.com</td><td><button aria-label="Open menu">⋯</button></td></tr>
+    <tr><td><div>ada.lovelace</div></td><td>ada@example.com</td><td><button aria-label="Open menu">⋯</button></td></tr>
+    <tr><td><div>grace.hopper</div></td><td>grace@example.com</td><td><button aria-label="Open menu">⋯</button></td></tr>
+  </tbody></table>
+  <h2>Pending invitations</h2>
+  <table aria-label="Invitations"><thead><tr><th>Username</th><th>Email</th><th></th></tr></thead><tbody>
+    <tr><td><div>alan.turing</div></td><td>alan@example.com</td><td><button aria-label="Open menu">⋯</button></td></tr>
+    <tr><td><div>edsger.dijkstra</div></td><td>edsger@example.com</td><td><button aria-label="Open menu">⋯</button></td></tr>
+  </tbody></table>
+</main>
+</body></html>
