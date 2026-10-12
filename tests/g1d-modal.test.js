@@ -24,11 +24,11 @@ test('G1d modal: the dialog exists only after its act; the act lists its control
   assert.doesNotMatch(opened, /Delete project|dialog/, 'nothing of the portal before the act');
   const reply = await call('cor_click', { target: '.project:nth-of-type(2) .project__delete' });
   assert.match(reply, /\+ dialog "Delete Beta\?": button "Cancel" \[ref=e\d+\], button "Delete project" \[ref=e\d+\]/);
-  assert.match(reply, /deleteProjectButton = \(\) => this\.page\.getByRole\('button', \{ name: 'Delete project' \}\);/);
-  assert.match(reply, /deleteBetaHeading = \(\) => this\.page\.getByRole\('heading', \{ name: 'Delete Beta\?' \}\);/);
+  assert.match(reply, /deleteProjectButton = \(\) => this\.page\.getByRole\('dialog'\)\.getByRole\('button', \{ name: 'Delete project' \}\);/);
+  assert.match(reply, /deleteBetaHeading = \(\) => this\.page\.getByRole\('dialog'\)\.getByRole\('heading', \{ name: 'Delete Beta\?' \}\);/);
   noPositional(reply);
   const ok = await call('cor_inspect', { selector: '.dialog__ok' });
-  assert.match(ok, /deleteProjectButton .*· 1 match\n.*\n  deleteProjectButton = \(\) => this\.page\.getByRole\('button', \{ name: 'Delete project' \}\);/);
+  assert.match(ok, /deleteProjectButton .*· 1 match\n.*\n  deleteProjectButton = \(\) => this\.page\.getByRole\('dialog'\)\.getByRole\('button', \{ name: 'Delete project' \}\);/);
   noPositional(ok);
 });
 

@@ -102,7 +102,7 @@ Durable — stays true while the locator string is unchanged. Place it beside th
 Alternatives:
 2. page.getByTestId('remove-pen')
    99 Excellent · 1 match
-(4 more alternatives not shown — cor_inspect with all: true lists every one.)
+(5 more alternatives not shown — cor_inspect with all: true lists every one.)
 --- cor_inspect {"selector":"#cart-link"} (1461 chars)
 Best locator (playwright):
   page.getByRole('link', { name: 'Cart, 1 item' })

@@ -16,7 +16,7 @@ test('G1c form fields: a labelled field in a form is found by its label, with no
   const { call } = await open(t);
   for (const [sel, name] of [['#f1', 'First Name'], ['#f3', 'Email']]) {
     const reply = await call('cor_inspect', { selector: sel });
-    assert.match(reply, new RegExp(`= \\(\\) => this\\.page\\.(getByLabel\\('${name}'|getByRole\\('textbox', \\{ name: '${name}')`), reply);
+    assert.match(reply, new RegExp(`= \\(\\) => this\\.page\\.(?:getByRole\\('dialog'\\)\\.)?(getByLabel\\('${name}'|getByRole\\('textbox', \\{ name: '${name}')`), reply);
     assert.doesNotMatch(reply, /items checked|grid-cols-6/, reply);
   }
 });
@@ -30,5 +30,5 @@ test('G1c form fields: a labelled list outside a form (todos) keeps its per-item
 test('G1c form fields: a Radix Select trigger (<button role="combobox">) is named by its <label for>', async (t) => {
   const { call } = await open(t);
   const reply = await call('cor_inspect', { selector: '#f5' });
-  assert.match(reply, /= \(\) => this\.page\.(getByRole\('combobox', \{ name: 'Role'|getByLabel\('Role'\))/, reply);
+  assert.match(reply, /= \(\) => this\.page\.(?:getByRole\('dialog'\)\.)?(getByRole\('combobox', \{ name: 'Role'|getByLabel\('Role'\))/, reply);
 });

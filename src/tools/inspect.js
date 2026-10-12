@@ -186,6 +186,27 @@ function sinkBanned(result, framework) {
 }
 
 /**
+ * G1 review: a control in an open dialog is found inside it — `page.getByRole('dialog').getByRole(…)` — so a field of
+ * the same name on the page behind, or in the next dialog, never joins it (a blind SDET review marked page-wide dialog
+ * fields down). Each getBy… candidate gets a twin scoped to the dialog, kept when Playwright counts exactly one: the target
+ * is in the dialog and matches the candidate, so that one is the target. The twins lead; a twin is one step longer, never a chain.
+ */
+async function scopeToDialog(page, result) {
+  const twins = [];
+  for (const l of result.locators) {
+    // a plain getBy…, or one the engine scoped by CSS (`page.locator('form').getByRole(…)`): the dialog replaces that scope
+    const m = /^page\.(?:locator\('(?:[^'\\]|\\.)*'\)\.)?(getBy\w+\(.*)$/s.exec(l.code ?? '');
+    if (!m || !(l.matchCount >= 1)) continue;
+    const code = `page.getByRole('${result.dialog.role}').${m[1]}`;
+    if (twins.some((x) => x.code === code)) continue;
+    const n = await Promise.resolve().then(() => parseGradable(code).build(page).count()).catch(() => null);
+    if (n !== 1) continue;
+    twins.push({ ...l, code, value: `${result.dialog.css} >> ${l.value.replace(/^.+? >> /, '')}`, matchCount: 1, resolution: { ...l.resolution, matchCount: 1, usable: true, status: 'unique' } });
+  }
+  if (twins.length) result.locators = [...twins, ...result.locators];
+}
+
+/**
  * P3: which items of a template start open (an accordion's first answer, a disclosure) — clicking one closes it. Read per
  * value on the page: aria-expanded in the item, <details open>, or an open / active class on the item. Noted only when the
  * items differ.
@@ -261,6 +282,7 @@ export function createInspector(session, idCache = new Map(), records = null) {
       const [best] = result.locators;
       result.rankingNote = `Demoted ${top.value} (score ${top.score}) — its id changes on every page load (${top.volatileId.id} was ${top.volatileId.seen} on a fresh load). Ranked ${best.value} first.`;
     }
+    if (framework === 'playwright' && result.dialog) await scopeToDialog(page, result);
     sinkBanned(result, framework);
     const refsLive = Boolean(session.refs && !session.refs.staleBecause);
     // once per session: the note is about the page, not this element

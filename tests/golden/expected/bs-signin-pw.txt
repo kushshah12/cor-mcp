@@ -77,4 +77,4 @@ Alternatives:
 2. page.getByText('Sign In')
    61 Fair · 1 match
    ! Coupled to display copy — breaks on wording changes and localization (Sign In)
-(4 more alternatives not shown — cor_inspect with all: true lists every one.)
+(5 more alternatives not shown — cor_inspect with all: true lists every one.)

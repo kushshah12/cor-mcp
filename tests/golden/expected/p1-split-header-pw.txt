@@ -52,4 +52,4 @@ Alternatives:
    61 Fair · 2 matches
    ! Coupled to display copy — breaks on wording changes and localization (Yes)
    ! Matches 2 elements — may interact with the wrong one (matches 2 elements)
-(3 more alternatives not shown — cor_inspect with all: true lists every one.)
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)

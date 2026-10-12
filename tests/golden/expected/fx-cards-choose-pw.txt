@@ -49,4 +49,4 @@ Alternatives:
    79 Good · 2 matches
    ! Coupled to a label / accessible name — breaks on rewording and localization (Choose)
    ! Matches 2 elements — may interact with the wrong one (matches 2 elements)
-(4 more alternatives not shown — cor_inspect with all: true lists every one.)
+(5 more alternatives not shown — cor_inspect with all: true lists every one.)

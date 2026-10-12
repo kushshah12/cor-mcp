@@ -40,7 +40,7 @@ e13, e14, e15 → cellAt — 6/6 items checked
     const columnNo = `count(${header}/*[normalize-space()="${column}"]/preceding-sibling::*) + 1`;
     return this.page.locator(`xpath=${row}/*[${columnNo}]`);
   };
---- cor_inspect {"selector":"table.orders tbody tr:nth-child(2) td:nth-child(2)"} (2536 chars)
+--- cor_inspect {"selector":"table.orders tbody tr:nth-child(2) td:nth-child(2)"} (2529 chars)
 Recommended — parameterised by row and column: 3 rows × 3 columns; every row and column checked (6/6).
   Proof: counted by Playwright, every value.
   order = "A-1002"   (also: "A-1001", "A-1003")
@@ -56,7 +56,7 @@ Recommended — parameterised by row and column: 3 rows × 3 columns; every row 
   When the test reads more than one cell, write one function taking order and column.
 
 For this one item alone (playwright):
-  page.locator('//td[normalize-space()="Processing"]')
+  page.getByText('Processing', { exact: true })
   Point-in-time — true on this page now: 61 Fair · 1 match
   - Coupled to display copy
   + Anchored on visible text
@@ -71,14 +71,14 @@ Entry — place in tests/pages/inventory.page.js, member cellAt (cor_check reads
     return this.page.locator(`xpath=${row}/*[${columnNo}]`);
   };
 
-Why this order: Ranked //td[normalize-space()="Processing"] first — Processing (score 61) matches by partial text: it also finds any element whose text merely contains this, and COR never issues that.
+Why this order: Ranked "Processing" first — Processing (score 61) matches by partial text: it also finds any element whose text merely contains this, and COR never issues that.
 Framework convention applied: playwright (published guidance).
 
 Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
 // COR: anchored on visible text; risk: coupled to display copy
 
 Alternatives:
-2. page.getByText('Processing')
+2. page.locator('//td[normalize-space()="Processing"]')
    61 Fair · 1 match
    ! Coupled to display copy — breaks on wording changes and localization (Processing)
-(2 more alternatives not shown — cor_inspect with all: true lists every one.)
+(3 more alternatives not shown — cor_inspect with all: true lists every one.)

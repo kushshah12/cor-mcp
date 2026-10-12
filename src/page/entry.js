@@ -122,6 +122,7 @@ function inspect({ ref, selector, element, framework, max, testIdAttribute = nul
   const target = resolveTarget({ ref, selector, element });
   if (target.error) return target;
   const candidates = candidatesFor(target.el, framework, max);
+  if (framework === 'playwright') candidates.locators = withExactText(candidates.locators, target.el);
   return {
     ...candidates,
     stateOnly: markStateOnly(candidates.locators, target.el),
@@ -133,10 +134,32 @@ function inspect({ ref, selector, element, framework, max, testIdAttribute = nul
     shadow: shadowOf(target.el),
     shadowFix: framework === 'cypress' ? cypressShadowFix(target.el, candidates.locators) : null,
     params: parameterise(target.el),
+    dialog: openDialogOf(target.el),
     stateBound: stateBoundFor(target.el, framework),
     // For the entry's record (src/records.js) — never rendered.
     capture: { fingerprint: computeFingerprint(target.el), elementKey: structuralPath(target.el) },
   };
+}
+
+/** G1 review: the open dialog the element is in, as the role and the CSS to scope by; null outside one. */
+function openDialogOf(el) {
+  const d = el.closest('[role="dialog"], [role="alertdialog"], dialog[open]');
+  if (!d) return null;
+  const role = d.getAttribute('role') || 'dialog';
+  return { role, css: d.hasAttribute('role') ? `[role="${role}"]` : 'dialog[open]' };
+}
+
+/**
+ * G1 review: COR never issues a loose getByText (a substring match, the partial-text rule), and the engine drops the exact
+ * form when the loose one is unique — so a toast's title went to `//div[normalize-space()="…"]`. When the element's whole
+ * text is the anchor, the same anchor exactly follows the loose one and leads once the loose one is set aside.
+ */
+function withExactText(locators, el) {
+  return locators.flatMap((l) => {
+    const t = l.value; // a text candidate's value is its text
+    if (l.strategy !== 'text' || !t || squash(el.textContent) !== t || !/\)$/.test(l.code ?? '')) return [l];
+    return [l, { ...l, strategy: 'textExact', type: 'Text (Exact)', value: `"${t}"`, code: l.code.replace(/\)$/, ', { exact: true })') }];
+  });
 }
 
 /**

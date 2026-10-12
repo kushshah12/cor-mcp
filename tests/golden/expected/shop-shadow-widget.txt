@@ -46,4 +46,4 @@ Alternatives:
 2. page.getByText('Subscribe')
    61 Fair · 1 match
    ! Coupled to display copy — breaks on wording changes and localization (Subscribe)
-(3 more alternatives not shown — cor_inspect with all: true lists every one.)
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)

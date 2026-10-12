@@ -68,7 +68,7 @@ Durable — stays true while the locator string is unchanged. Place it beside th
 Alternatives:
 2. page.getByTestId('error')
    99 Excellent · 1 match
-(4 more alternatives not shown — cor_inspect with all: true lists every one.)
+(5 more alternatives not shown — cor_inspect with all: true lists every one.)
 --- cor_fill {"target":"[data-test=\"password\"]","value":"secret"} (51 chars)
 Filled [data-test="password"].
 Refs: 4 still valid.
