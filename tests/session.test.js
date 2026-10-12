@@ -249,17 +249,19 @@ test('bin: when the client closes stdin, the server exits and takes Chrome with 
   assert.ok(browserPids.length > 0, 'the server launched a browser');
 
   child.stdin.end(); // the only signal the server gets
-  const [code] = await Promise.race([once(child, 'exit'), sleep(5000).then(() => ['still running'])]);
+  // Closing Chrome took over 5 s under the full suite's load (many browsers at once), so the old 5 s budget failed a
+  // server that does exit; 20 s still catches one that never does.
+  const [code] = await Promise.race([once(child, 'exit'), sleep(20000).then(() => ['still running'])]);
   assert.equal(code, 0, 'server exited on its own after stdin closed');
 
-  await sleep(300);
-  const alive = browserPids.filter((pid) => {
+  const running = (pid) => {
     try {
       process.kill(pid, 0);
       return true;
     } catch {
       return false;
     }
-  });
-  assert.deepEqual(alive, [], 'browser processes exited with the server');
+  };
+  for (let i = 0; i < 50 && browserPids.some(running); i++) await sleep(100);
+  assert.deepEqual(browserPids.filter(running), [], 'browser processes exited with the server');
 });
