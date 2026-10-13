@@ -5,6 +5,10 @@ import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { createServer } from '../src/server.js';
 import { createSession, DEFAULT_IDLE_MS } from '../src/session.js';
 import { createRecordStore } from '../src/records.js';
+import { createTelemetry, announceFirstRun } from '../src/telemetry.js';
+import { readFileSync } from 'node:fs';
+
+const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 const { values } = parseArgs({
   options: {
@@ -34,4 +38,8 @@ process.on('SIGTERM', shutdown);
 const capture = !values['no-records'] && !values['no-fingerprints'] && process.env.COR_RECORDS !== 'off' && process.env.COR_FINGERPRINTS !== 'off';
 const records = createRecordStore({ enabled: capture, root: () => session.root });
 
-await createServer({ session, records }).connect(new StdioServerTransport());
+// U3: the install event and first-run notice. Off with COR_TELEMETRY=off or COR_OFFLINE=true (no file written).
+const telemetry = createTelemetry();
+announceFirstRun(telemetry, { version });
+
+await createServer({ session, records, telemetry }).connect(new StdioServerTransport());

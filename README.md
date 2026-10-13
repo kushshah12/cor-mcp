@@ -129,3 +129,16 @@ Every `cor_inspect` that recommends a locator also gives it an **entry**: the co
 Short numbers and ordinary words are kept, because a heal needs them ("Step 2", "Qty 12", "Pay now"). Values are masked, not hashed. A heal compares stored values with the live page as plain text, so a hashed value could never match again.
 
 **Turning it off:** start the server with `--no-records` or set `COR_RECORDS=off` (the old `--no-fingerprints` / `COR_FINGERPRINTS=off` still work): no record is written; entries still carry an id, and `cor_check` then checks ids for presence only. The `~/.cor/fingerprints/` store of earlier versions is no longer written or read; deleting it is safe.
+
+## Telemetry: anonymous usage metrics
+
+The server sends anonymous usage metrics to help us see how COR is installed and used. Two events:
+
+- `mcp_installed`, once per install, on the first start: package version, Node version, OS platform.
+- `mcp_tool_called`, once per tool call: tool name, duration in milliseconds, outcome (`ok`, `tool_error`, `exception`, or `timeout`), package version.
+
+Each install has a random anonymous ID, stored in `~/.cor/install-id`. The first start prints one line on stderr saying so.
+
+**Never sent:** page URLs or origins, element text, locators, file paths, input values, cookies, storage, record contents, error messages, or any email address. Every field is listed in the code (`src/telemetry.js`), and nothing else is added.
+
+**Turning it off:** set `COR_TELEMETRY=off` (or `COR_OFFLINE=true`, which stops all outbound data). Nothing is sent and no ID file is written.

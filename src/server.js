@@ -8,6 +8,7 @@ import { checkTools } from './tools/check.js';
 import { healTools } from './tools/heal.js';
 import { createInspector, pageOutline } from './tools/inspect.js';
 import { exploreTools } from './tools/explore.js';
+import { createTelemetry, toolCalledEvent } from './telemetry.js';
 
 const { name, version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -51,6 +52,7 @@ export function createServer({
   session = createSession(),
   records = null, // U8: .cor/records/ in the project is written only when the bin turns it on (bin/cor-mcp.js)
   tools = defaultTools(session, records),
+  telemetry = createTelemetry(), // U2 (plan 2026-10-13-001): off unless the build injected a key
 } = {}) {
   const server = new McpServer({ name, version }, { instructions: INSTRUCTIONS });
   // The client going away must not leave a Chrome process behind.
@@ -58,8 +60,29 @@ export function createServer({
   // ponytail: McpServer installs tools/list lazily on the first registerTool,
   // so with zero tools it would answer "method not found". Install it up front.
   server.setToolRequestHandlers();
+  const names = tools.map((t) => t.name);
   for (const { name: toolName, config, handler } of tools) {
-    server.registerTool(toolName, config, handler);
+    server.registerTool(toolName, config, timed(toolName, handler, { telemetry, names }));
   }
   return server;
+}
+
+// U2: one mcp_tool_called event per call. Names, schemas and results pass through unchanged. cor_explore runs the
+// other tools' raw handlers, so its steps are not counted separately.
+function timed(tool, handler, { telemetry, names }) {
+  return async (...args) => {
+    const started = performance.now();
+    let outcome = 'ok';
+    try {
+      const result = await handler(...args);
+      if (result?.isError) outcome = 'tool_error';
+      return result;
+    } catch (err) {
+      outcome = err?.name === 'TimeoutError' ? 'timeout' : 'exception';
+      throw err;
+    } finally {
+      const durationMs = Math.round(performance.now() - started);
+      telemetry.track(toolCalledEvent({ tool, durationMs, outcome, version }, names));
+    }
+  };
 }

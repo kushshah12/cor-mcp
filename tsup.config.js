@@ -26,5 +26,11 @@ export default defineConfig([
     minify: true,
     sourcemap: false,
     clean: false,
+    // U4 (plan 2026-10-13-001): the write-only PostHog key is baked in at build time, only into the server bundle.
+    // Unset (dev, tests) → empty → telemetry stays off. src/telemetry.js reads these two globals.
+    define: {
+      __COR_POSTHOG_KEY__: JSON.stringify(process.env.COR_POSTHOG_KEY || ''),
+      __COR_POSTHOG_HOST__: JSON.stringify(process.env.COR_POSTHOG_HOST || ''),
+    },
   },
 ]);
