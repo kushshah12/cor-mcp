@@ -122,7 +122,7 @@ test('P8a a version-1 record is still read (state unknown); a full cor_check sen
   const { dir, call } = await connect(t);
   mkdirSync(join(dir, '.cor/records'), { recursive: true });
   mkdirSync(join(dir, '.cor/pending'), { recursive: true });
-  const v1 = (id) => ({ v: 1, id, page: `${base}/p8a-start`, elementKey: id, member: `m${id}`, fingerprint: { tag: 'h1', attrs: {}, text: 'Start' }, strategies: [{ kind: 'css', value: 'h1' }], created: '2026-10-01' });
+  const v1 = (id) => ({ v: 1, id, page: `${base}/p8a-start`, elementKey: id, member: `m${id}`, fingerprint: { tag: 'h1', attrs: {}, text: 'Start' }, strategies: [{ kind: 'css', value: 'h1' }], created: new Date(Date.now() - 86_400_000).toISOString().slice(0, 10) });
   for (const id of ['aaaaa1', 'aaaaa2']) writeFileSync(join(dir, `.cor/records/${id}.json`), JSON.stringify(v1(id)));
   writeFileSync(join(dir, '.cor/pending/bbbbb1.json'), JSON.stringify({ ...v1('bbbbb1'), v: 2, created: '2020-01-01' }));
   assert.equal(createRecordStore({ root: () => dir }).read('aaaaa1').state, null);
