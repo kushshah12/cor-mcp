@@ -61,7 +61,8 @@ async function resolveElement(session, page, { ref: given, target }) {
   const asRef = !given && /^e\d+$/.test(target ?? '');
   const ref = given ?? (asRef ? target : null);
   const selector = asRef ? null : target;
-  if (Boolean(ref) === Boolean(selector)) throw new Error('Pass exactly one of ref (from cor_snapshot) or target (a CSS selector).');
+  // U2: the parameter is named target, not selector; a failed click cost the agent a turn each time.
+  if (Boolean(ref) === Boolean(selector)) throw new Error('Pass exactly one of ref (from cor_snapshot) or target (a CSS selector; the parameter is named target, not selector).');
   if (ref) {
     checkRef(session, ref);
     // U7: a frame's ref resolves in that frame
@@ -77,7 +78,7 @@ async function resolveElement(session, page, { ref: given, target }) {
   }
   if (handles.length === 0) throw new Error(`No element matches "${selector}" on ${page.url()}.${await frameHint(page)}`);
   if (handles.length > 1) {
-    throw new Error(`"${selector}" matches ${handles.length} elements — narrow it to exactly one before acting.`);
+    throw new Error(`"${selector}" matches ${handles.length} elements — pass the ref of the one you mean (from cor_snapshot) instead, or narrow the selector to exactly one.`);
   }
   return handles[0];
 }
