@@ -149,7 +149,7 @@ async function labelLocator(page, text, framework) {
 }
 
 // P2a: a page outline longer than this is answered with the region index.
-const INDEX_OVER = 3000;
+const INDEX_OVER = 6500;
 
 /**
  * P2a: the page outline as cor_open and cor_snapshot give it — in full on a small page, else the region index. Issues the
