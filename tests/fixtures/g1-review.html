@@ -1,0 +1,23 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>G1 review modes</title></head>
+<body>
+<!-- G1 review (blind SDET review of Gate 3 wave 1): shadcn-admin's users page with a dialog, a delete alert dialog, a
+     Radix-like select (options named by aria-labelledby, mirrored in a hidden native <select>) and a Sonner-like toast. -->
+<main>
+  <h1>Users</h1>
+  <button type="button">Delete</button>
+  <label for="filter">Username</label><input id="filter" name="filter">
+</main>
+<div role="dialog" aria-modal="true" aria-labelledby="dlg-title">
+  <h2 id="dlg-title">Add New User</h2>
+  <form>
+    <label for="u1">Username</label><input id="u1" name="username">
+    <label for="p1">Password</label><input id="p1" name="password" type="password">
+    <label for="p2">Confirm Password</label><input id="p2" name="confirmPassword" type="password">
+    <div aria-hidden="true"><select tabindex="-1"><option>Superadmin</option><option>Admin</option></select></div>
+  </form>
+  <div role="listbox"><div role="option" aria-labelledby="o1"><span id="o1">Superadmin</span></div><div role="option" aria-labelledby="o2"><span id="o2">Admin</span></div></div>
+  <button type="submit">Save changes</button>
+</div>
+<section aria-label="Notifications"><ol><li data-sonner-toast=""><div data-content=""><div data-title="">You submitted the following values:</div><div data-description=""><pre><code>{ "username": "ada" }</code></pre></div></div></li></ol></section>
+</body></html>

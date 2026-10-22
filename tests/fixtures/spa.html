@@ -1,0 +1,10 @@
+<!doctype html>
+<title>SPA</title>
+<div id="root"></div>
+<!-- Renders only after a data fetch that finishes after `load`, like a client-rendered app. -->
+<script>
+  addEventListener('load', () =>
+    fetch('/data').then((r) => r.json()).then((items) => {
+      document.getElementById('root').innerHTML = items.map((i) => `<button>${i}</button>`).join('');
+    }));
+</script>

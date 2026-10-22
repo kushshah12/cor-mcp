@@ -1,0 +1,9 @@
+<!doctype html>
+<title>P6 cart</title>
+<!-- P6 (R8): a control whose accessible name changes with the page state — saucedemo's "Cart, empty" link. -->
+<style>a.cart { display: inline-block; width: 24px; height: 24px; background: #333 }</style>
+<a class="cart" href="#cart" aria-label="Cart, empty"></a>
+<button data-test="add">Add to cart</button>
+<script>
+  document.querySelector('[data-test=add]').addEventListener('click', () => document.querySelector('a.cart').setAttribute('aria-label', 'Cart, 1 item'));
+</script>

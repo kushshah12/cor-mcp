@@ -1,0 +1,12 @@
+# p4-brief-declined-pw
+Now at {base}/fixture/p1-no-durable — "No durable locator" (HTTP 200). Browser: {browser}.
+Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
+
+"No durable locator" {base}/fixture/p1-no-durable — 0 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
+
+--- cor_inspect {"selector":".list > div:nth-child(2) .dot","detail":false} (197 chars)
+✗ element — declined: no durable locator — the best is Unstable
+  // COR cor:{id} · declined — no durable locator — the best is Unstable
+fix: add a test attribute — <span data-testid="span-target">

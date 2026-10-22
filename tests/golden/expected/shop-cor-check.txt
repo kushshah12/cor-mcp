@@ -1,0 +1,73 @@
+# shop-cor-check
+Now at {base}/app/inventory.html — "COR Shop â€” Products" (HTTP 200). Browser: {browser}.
+Framework: Playwright — from cor.config.js.
+Locators: page objects in tests/pages/ (cor.config.js).
+
+"COR Shop â€” Products" {base}/app/inventory.html — 12 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>). "N items, each: …": every item has those controls; its line lists their refs in that order.
+
+- header
+  - link "COR Shop" [ref=e1]
+  - link "Cart, empty" [ref=e2]
+- combobox "Sort" = "Name" [ref=e3] ✓id
+- 4 items, each: button "Add to cart"
+  - "Coffee Mug": e4 ✓id
+  - "Gel Pen": e5 ✓id
+  - "Baseball Cap": e6 ✓id
+  - "Logo T-Shirt": e7 ✓id
+- section "Featured"
+  - 3 sections, each: link "Details"
+    - "Sticker Pack": e8
+    - "Tote Bag": e9
+    - "Water Bottle": e10
+- textbox "Email" [ref=e11]
+- button "Subscribe" [ref=e12]
+--- cor_inspect {"selector":"[data-test=\"sort\"]"} (1194 chars)
+Best locator (playwright):
+  page.getByRole('combobox', { name: 'Sort' })
+  Point-in-time — true on this page now: 79 Good · 1 match
+  + Targets the element by ARIA role and accessible name
+  + Uses the test framework’s idiomatic locator API
+  - Coupled to a label / accessible name
+
+Entry — place in tests/pages/inventory.page.js, member sort (cor_check reads the cor: id; keep the comment):
+  // COR cor:000001 · sort
+  sort = () => this.page.getByRole('combobox', { name: 'Sort' });
+
+Why this order: Ranked role=combobox, name=Sort (score 79) above [data-test="sort"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
+Framework convention applied: playwright (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on ARIA role and accessible name; risk: coupled to a label / accessible name; chosen over page.getByTestId('sort') because playwright guidance prefers role over testId
+
+Alternatives:
+2. page.getByTestId('sort')
+   99 Excellent · 1 match
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)
+--- cor_check {"all":true} (2012 chars)
+[error] cor_check: 4 locators in 2 files (all project files) — 1 carry a COR id, 3 to fix. Records: 1 of 1 verified on the live page.
+
+✗ tests/cart.spec.js:6 — await page.locator('.card button').first().click(); — picks by position (.first/.nth/.eq/[n]): a reorder silently changes the element.
+  On /app/inventory.html (if this locator targets another page, cor_open it and run cor_check again):
+  Replace it with COR's entry:
+    Entry — place in tests/pages/inventory.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
+      // COR cor:000002 · addToCart
+      addToCart = (title) => this.page.locator('[data-test="inventory-item"]').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).getByRole('button', { name: 'Add to cart', exact: true });
+      // COR cor:000003 · items
+      items = () => this.page.locator('[data-test="inventory-item"]');
+      // COR cor:000002 · addToCartOf
+      addToCartOf = (item) => item.getByRole('button', { name: 'Add to cart', exact: true });
+
+✗ tests/cart.spec.js:8 — cor:abcdef is not a record COR issued in this project (copied from elsewhere, or edited?).
+  On /app/inventory.html (if this locator targets another page, cor_open it and run cor_check again):
+  Replace it with COR's entry:
+    Entry — place in tests/pages/inventory.page.js, member cartBadge (cor_check reads the cor: id; keep the comment):
+      // COR cor:000004 · cartBadge
+      cartBadge = () => this.page.getByTestId('cart-badge');
+
+✗ tests/pages/inventory.page.js:7 — cor:000001 was issued for another element on this page — the locator was edited after COR issued it.
+  On /app/inventory.html (if this locator targets another page, cor_open it and run cor_check again):
+  Replace it with COR's entry:
+    Entry — place in tests/pages/inventory.page.js, member cartEmptyLink (cor_check reads the cor: id; keep the comment):
+      // COR cor:000005 · cartEmptyLink
+      cartEmptyLink = () => this.page.getByRole('link', { name: 'Cart, empty' });

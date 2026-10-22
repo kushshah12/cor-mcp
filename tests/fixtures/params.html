@@ -1,0 +1,55 @@
+<!doctype html>
+<title>Params</title>
+<style>.film-strip, .rows, .grid { display: block }</style>
+
+<!-- Titles that start with one another, and titles with quotes. -->
+<section id="shop">
+  <div class="card"><h3 class="card-title">Phone 12</h3><span class="price">$799</span><button>Add to cart</button></div>
+  <div class="card"><h3 class="card-title">Phone 12 Mini</h3><span class="price">$699</span><button>Add to cart</button></div>
+  <div class="card"><h3 class="card-title">Phone 12 Pro</h3><span class="price">$999</span><button>Add to cart</button></div>
+  <div class="card"><h3 class="card-title">12" Monitor</h3><span class="price">$199</span><button>Add to cart</button></div>
+  <div class="card"><h3 class="card-title">Kid's Tee</h3><span class="price">$9</span><button>Add to cart</button></div>
+</section>
+
+<!-- A test attribute on the item beats its title. -->
+<div class="grid">
+  <div class="tile" data-testid="tile-alpha"><h4>Alpha</h4><button>Compare</button></div>
+  <div class="tile" data-testid="tile-beta"><h4>Beta</h4><button>Compare</button></div>
+</div>
+<footer><button>Compare</button></footer>
+
+<!-- Two items share a label. -->
+<ul class="rows">
+  <li><span>Alice</span><button>Remove</button></li>
+  <li><span>Alice</span><button>Remove</button></li>
+  <li><span>Bob</span><button>Remove</button></li>
+</ul>
+
+<!-- Only a generated id and a price tell these apart. -->
+<div>
+  <div class="box" id="box-8121"><span>$5</span><button>Open</button></div>
+  <div class="box" id="box-9304"><span>$6</span><button>Open</button></div>
+</div>
+
+<!-- "Up" also titles a film card outside the list, so the title alone picks two. -->
+<div class="film-strip">
+  <div class="film"><h5 class="film-title">Up</h5><button>Watch</button></div>
+  <div class="film"><h5 class="film-title">Cars</h5><button>Watch</button></div>
+</div>
+<aside><div class="film"><h5 class="film-title">Up</h5><p>Recently viewed</p></div></aside>
+
+<!-- A table: the key column's header names the parameter. -->
+<table>
+  <thead><tr><th>Name</th><th>Role</th><th></th></tr></thead>
+  <tbody>
+    <tr><td>Ada</td><td>Admin</td><td><button>Edit</button></td></tr>
+    <tr><td>Grace</td><td>Viewer</td><td><button>Edit</button></td></tr>
+  </tbody>
+</table>
+
+<!-- Two "Details" lookalikes of different shapes: a card and a table header.
+     Only ONE item has the card's shape, so there is nothing to parameterise. -->
+<div class="solo-card"><h4>Solo plan</h4><button>Details</button></div>
+<table class="compare"><tr><th><button>Details</button></th></tr></table>
+
+<button id="checkout">Checkout</button>

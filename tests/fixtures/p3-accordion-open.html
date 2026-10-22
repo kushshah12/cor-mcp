@@ -1,0 +1,38 @@
+<!doctype html>
+<title>Accordion</title>
+<style>.qa__a { display: none } .qa.is-open .qa__a { display: block } .qa__q { cursor: pointer }</style>
+<!-- P3 class page: an accordion whose first item starts open — clicking it closes it (BrowserStack's FAQ, CY run 1). -->
+<div class="faq">
+  <div class="qa is-open"><p class="qa__q">Do you offer refunds?</p><div class="qa__a">Within 30 days.</div></div>
+  <div class="qa"><p class="qa__q">Can I change plans?</p><div class="qa__a">Any time.</div></div>
+  <div class="qa"><p class="qa__q">Is there a free trial?</p><div class="qa__a">Yes, 14 days.</div></div>
+</div>
+<!-- The same with aria-expanded on the buttons. -->
+<div class="acc">
+  <section class="acc__item"><button class="acc__btn" aria-expanded="false">Shipping</button><div class="acc__panel" hidden>3 days.</div></section>
+  <section class="acc__item"><button class="acc__btn" aria-expanded="true">Returns</button><div class="acc__panel">Free.</div></section>
+</div>
+<!-- BrowserStack's FAQ: a closed answer is clipped by a 0-height wrapper, not hidden — every framework's visibility check
+     still reports it visible. -->
+<style>.bs__wrap { height: 0; overflow: hidden } .bs.is-open .bs__wrap { height: auto }</style>
+<div class="bsfaq">
+  <div class="bs"><p class="bs__q">Can I get invoices?</p><div class="bs__wrap"><p class="bs__a">Yes, from the billing page.</p></div></div>
+  <div class="bs"><p class="bs__q">Do plans renew?</p><div class="bs__wrap"><p class="bs__a">Yes, every cycle.</p></div></div>
+  <div class="bs"><p class="bs__q">Is support included?</p><div class="bs__wrap"><p class="bs__a">On every plan.</p></div></div>
+</div>
+<!-- A 0-height wrapper that does not clip: the text spills out and is seen, so it is not collapsed. -->
+<style>.sp__wrap { height: 0 }</style>
+<div class="spill">
+  <div class="sp"><p class="sp__q">Fast setup?</p><div class="sp__wrap"><p class="sp__a">Minutes.</p></div></div>
+  <div class="sp"><p class="sp__q">Cancel any time?</p><div class="sp__wrap"><p class="sp__a">Yes.</p></div></div>
+</div>
+<!-- Every item open: nothing to tell apart, so no note. -->
+<div class="tips">
+  <div class="tip is-open"><p class="tip__t">Save often</p><div class="tip__b">Ctrl+S.</div></div>
+  <div class="tip is-open"><p class="tip__t">Back up</p><div class="tip__b">Weekly.</div></div>
+</div>
+<script>
+  for (const q of document.querySelectorAll('.bs__q')) q.addEventListener('click', () => q.parentElement.classList.toggle('is-open'));
+  for (const q of document.querySelectorAll('.qa__q')) q.addEventListener('click', () => q.parentElement.classList.toggle('is-open'));
+  for (const b of document.querySelectorAll('.acc__btn')) b.addEventListener('click', () => { const open = b.getAttribute('aria-expanded') !== 'true'; b.setAttribute('aria-expanded', String(open)); b.nextElementSibling.hidden = !open; });
+</script>

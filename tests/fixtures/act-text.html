@@ -1,0 +1,40 @@
+<!doctype html>
+<title>Pricing</title>
+<style>.answer { display: none } .open + .answer { display: block } .q { cursor: pointer }</style>
+<!-- What the plain-prompt run's agent wrote DOM probes to read (2026-09-26): a
+     price that changes with the billing cycle, an FAQ answer that opens, the page
+     "Choose" leads to. cor_click reported only controls, so none of it showed. -->
+<label><input type="radio" name="cycle" id="annual" checked> Annually</label>
+<label><input type="radio" name="cycle" id="monthly"> Monthly</label>
+<div class="card"><h3>Team Ultimate</h3><p>$ <span class="price">375</span> / month</p><a href="/checkout">Choose</a></div>
+<section><h2>FAQ</h2>
+  <p class="q" id="q1">What payment methods do you accept?</p><div class="answer">We accept all major credit cards and PayPal.</div>
+</section>
+<ul class="list"><li>Alpha</li><li>Beta</li></ul>
+<button id="rerender">Refresh list</button>
+<button id="noop">Nothing</button>
+<button id="follow">Follow</button>
+<button id="more">Show all features</button><ol class="features"></ol>
+<button id="individuals">For Individuals</button>
+<button id="desktop">Show desktop plans</button>
+<section class="desktop" hidden><h2>Desktop</h2><p>Desktop line 1</p><p>Desktop line 2</p><p>Desktop line 3</p><p>Desktop line 4</p><p>Desktop line 5</p><p>Desktop line 6</p><p>Desktop line 7</p><p>Desktop line 8</p><p>Desktop line 9</p><p>Desktop line 10</p></section>
+<div class="team-plans">
+  <div class="plan"><button>Choose</button><a href="#d1">Details</a></div>
+  <div class="plan"><button>Choose</button><a href="#d2">Details</a></div>
+  <div class="plan"><button>Choose</button><a href="#d3">Details</a></div>
+  <label><input type="radio" name="tv"> Team</label>
+</div>
+<script>
+  for (const r of document.querySelectorAll('input[name="cycle"]')) {
+    r.addEventListener('change', () => { document.querySelector('.price').textContent = r.id === 'monthly' ? '445' : '375'; });
+  }
+  document.getElementById('q1').addEventListener('click', (e) => e.target.classList.toggle('open'));
+  // A re-render: same text in new nodes is no change.
+  document.getElementById('rerender').addEventListener('click', () => { document.querySelector('.list').innerHTML = '<li>Alpha</li><li>Beta</li>'; });
+  document.getElementById('follow').addEventListener('click', (e) => { e.target.textContent = 'Following'; });
+  document.getElementById('more').addEventListener('click', () => {
+    document.querySelector('.features').innerHTML = Array.from({ length: 12 }, (_, i) => `<li>Feature ${i + 1}</li>`).join('');
+  });
+  document.getElementById('individuals').addEventListener('click', () => document.querySelector('.team-plans').remove());
+  document.getElementById('desktop').addEventListener('click', () => { document.querySelector('.desktop').hidden = false; });
+</script>

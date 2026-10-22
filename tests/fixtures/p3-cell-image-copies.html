@@ -1,0 +1,18 @@
+<!doctype html>
+<title>P3 a cell image beside a hidden copy of the table</title>
+<!-- BrowserStack keeps every product's comparison in the page. In the hidden copy "Bug Capture" has no image under Team Ultimate
+     (so the target's own combination is unique page-wide) but "Live" has three: the template must be scoped to the shown product. -->
+<div data-product="live">
+<table class="compare">
+  <tr><th>Feature List</th><th>Team</th><th>Team Ultimate</th></tr>
+  <tr><td>Bug Capture</td><td></td><td><img alt="Feature included" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="12" height="12"></td></tr>
+  <tr><td>Live</td><td><img alt="Feature included" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="12" height="12"></td><td><img alt="Feature included" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="12" height="12"></td></tr>
+</table>
+</div>
+<div data-product="automate" style="display:none">
+<table class="compare">
+  <tr><th>Feature List</th><th>Team</th><th>Team Ultimate</th></tr>
+  <tr><td>Bug Capture</td><td></td><td></td></tr>
+  <tr><td>Live</td><td></td><td><img alt="Feature included" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="12" height="12"> <img alt="Feature included" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="12" height="12"></td></tr>
+</table>
+</div>

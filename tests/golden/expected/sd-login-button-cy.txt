@@ -1,0 +1,31 @@
+# sd-login-button-cy
+Now at {base}/site/saucedemo-login — "Swag Labs" (HTTP 200). Browser: {browser}.
+Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
+
+"Swag Labs" {base}/site/saucedemo-login — 3 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
+
+- form "Login"
+  - textbox "Username" [ref=e1] ✓id
+  - textbox "Password" [ref=e2] ✓id
+  - button "Login" [ref=e3] ✓id
+--- cor_inspect {"selector":"[data-test=\"login-button\"]","framework":"cypress"} (806 chars)
+Best locator (cypress):
+  cy.get('[data-test="login-button"]')
+  Point-in-time — true on this page now: 99 Excellent · 1 match
+  + Anchored on a dedicated test attribute
+  + Short and shallow
+
+Entry — place in tests/pages/saucedemoLogin.page.js, member loginButton (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · loginButton
+  loginButton = () => cy.get('[data-test="login-button"]');
+Framework convention applied: cypress (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on a dedicated test attribute; no known risk
+
+Alternatives:
+2. cy.get('#login-button')
+   93 Excellent · 1 match
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)

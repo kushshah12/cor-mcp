@@ -1,0 +1,10 @@
+<!doctype html>
+<title>P6 submit inputs named by value</title>
+<!-- P6: BrowserStack's Choose buttons are <input type="submit" value="Choose">, one per card. The accessible name comes
+     from value; WebdriverIO's aria/ must find them by it (conformance: run in real WebdriverIO). -->
+<div class="grid">
+  <form class="card"><h3>Team</h3><input type="submit" value="Choose"></form>
+  <form class="card"><h3>Team Ultimate</h3><input type="submit" value="Choose"></form>
+</div>
+<form class="solo"><input type="submit" value="Subscribe now"></form>
+<script>for (const f of document.forms) f.addEventListener('submit', (e) => e.preventDefault());</script>

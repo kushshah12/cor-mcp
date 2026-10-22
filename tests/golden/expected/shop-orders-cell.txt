@@ -1,0 +1,84 @@
+# shop-orders-cell
+Now at {base}/app/inventory.html — "COR Shop â€” Products" (HTTP 200). Browser: {browser}.
+Framework: Playwright — from cor.config.js.
+Locators: page objects in tests/pages/ (cor.config.js).
+
+"COR Shop â€” Products" {base}/app/inventory.html — 12 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>). "N items, each: …": every item has those controls; its line lists their refs in that order.
+
+- header
+  - link "COR Shop" [ref=e1]
+  - link "Cart, empty" [ref=e2]
+- combobox "Sort" = "Name" [ref=e3] ✓id
+- 4 items, each: button "Add to cart"
+  - "Coffee Mug": e4 ✓id
+  - "Gel Pen": e5 ✓id
+  - "Baseball Cap": e6 ✓id
+  - "Logo T-Shirt": e7 ✓id
+- section "Featured"
+  - 3 sections, each: link "Details"
+    - "Sticker Pack": e8
+    - "Tote Bag": e9
+    - "Water Bottle": e10
+- textbox "Email" [ref=e11]
+- button "Subscribe" [ref=e12]
+--- cor_snapshot {"within":"A-1002"} (901 chars)
+"COR Shop â€” Products" {base}/app/inventory.html — row "A-1002" in full (within: A-1002)
+All text in this region, in page order. Its refs are added to the current snapshot's; refs expire on navigation and any act.
+
+- cell "Order" [ref=e13]: "A-1002"
+- cell "Status" [ref=e14]: "Processing"
+- cell "Total" [ref=e15]: "$40"
+
+Entries — place in tests/pages/inventory.page.js (keep each // COR comment: cor_check reads the ids):
+e13, e14, e15 → cellAt — 6/6 items checked
+  // COR cor:{id} · cellAt
+  cellAt = (order, column) => {
+    const tables = "//table[contains(concat(' ', normalize-space(@class), ' '), ' orders ')]";
+    const header = `(${tables}//tr[th])[1]`;
+    const row = `${tables}//tr[*[1][normalize-space()="${order}"]]`;
+    const columnNo = `count(${header}/*[normalize-space()="${column}"]/preceding-sibling::*) + 1`;
+    return this.page.locator(`xpath=${row}/*[${columnNo}]`);
+  };
+--- cor_inspect {"selector":"table.orders tbody tr:nth-child(2) td:nth-child(2)"} (2529 chars)
+Recommended — parameterised by row and column: 3 rows × 3 columns; every row and column checked (6/6).
+  Proof: counted by Playwright, every value.
+  order = "A-1002"   (also: "A-1001", "A-1003")
+  column = "Status"   (also: "Order", "Total")
+  const cell = (order, column) => {
+    const tables = "//table[contains(concat(' ', normalize-space(@class), ' '), ' orders ')]";
+    const header = `(${tables}//tr[th])[1]`;
+    const row = `${tables}//tr[*[1][normalize-space()="${order}"]]`;
+    const columnNo = `count(${header}/*[normalize-space()="${column}"]/preceding-sibling::*) + 1`;
+    return page.locator(`xpath=${row}/*[${columnNo}]`);
+  };
+  Registry template (xpath-literal): //table[contains(concat(' ', normalize-space(@class), ' '), ' orders ')]//tr[*[1][normalize-space()=__order__]]/*[count((//table[contains(concat(' ', normalize-space(@class), ' '), ' orders ')]//tr[th])[1]/*[normalize-space()=__column__]/preceding-sibling::*)+1]   (__order__ / __column__ are quoted XPath literals)
+  When the test reads more than one cell, write one function taking order and column.
+
+For this one item alone (playwright):
+  page.getByText('Processing', { exact: true })
+  Point-in-time — true on this page now: 61 Fair · 1 match
+  - Coupled to display copy
+  + Anchored on visible text
+
+Entry — place in tests/pages/inventory.page.js, member cellAt (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · cellAt
+  cellAt = (order, column) => {
+    const tables = "//table[contains(concat(' ', normalize-space(@class), ' '), ' orders ')]";
+    const header = `(${tables}//tr[th])[1]`;
+    const row = `${tables}//tr[*[1][normalize-space()="${order}"]]`;
+    const columnNo = `count(${header}/*[normalize-space()="${column}"]/preceding-sibling::*) + 1`;
+    return this.page.locator(`xpath=${row}/*[${columnNo}]`);
+  };
+
+Why this order: Ranked "Processing" first — Processing (score 61) matches by partial text: it also finds any element whose text merely contains this, and COR never issues that.
+Framework convention applied: playwright (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on visible text; risk: coupled to display copy
+
+Alternatives:
+2. page.locator('//td[normalize-space()="Processing"]')
+   61 Fair · 1 match
+   ! Coupled to display copy — breaks on wording changes and localization (Processing)
+(3 more alternatives not shown — cor_inspect with all: true lists every one.)

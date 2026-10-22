@@ -1,0 +1,52 @@
+# fx-cards-choose-pw
+Now at {base}/fixture/cards — "Cards" (HTTP 200). Browser: {browser}.
+Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
+
+"Cards" {base}/fixture/cards — 8 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>). [via label]: a hidden input shown by its label — click the label, check state on the input.
+
+- radio "Team" [ref=e1] [checked] [via label]
+- radio "Team Pro" [ref=e2] [via label]
+- checkbox "Annual billing" [ref=e3] [via label]
+- button "5 users | $30 per user" [ref=e4]
+- button "Choose" [ref=e5] in "Team"
+- button "5 users | $75 per user" [ref=e6]
+- button "Choose" [ref=e7] in "Team Ultimate"
+- button "Lonely" [ref=e8]
+--- cor_inspect {"selector":".card:nth-child(2) > button"} (2274 chars)
+⚠ Check this is the element you meant: 1 other visible element looks the same — button "Choose".
+  You inspected: e7 in "Team Ultimate" under "Desktop & Mobile, plus:"
+  Also:          e5 in "Team"
+  If you meant another one, cor_inspect its ref instead.
+
+Recommendation: change the application — no durable locator exists for this element (best is Unstable).
+Add a test attribute (this requires an application change):
+  <button data-testid="choose">
+
+Declined as the answer — the most durable locator available today:
+1. page.locator('div:nth-of-type(1) > div:nth-of-type(2) > button')
+   27 Unstable · 1 match
+   ! Depends on element position — silently picks a different element when order changes
+   ! Unique only by position — matches whatever occupies that slot, not this element
+
+Entry — declined: no durable locator — the best is Unstable. COR issues no locator for this element. If the test must use it, put this line above the locator you write; cor_check then reports it as declined, cited (the app needs a test attribute):
+  // COR cor:{id} · declined — no durable locator — the best is Unstable
+Facts:
+  • a locator matching 2 elements: the test fails at once
+  • 1 other visible button "Choose" looks the same
+
+Why this order: Demoted role=button, name=Choose (score 79) — Matches 2 elements — Playwright throws a strict-mode error — the test fails immediately. Ranked div:nth-of-type(1) > div:nth-of-type(2) > button first because it resolves to exactly one element.
+Framework convention applied: playwright (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: risk: depends on element position; chosen over page.getByRole('button', { name: 'Choose' }) because it matches more than one element
+
+Not parameterised — 2 items share this shape, but the template matched 0 for "Team Team Pro" when Playwright counted it.
+
+Alternatives:
+2. page.getByRole('button', { name: 'Choose' })
+   79 Good · 2 matches
+   ! Coupled to a label / accessible name — breaks on rewording and localization (Choose)
+   ! Matches 2 elements — may interact with the wrong one (matches 2 elements)
+(5 more alternatives not shown — cor_inspect with all: true lists every one.)

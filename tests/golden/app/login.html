@@ -1,0 +1,9 @@
+<!doctype html><html><head><title>COR Shop — Sign in</title><style>body{font-family:sans-serif;margin:0} header{display:flex;justify-content:space-between;padding:8px 16px;background:#eee} main{padding:16px} .card{list-style:none;display:inline-block;width:180px;margin:8px;padding:8px;border:1px solid #ccc} .badge{background:#c00;color:#fff;border-radius:8px;padding:0 6px} .rail{display:flex;gap:8px} .tile{border:1px dashed #999;padding:6px} table{border-collapse:collapse} td,th{border:1px solid #ccc;padding:4px}</style></head><body>
+<main><h1>Sign in</h1>
+<form id="login">
+  <label for="u">Username</label><input id="u" data-test="username" name="username">
+  <label for="p">Password</label><input id="p" type="password" data-test="password" name="password">
+  <input type="submit" data-test="login-button" value="Login">
+  <p data-test="error" role="alert" hidden></p>
+</form></main>
+<script src="shop.js"></script><script>shop.login()</script></body></html>

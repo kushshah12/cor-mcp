@@ -1,0 +1,34 @@
+# sd-login-username-pw — pins D5
+Now at {base}/site/saucedemo-login — "Swag Labs" (HTTP 200). Browser: {browser}.
+Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
+
+"Swag Labs" {base}/site/saucedemo-login — 3 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
+
+- form "Login"
+  - textbox "Username" [ref=e1] ✓id
+  - textbox "Password" [ref=e2] ✓id
+  - button "Login" [ref=e3] ✓id
+--- cor_inspect {"selector":"[data-test=\"username\"]"} (1250 chars)
+Best locator (playwright):
+  page.getByRole('textbox', { name: 'Username' })
+  Point-in-time — true on this page now: 79 Good · 1 match
+  + Targets the element by ARIA role and accessible name
+  + Uses the test framework’s idiomatic locator API
+  - Coupled to a label / accessible name
+
+Entry — place in tests/pages/saucedemoLogin.page.js, member username (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · username
+  username = () => this.page.getByRole('textbox', { name: 'Username' });
+
+Why this order: Ranked role=textbox, name=Username (score 79) above [data-test="username"] (score 99) — playwright guidance prefers role over testId. Both resolve to exactly one element.
+Framework convention applied: playwright (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on ARIA role and accessible name; risk: coupled to a label / accessible name; chosen over page.locator('[data-test="username"]') because playwright guidance prefers role over testId
+
+Alternatives:
+2. page.locator('[data-test="username"]')
+   99 Excellent · 1 match
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)

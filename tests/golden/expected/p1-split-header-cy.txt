@@ -1,0 +1,56 @@
+# p1-split-header-cy
+Now at {base}/fixture/p1-split-header — "Split header" (HTTP 200). Browser: {browser}.
+Framework: Cypress v16 — from ./package.json (cypress). Override with framework: "…".
+Locators: page objects in cypress/pages/ (default — no specs found).
+
+"Split header" {base}/fixture/p1-split-header — 0 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
+
+--- cor_inspect {"selector":"table.body tr:nth-child(2) td:nth-child(3)"} (3045 chars)
+Recommended — parameterised by row and column: 3 rows × 4 columns; every row and column checked (7/7).
+  Proof: rendered from a checked template (every value checked in the page); Cypress 16.1.1 idioms conformance-tested.
+  feature = "Bug capture"   (also: "Parallel tests", "Screenshots")
+  column = "Team Pro"   (also: "Feature", "Team", "Enterprise")
+  const cell = (feature, column) => {
+    const header = 'table.head tr:has(th) th';
+    const key = 'table.body tr > :nth-child(1)';
+    const is = (text) => new RegExp(`^\\s*${Cypress._.escapeRegExp(text)}\\s*$`);
+    return cy.contains(header, is(column)).invoke('index')
+      .then((i) => cy.contains(key, is(feature)).closest('tr').children().eq(i));
+  };
+  When the test reads more than one cell, write one function taking feature and column.
+
+For this one item alone there is no durable locator (every locator found cy.xpath needs the cypress-xpath plugin, which this project does not declare) — a test attribute would fix that: <td data-testid="yes">.
+Declined as the answer — the most durable single-item locator today:
+1. cy.xpath('//tr[td[normalize-space()="Bug capture"]]/td[3]')
+   59 Fair · 1 match
+   ! Unique only by position — matches whatever occupies that slot, not this element
+   ! Depends on element position — silently picks a different element when order changes
+
+Entry — place in cypress/pages/p1SplitHeader.page.js, member cellAt (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · cellAt · helper, once per file (module scope)
+  const cell = (feature, column) => {
+    const header = 'table.head tr:has(th) th';
+    const key = 'table.body tr > :nth-child(1)';
+    const is = (text) => new RegExp(`^\\s*${Cypress._.escapeRegExp(text)}\\s*$`);
+    return cy.contains(header, is(column)).invoke('index')
+      .then((i) => cy.contains(key, is(feature)).closest('tr').children().eq(i));
+  };
+  // COR cor:{id} · cellAt
+  cellAt = (feature, column) => cell(feature, column);
+Facts:
+  • column headers are in a separate table above the rows
+Note: Cypress guidance prefers data-cy attributes and this page has none — ask for data-cy on the elements you test.
+
+Why this order: Demoted Yes (score 61) — Matches 2 elements — Cypress cy.contains() yields only the deepest match — the run continues against the wrong element. Ranked //tr[td[normalize-space()="Bug capture"]]/td[3] first because it resolves to exactly one element.
+Framework convention applied: cypress (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on visible text; risk: unique only by position; chosen over cy.contains('Yes') because it matches more than one element
+
+Alternatives:
+4. cy.contains('Yes')
+   61 Fair · 2 matches
+   ! Coupled to display copy — breaks on wording changes and localization (Yes)
+   ! Matches 2 elements — may interact with the wrong one (matches 2 elements)
+(2 more alternatives not shown — cor_inspect with all: true lists every one.)

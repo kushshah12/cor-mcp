@@ -1,0 +1,41 @@
+<!doctype html>
+<title>Outline</title>
+<h1>Example Store — every page's title, which names nothing in particular</h1>
+<header><nav aria-label="Main"><a href="/a">Home</a> <a href="/b">Docs</a></nav></header>
+<main>
+  <p>Lorem ipsum prose that must never appear in the snapshot.</p>
+  <div><div><div><div><button>Deep</button></div></div></div></div>
+  <section><h2>Account</h2><p>Signed in as a user.</p><button>Log out</button></section>
+  <table>
+    <thead><tr><th>Name</th><th>Actions</th></tr></thead>
+    <tbody>
+      <tr><td>Alice</td><td><button>Edit</button></td></tr>
+      <tr><td>Bob</td><td><button>Edit</button></td></tr>
+    </tbody>
+  </table>
+  <fieldset><legend>Shipping</legend>
+    <label><input type="radio" name="ship" checked> Standard</label>
+    <label><input type="radio" name="ship"> Express</label>
+  </fieldset>
+  <button disabled>Pay</button>
+  <button aria-expanded="true">Menu</button>
+  <div role="tablist"><button role="tab" aria-selected="true">One</button><button role="tab">Two</button></div>
+  <dialog open aria-label="Confirm"><button>OK</button></dialog>
+  <my-widget></my-widget>
+  <!-- A heading-less card after a titled one must not borrow its title. -->
+  <div class="cards"><div><h3>Starter</h3><button>Pick</button></div><div><button>Pick</button></div></div>
+  <!-- A heading in one header cell does not title the next column. -->
+  <table><tr><th><h3>Compare</h3></th><th>Basic <button>Choose plan</button></th></tr></table>
+  <!-- Lookalikes told apart by their own text, never a neighbouring control's label. -->
+  <div><button>Select Automate</button><button>Select Live</button><span>Web</span></div>
+  <div><button>Select Automate</button><button>Select Live</button><span>Mobile</span></div>
+</main>
+<footer><a href="/terms">Terms</a></footer>
+<script>
+  customElements.define('my-widget', class extends HTMLElement {
+    constructor() {
+      super();
+      this.attachShadow({ mode: 'open' }).innerHTML = '<button>Shadow action</button>';
+    }
+  });
+</script>

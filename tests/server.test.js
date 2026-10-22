@@ -1,0 +1,106 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
+import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { createServer, defaultTools } from '../src/server.js';
+import { createSession } from '../src/session.js';
+
+const pkgDir = fileURLToPath(new URL('..', import.meta.url));
+const pkg = JSON.parse(readFileSync(join(pkgDir, 'package.json'), 'utf8'));
+
+async function connect(t, server) {
+  const [clientSide, serverSide] = InMemoryTransport.createLinkedPair();
+  const client = new Client({ name: 'test', version: '0' });
+  await Promise.all([server.connect(serverSide), client.connect(clientSide)]);
+  t.after(() => client.close());
+  return client;
+}
+
+test('lists exactly the registered tools — no placeholders', async (t) => {
+  const client = await connect(t, createServer());
+  const { tools } = await client.listTools();
+  assert.deepEqual(tools.map((t) => t.name), defaultTools(createSession()).map((t) => t.name));
+  assert.deepEqual(tools.map((t) => t.name), ['cor_open', 'cor_click', 'cor_fill', 'cor_press', 'cor_close', 'cor_snapshot', 'cor_inspect', 'cor_grade', 'cor_check', 'cor_heal', 'cor_explore']);
+});
+
+test('a throwing tool returns an error result and the session survives', async (t) => {
+  const boom = { name: 'boom', config: { description: 'throws' }, handler: () => { throw new Error('kaput'); } };
+  const ok = { name: 'ok', config: { description: 'works' }, handler: () => ({ content: [{ type: 'text', text: 'fine' }] }) };
+  const client = await connect(t, createServer({ tools: [boom, ok] }));
+
+  const failed = await client.callTool({ name: 'boom', arguments: {} });
+  assert.equal(failed.isError, true);
+  assert.match(failed.content[0].text, /kaput/);
+
+  const after = await client.callTool({ name: 'ok', arguments: {} });
+  assert.equal(after.content[0].text, 'fine');
+});
+
+test('stdio handshake against the bin, with no credentials, env or config', async (t) => {
+  // Empty HOME and cwd: no ~/.cor/credentials, no cor.config.js, no COR_* vars.
+  const empty = mkdtempSync(join(tmpdir(), 'cor-mcp-'));
+  const transport = new StdioClientTransport({
+    command: process.execPath,
+    args: [join(pkgDir, 'bin/cor-mcp.js')],
+    cwd: empty,
+    env: { PATH: process.env.PATH, HOME: empty },
+    stderr: 'pipe',
+  });
+  const client = new Client({ name: 'test', version: '0' });
+  t.after(() => client.close());
+  await client.connect(transport);
+
+  assert.deepEqual(client.getServerVersion(), { name: pkg.name, version: pkg.version });
+  const { tools } = await client.listTools();
+  assert.ok(Array.isArray(tools));
+});
+
+test('manifest: engine is not a published dependency, playwright-core not playwright', () => {
+  assert.deepEqual(Object.keys(pkg.dependencies).sort(), ['@modelcontextprotocol/sdk', 'playwright-core', 'zod']);
+  assert.equal(pkg.devDependencies['@corlabs/engine'] !== undefined, true);
+  assert.match(pkg.dependencies['playwright-core'], /^\d+\.\d+\.\d+$/, 'playwright-core is pinned exact');
+  assert.notEqual(pkg.license, 'MIT');
+});
+
+test('production install tree has playwright-core, not playwright, and no engine', () => {
+  // --omit=dev is what a customer's `npx @corlabsdev/mcp` installs.
+  const tree = JSON.parse(execFileSync('npm', ['ls', '--omit=dev', '--all', '--json', '-w', pkg.name], { cwd: pkgDir, encoding: 'utf8' }));
+  const names = new Set();
+  const walk = (deps = {}) => { for (const [n, d] of Object.entries(deps)) { names.add(n); walk(d.dependencies); } };
+  walk(tree.dependencies);
+  assert.ok(names.has('playwright-core'));
+  assert.ok(!names.has('playwright'), 'full playwright must not be in the tree');
+  assert.ok(!names.has('@corlabs/engine'), 'engine must not reach a customer install');
+});
+
+test('the client receives instructions: parameterised functions and a locator summary with scores (U18)', async (t) => {
+  const client = await connect(t, createServer());
+  const text = client.getInstructions();
+  assert.match(text, /write one function that takes the parameter/);
+  assert.match(text, /final summary, list each locator you used with its COR score and the runner-up/); // P4 wording
+});
+
+test('U9: the instructions say to place entries with their cor: comment and run cor_check before the tests; self-written locators are graded', async (t) => {
+  const client = await connect(t, createServer());
+  const text = client.getInstructions();
+  assert.match(text, /Place each entry as given, its \/\/ COR cor:… comment included/); // P4 wording
+  assert.match(text, /Before running the tests, run cor_check: it fails on any locator without a COR id and returns the entry to paste/);
+  assert.match(text, /Pass a locator you wrote or extended yourself to cor_grade, with param when it takes one/);
+  assert.match(text, /a step added to a template can match several elements inside an item/);
+});
+
+test('the instructions cover page-object projects: templates become methods, existing methods are graded and reused (POM)', async (t) => {
+  const client = await connect(t, createServer());
+  const text = client.getInstructions();
+  // U11: the Entry carries the file, member and style; the instructions keep only what it cannot say.
+  // P4: a variant's toggle is a note on its entry now, not an instruction.
+  assert.match(text, /An existing method for the element: fix it in place rather than adding a second one/);
+  assert.doesNotMatch(text, /check whether the project has page objects/);
+  assert.doesNotMatch(text, /literal arguments/);
+});

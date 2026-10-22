@@ -1,0 +1,46 @@
+# fx-traps-snapshot
+Now at {base}/fixture/traps — "Traps" (HTTP 200). Browser: {browser}.
+Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
+
+"Traps" {base}/fixture/traps — 16 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>). "N items, each: …": every item has those controls; its line lists their refs in that order.
+
+- header › link "Terms of service" [ref=e1]
+- button "Continue" [ref=e2]
+- 3 items, each: button "Remove"
+  - "Red Hat": e3
+  - "Blue Shirt": e4
+  - "Green Scarf": e5
+- textbox "Promo code" [ref=e6]
+- button "Apply" [ref=e7] ✓id (1 of 2)
+- button "Apply" [ref=e8] (2 of 2)
+- button [ref=e9]
+- button "Bold" [ref=e10]
+- button "Italic" [ref=e11]
+- button "Underline" [ref=e12]
+- button "Strike" [ref=e13]
+- button "Select" [ref=e14] (1 of 2)
+- button "Select" [ref=e15] (2 of 2)
+- button "Place order" [ref=e16] ✓id
+--- cor_snapshot {} (948 chars)
+"Traps" {base}/fixture/traps — 16 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>). "N items, each: …": every item has those controls; its line lists their refs in that order.
+
+- header › link "Terms of service" [ref=e1]
+- button "Continue" [ref=e2]
+- 3 items, each: button "Remove"
+  - "Red Hat": e3
+  - "Blue Shirt": e4
+  - "Green Scarf": e5
+- textbox "Promo code" [ref=e6]
+- button "Apply" [ref=e7] ✓id (1 of 2)
+- button "Apply" [ref=e8] (2 of 2)
+- button [ref=e9]
+- button "Bold" [ref=e10]
+- button "Italic" [ref=e11]
+- button "Underline" [ref=e12]
+- button "Strike" [ref=e13]
+- button "Select" [ref=e14] (1 of 2)
+- button "Select" [ref=e15] (2 of 2)
+- button "Place order" [ref=e16] ✓id

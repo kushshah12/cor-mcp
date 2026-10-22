@@ -1,0 +1,68 @@
+# fx-pricing-choose-pw
+Now at {base}/fixture/pricing — "Pricing" (HTTP 200). Browser: {browser}.
+Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
+
+"Pricing" {base}/fixture/pricing — 24 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>). "N items, each: …": every item has those controls; its line lists their refs in that order.
+
+- section "Team Ultimate" › button "Choose" [ref=e1] +1 hidden
+- section "Volume" › button "Contact Sales" [ref=e2]
+- table
+  - column "Team Ultimate"
+    - combobox = "5 users | $75 per user" [ref=e3]
+    - button "Choose" [ref=e4] +1 hidden
+  - column "Volume" › button "Contact Sales" [ref=e5]
+- section "Users"
+  - item "Alice" › button "Delete" [ref=e6]
+  - item "Bob" › button "Delete" [ref=e7]
+  - section "Basic" › button "Buy" [ref=e8]
+  - section "Pro" › button "Buy" [ref=e9]
+  - section "Extras" › button "Scroll" [ref=e10]
+  - section "Extras" › button "Scroll" [ref=e11]
+  - button "Share" [ref=e12] (1 of 2)
+  - button "Share" [ref=e13] (2 of 2)
+  - 7 items, each: button "Add"
+    - "Item 1": e14
+    - "Item 2": e15
+    - "Item 3": e16
+    - "Item 4": e17
+    - "Item 5": e18
+    - "Item 6": e19
+    - "Item 7": e20
+  - div [ref=e21] (1 of 2)
+  - div [ref=e22] (2 of 2)
+  - button "Help" [ref=e23] (1 of 2)
+  - button "Help" [ref=e24] (2 of 2)
+--- cor_snapshot {} (1398 chars)
+"Pricing" {base}/fixture/pricing — 24 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>). "N items, each: …": every item has those controls; its line lists their refs in that order.
+
+- section "Team Ultimate" › button "Choose" [ref=e1] +1 hidden
+- section "Volume" › button "Contact Sales" [ref=e2]
+- table
+  - column "Team Ultimate"
+    - combobox = "5 users | $75 per user" [ref=e3]
+    - button "Choose" [ref=e4] +1 hidden
+  - column "Volume" › button "Contact Sales" [ref=e5]
+- section "Users"
+  - item "Alice" › button "Delete" [ref=e6]
+  - item "Bob" › button "Delete" [ref=e7]
+  - section "Basic" › button "Buy" [ref=e8]
+  - section "Pro" › button "Buy" [ref=e9]
+  - section "Extras" › button "Scroll" [ref=e10]
+  - section "Extras" › button "Scroll" [ref=e11]
+  - button "Share" [ref=e12] (1 of 2)
+  - button "Share" [ref=e13] (2 of 2)
+  - 7 items, each: button "Add"
+    - "Item 1": e14
+    - "Item 2": e15
+    - "Item 3": e16
+    - "Item 4": e17
+    - "Item 5": e18
+    - "Item 6": e19
+    - "Item 7": e20
+  - div [ref=e21] (1 of 2)
+  - div [ref=e22] (2 of 2)
+  - button "Help" [ref=e23] (1 of 2)
+  - button "Help" [ref=e24] (2 of 2)

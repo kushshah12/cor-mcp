@@ -1,0 +1,107 @@
+# bs-buy-cy
+Now at {base}/site/bstackdemo — "StackDemo" (HTTP 200). Browser: {browser}.
+Framework: no framework found — rendering Playwright. Pass framework: "…" to change.
+Locators: page objects in tests/pages/ (default — no specs found).
+
+"StackDemo" {base}/site/bstackdemo — 72 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>). "N items, each: …": every item has those controls; its line lists their refs in that order.
+
+- link "logo" [ref=e1]
+- link "Favourites" [ref=e2]
+- link "Orders" [ref=e3]
+- link "Offers" [ref=e4] (1 of 2)
+- textbox "Search" [ref=e5]
+- button "flowchart main Search" [ref=e6]
+- navigation › link "Sign In" [ref=e7]
+- link "banner main" [ref=e8]
+- section "Vendors:"
+  - checkbox "Apple" [ref=e9]
+  - checkbox "Samsung" [ref=e10]
+  - checkbox "Google" [ref=e11]
+  - checkbox "OnePlus" [ref=e12]
+- section "25 Product(s) found." › combobox = "Select" [ref=e13]
+- 25 items, each: button "delete", clickable "Add to cart"
+  - "iPhone 12": e14, e15
+  - "iPhone 12 Mini": e16, e17
+  - "iPhone 12 Pro Max": e18, e19
+  - "iPhone 12 Pro": e20, e21
+  - "iPhone 11": e22, e23
+  - "iPhone 11 Pro": e24, e25
+  - "iPhone XS": e26, e27
+  - "iPhone XR": e28, e29
+  - "iPhone XS Max": e30, e31
+  - "Galaxy S20": e32, e33
+  - "Galaxy S20+": e34, e35
+  - "Galaxy S20 Ultra": e36, e37
+  - "Galaxy S10": e38, e39
+  - "Galaxy S9": e40, e41
+  - "Galaxy Note 20": e42, e43
+  - "Galaxy Note 20 Ultra": e44, e45
+  - "Pixel 4": e46, e47
+  - "Pixel 3": e48, e49
+  - "Pixel 2": e50, e51
+  - "One Plus 8": e52, e53
+  - "One Plus 8T": e54, e55
+  - "One Plus 8 Pro": e56, e57
+  - "One Plus 7T": e58, e59
+  - "One Plus 7": e60, e61
+  - "One Plus 6T": e62, e63
+- clickable "0" (.bag) [ref=e64]
+- clickable "Continue Shopping" [ref=e65]
+- link "Offers" [ref=e66] (2 of 2)
+- link "Contact Us" [ref=e67]
+- link "Privacy Policy" [ref=e68]
+- link "Careers" [ref=e69]
+- link "Read More" [ref=e70]
+- textbox "Email" [ref=e71]
+- button "Subscribe to Newsletter" [ref=e72]
+--- cor_inspect {"selector":"[id=\"2\"] .shelf-item__buy-btn","framework":"cypress"} (3415 chars)
+Recommended — parameterised: 25 items share this shape; every value checked, each finds exactly its own item (25/25).
+  Proof: emulated — not run in Cypress. The template was checked in the page for every value; its Cypress idioms were not conformance-tested on this version.
+  title = "iPhone 12 Mini"   (also: "iPhone 12", "iPhone 12 Pro Max", "iPhone 12 Pro", "iPhone 11", … 20 more)
+  const shelfItem = (title) =>
+    cy.get('div.shelf-item')
+      .contains('p.shelf-item__title', new RegExp(`^\\s*${Cypress._.escapeRegExp(title)}\\s*$`))
+      .closest('div.shelf-item');
+  shelfItem(title).find('div.shelf-item__buy-btn')
+  Every item (25 now): cy.get('div.shelf-item') — loop over it when the test covers every item, so one added later is tested too.
+  When the test touches more than one item, write one function taking title instead of a locator per item.
+  The 24 lookalike clickable "Add to cart" elements are the other items — pass their title instead.
+
+For this one item alone there is no durable locator (best is Risky) — a test attribute would fix that: <div data-testid="add-to-cart">.
+Declined as the answer — the most durable single-item locator today:
+1. cy.get('[id="2"] div.shelf-item__buy-btn')
+   40 Risky · 1 match
+   ! Generated id value — not stable across sessions or deploys (id="2")
+   ! Anchored on a class name — breaks whenever a redesign renames it (shelf-item__buy-btn)
+
+Entry — place in tests/pages/bstackdemo.page.js, member addToCart (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · addToCart · helper, once per file (module scope)
+  const shelfItem = (title) =>
+    cy.get('div.shelf-item')
+      .contains('p.shelf-item__title', new RegExp(`^\\s*${Cypress._.escapeRegExp(title)}\\s*$`))
+      .closest('div.shelf-item');
+  // COR cor:{id} · addToCart
+  addToCart = (title) => shelfItem(title).find('div.shelf-item__buy-btn');
+  // COR cor:{id} · shelfItems
+  shelfItems = () => cy.get('div.shelf-item');
+  // COR cor:{id} · addToCartOf
+  addToCartOf = (item) => cy.wrap(item).find('div.shelf-item__buy-btn');
+Facts:
+  • a locator matching 25 elements: an action fails, an assertion runs on all of them
+  • 24 other visible clickable "Add to cart"s look the same
+Note: Cypress guidance prefers data-cy attributes and this page has none — ask for data-cy on the elements you test.
+
+Why this order: Demoted div.shelf-item__buy-btn (score 65) — Matches 25 elements — Cypress cy.get() yields all of them — an action command fails, an assertion runs against the whole set. Ranked [id="2"] div.shelf-item__buy-btn first because it resolves to exactly one element.
+Framework convention applied: cypress (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on a human-named, hand-written class; risk: generated id value; chosen over cy.get('div.shelf-item__buy-btn') because it matches more than one element
+
+Alternatives:
+2. cy.get('div[data-sku="iPhone12-device-info.png"][id="2"] div.shelf-item__buy-btn')
+   40 Risky · 1 match
+   ! Generated id value — not stable across sessions or deploys (id="2")
+   ! Anchored on a class name — breaks whenever a redesign renames it (shelf-item__buy-btn)
+   ! Long selector (72 chars) — hard to read and usually over-specified
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)

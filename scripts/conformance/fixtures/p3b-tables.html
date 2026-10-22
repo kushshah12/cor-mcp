@@ -1,0 +1,28 @@
+<!doctype html>
+<title>P3b tables</title>
+<table class="users">
+  <thead><tr><th>Name</th><th>Role</th><th>Status</th><th>Action</th></tr></thead>
+  <tbody>
+    <tr><td>Ada</td><td>Admin</td><td>Active</td><td><button>Edit</button></td></tr>
+    <tr><td>Grace</td><td>Viewer</td><td>Invited</td><td><button>Edit</button></td></tr>
+    <tr><td>Linus</td><td>Editor</td><td>Active</td><td><button>Edit</button></td></tr>
+  </tbody>
+</table>
+<!-- selectorshub's shape: a checkbox column with no header and no key text comes first. -->
+<table class="picks">
+  <tr><th></th><th>Username</th><th>Role</th></tr>
+  <tr><td><input type="checkbox"></td><td>joe</td><td>Admin</td></tr>
+  <tr><td><input type="checkbox"></td><td>ann</td><td>Viewer</td></tr>
+</table>
+<!-- A header cell spanning two columns: positions no longer line up. -->
+<table class="spans">
+  <tr><th>Plan</th><th colspan="2">Price</th></tr>
+  <tr><td>Basic</td><td>$5</td><td>$50</td></tr>
+  <tr><td>Pro</td><td>$9</td><td>$90</td></tr>
+</table>
+<!-- No column names every row uniquely: a row cannot be addressed by key. -->
+<table class="dupes">
+  <tr><th>Name</th><th>City</th><th>Joined</th></tr>
+  <tr><td>Sam</td><td>Oslo</td><td>2024</td></tr>
+  <tr><td>Sam</td><td>Oslo</td><td>2024</td></tr>
+</table>

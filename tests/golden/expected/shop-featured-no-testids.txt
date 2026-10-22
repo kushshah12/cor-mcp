@@ -1,0 +1,59 @@
+# shop-featured-no-testids
+Now at {base}/app/inventory.html — "COR Shop â€” Products" (HTTP 200). Browser: {browser}.
+Framework: Playwright — from cor.config.js.
+Locators: page objects in tests/pages/ (cor.config.js).
+
+"COR Shop â€” Products" {base}/app/inventory.html — 12 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>). "N items, each: …": every item has those controls; its line lists their refs in that order.
+
+- header
+  - link "COR Shop" [ref=e1]
+  - link "Cart, empty" [ref=e2]
+- combobox "Sort" = "Name" [ref=e3] ✓id
+- 4 items, each: button "Add to cart"
+  - "Coffee Mug": e4 ✓id
+  - "Gel Pen": e5 ✓id
+  - "Baseball Cap": e6 ✓id
+  - "Logo T-Shirt": e7 ✓id
+- section "Featured"
+  - 3 sections, each: link "Details"
+    - "Sticker Pack": e8
+    - "Tote Bag": e9
+    - "Water Bottle": e10
+- textbox "Email" [ref=e11]
+- button "Subscribe" [ref=e12]
+--- cor_inspect {"selector":".tile:nth-child(2) .tile__go"} (2088 chars)
+Recommended — parameterised: 3 items share this shape; every value checked, each finds exactly its own item (3/3).
+  Proof: counted by Playwright, every value.
+  title = "Tote Bag"   (also: "Sticker Pack", "Water Bottle")
+  page.locator('div.tile').filter({ has: page.getByRole('heading', { name: title, exact: true }) }).getByRole('link', { name: 'Details', exact: true })
+  Registry template (css-string): div.tile:has(h4.tile__name:text-is("__title__")) >> role=link[name="Details"s]
+  Every item (3 now): page.locator('div.tile') — loop over it (for (const item of await ….all())) when the test covers every item, so one added later is tested too.
+  When the test touches more than one item, write one function taking title instead of a locator per item.
+  The 2 lookalike link "Details" elements are the other items — pass their title instead.
+
+For this one item alone (playwright):
+  page.locator('a[href="#tote"]')
+  Point-in-time — true on this page now: 93 Excellent · 1 match
+  + Anchored on a stable, human-named id
+  + Short and shallow
+
+Entry — place in tests/pages/inventory.page.js, member details (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · details
+  details = (title) => this.page.locator('div.tile').filter({ has: this.page.getByRole('heading', { name: title, exact: true }) }).getByRole('link', { name: 'Details', exact: true });
+  // COR cor:{id} · tiles
+  tiles = () => this.page.locator('div.tile');
+  // COR cor:{id} · detailsOf
+  detailsOf = (item) => item.getByRole('link', { name: 'Details', exact: true });
+Facts:
+  • a locator matching 3 elements: the test fails at once
+  • 2 other visible link "Details"s look the same
+Framework convention applied: playwright (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: anchored on a stable, human-named id; no known risk
+
+Alternatives:
+2. page.locator('main a[href="#tote"]')
+   93 Excellent · 1 match
+(4 more alternatives not shown — cor_inspect with all: true lists every one.)

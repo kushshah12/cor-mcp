@@ -1,0 +1,38 @@
+COR Labs Proprietary Software Licence
+
+Copyright (c) 2026 COR Labs (https://corlabs.dev). All rights reserved.
+
+This licence applies to the software published as @corlabsdev/mcp (the "Software"),
+including the code bundled inside it.
+
+1. Grant. You may install and run the Software, unmodified, for your own
+   development and testing, including in your continuous integration. The
+   licence is non-exclusive, non-transferable and revocable.
+
+2. Restrictions. Unless COR Labs agrees in writing, you may not:
+   a. copy, redistribute, sublicense, sell, rent or host the Software, or offer
+      it to others as a service;
+   b. modify it, or create derivative works of it;
+   c. decompile, disassemble or reverse engineer it, except as far as the law
+      allows despite this restriction;
+   d. remove or alter any notice in it.
+
+3. Your output. Locators, test code and other files the Software produces for
+   you belong to you. COR Labs claims no rights in them.
+
+4. Other software. Packages installed alongside the Software (for example the
+   MCP SDK, zod and playwright-core) are licensed under their own terms, not
+   this one.
+
+5. No warranty. The Software is provided "as is", without warranty of any
+   kind, express or implied, including merchantability, fitness for a particular
+   purpose and non-infringement.
+
+6. Limit of liability. To the extent the law allows, COR Labs is not liable for
+   any indirect or consequential loss, or for any loss arising from use of the
+   Software, whatever the cause.
+
+7. Termination. This licence ends automatically if you breach it. On
+   termination you must stop using the Software and delete your copies.
+
+Questions, or a different licence: https://corlabs.dev

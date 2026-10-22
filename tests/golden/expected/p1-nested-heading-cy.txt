@@ -1,0 +1,30 @@
+# p1-nested-heading-cy
+Now at {base}/fixture/p1-nested-heading — "Nested heading" (HTTP 200). Browser: {browser}.
+Framework: Cypress v16 — from ./package.json (cypress). Override with framework: "…".
+Locators: page objects in cypress/pages/ (default — no specs found).
+
+"Nested heading" {base}/fixture/p1-nested-heading — 0 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
+
+--- cor_inspect {"selector":"#checkout-root h3"} (1213 chars)
+Best locator (cypress):
+  cy.get('#checkout-root h3')
+  Point-in-time — true on this page now: 71 Good · 1 match
+  + Scoped under a stable ancestor anchor
+
+Entry — place in cypress/pages/p1NestedHeading.page.js, member liveTeamProHeading (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · liveTeamProHeading
+  liveTeamProHeading = () => cy.get('#checkout-root h3');
+Note: Cypress guidance prefers data-cy attributes and this page has none — ask for data-cy on the elements you test.
+
+Why this order: Ranked #checkout-root h3 first — #checkout-root div div div div div h3 (score 61) walks anonymous tag nesting (3+ bare tags in a row): any wrapper added or removed breaks it, and COR never issues that.
+Framework convention applied: cypress (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: scoped under a stable ancestor anchor; no known risk
+
+Alternatives:
+2. cy.contains('Live - Team Pro')
+   61 Fair · 1 match
+   ! Coupled to display copy — breaks on wording changes and localization (Live - Team Pro)
+(3 more alternatives not shown — cor_inspect with all: true lists every one.)

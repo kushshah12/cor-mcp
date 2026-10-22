@@ -1,0 +1,35 @@
+<!doctype html>
+<title>Control groups</title>
+<style>
+  .toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .toggle label { display: inline-block; padding: 4px 10px; border: 1px solid #888; cursor: pointer; }
+</style>
+<!-- BrowserStack's billing radios: one name carries a promo percentage. -->
+<fieldset>
+  <label><input type="radio" name="billing_cycle" value="annual" checked> Annually <span>(Save upto 25%)</span></label>
+  <label><input type="radio" name="billing_cycle" value="monthly"> Monthly</label>
+</fieldset>
+<!-- BrowserStack's plan-type switch: hidden radios behind visible labels. -->
+<div class="toggle">
+  <input type="radio" id="pt1" name="plan_type_selector" value="teams" checked><label for="pt1">For Teams</label>
+  <input type="radio" id="pt2" name="plan_type_selector" value="individuals"><label for="pt2">For Individuals</label>
+</div>
+<!-- Product tabs. -->
+<div role="tablist" aria-label="Product">
+  <button role="tab" aria-selected="true">Live</button>
+  <button role="tab">Automate</button>
+  <button role="tab">Percy</button>
+</div>
+<!-- Two options with the same name cannot be told apart. -->
+<fieldset>
+  <label><input type="radio" name="ship" value="a"> Standard</label>
+  <label><input type="radio" name="ship" value="b"> Standard</label>
+</fieldset>
+<!-- A lone radio is not a group. -->
+<label><input type="radio" name="solo" value="x"> Only one</label>
+<p id="state"></p>
+<!-- Marketing copy repeats a toggle's text: an unscoped getByText("For Teams") finds two. -->
+<p class="promo">For Teams</p>
+<script>
+  for (const r of document.querySelectorAll('input[type=radio]')) r.addEventListener('change', () => (document.getElementById('state').textContent = r.name + '=' + r.value));
+</script>

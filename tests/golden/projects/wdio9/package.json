@@ -1,0 +1,1 @@
+{ "name": "golden-wdio9", "private": true, "devDependencies": { "@wdio/cli": "^9.32.0" } }

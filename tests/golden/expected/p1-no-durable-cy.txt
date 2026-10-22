@@ -1,0 +1,36 @@
+# p1-no-durable-cy
+Now at {base}/fixture/p1-no-durable — "No durable locator" (HTTP 200). Browser: {browser}.
+Framework: Cypress v16 — from ./package.json (cypress). Override with framework: "…".
+Locators: page objects in cypress/pages/ (default — no specs found).
+
+"No durable locator" {base}/fixture/p1-no-durable — 0 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
+
+--- cor_inspect {"selector":".list > div:nth-child(2) .dot"} (1855 chars)
+Recommendation: change the application — no durable locator exists for this element (best is Unstable).
+Add a test attribute (this requires an application change):
+  <span data-testid="span-target">
+
+Declined as the answer — the most durable locator available today:
+1. cy.get('div > div:nth-of-type(2) > span:nth-of-type(1)')
+   27 Unstable · 1 match
+   ! Depends on element position — silently picks a different element when order changes
+   ! Unique only by position — matches whatever occupies that slot, not this element
+
+Entry — declined: no durable locator — the best is Unstable. COR issues no locator for this element. If the test must use it, put this line above the locator you write; cor_check then reports it as declined, cited (the app needs a test attribute):
+  // COR cor:{id} · declined — no durable locator — the best is Unstable
+Facts:
+  • a locator matching 3 elements: an action fails, an assertion runs on all of them
+Note: Cypress guidance prefers data-cy attributes and this page has none — ask for data-cy on the elements you test.
+
+Why this order: Demoted span.dot (score 65) — Matches 3 elements — Cypress cy.get() yields all of them — an action command fails, an assertion runs against the whole set. Ranked div > div:nth-of-type(2) > span:nth-of-type(1) first because it resolves to exactly one element.
+Framework convention applied: cypress (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: risk: depends on element position; chosen over cy.get('span.dot') because it matches more than one element
+
+Alternatives:
+2. cy.get('span.dot')
+   65 Fair · 3 matches
+   ! Anchored on a class name — breaks whenever a redesign renames it (dot)
+   ! Matches 3 elements — may interact with the wrong one (matches 3 elements)

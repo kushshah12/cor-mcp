@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>G1c form fields</title></head>
+<body>
+<!-- G1c (gold locators): a form's labelled fields in rows that share a class (shadcn-admin's Add User dialog). Each row is
+     one field, not an item of a list: the field is found by its label, and no template over the label text is offered. -->
+<main>
+  <h1>Users</h1>
+  <button type="button" role="combobox" aria-label="Rows per page"><span>10</span></button>
+  <ul class="todos">
+    <li class="todo"><input type="checkbox" id="t1"><label for="t1">Buy milk</label></li>
+    <li class="todo"><input type="checkbox" id="t2"><label for="t2">Walk dog</label></li>
+    <li class="todo"><input type="checkbox" id="t3"><label for="t3">Call mum</label></li>
+  </ul>
+</main>
+<div role="dialog" aria-label="Add New User">
+  <form id="user-form" class="space-y-4">
+    <div class="field grid grid-cols-6"><label class="col-span-2" for="f1">First Name</label><input class="input col-span-4" id="f1" name="firstName"></div>
+    <div class="field grid grid-cols-6"><label class="col-span-2" for="f2">Last Name</label><input class="input col-span-4" id="f2" name="lastName"></div>
+    <div class="field grid grid-cols-6"><label class="col-span-2" for="f3">Email</label><input class="input col-span-4" id="f3" name="email"></div>
+    <div class="field grid grid-cols-6"><label class="col-span-2" for="f4">Phone Number</label><input class="input col-span-4" id="f4" name="phoneNumber"></div>
+    <div class="field grid grid-cols-6"><label class="col-span-2" for="f5">Role</label><button type="button" role="combobox" class="trigger" id="f5" data-size="default"><span>Select a role</span></button></div>
+  </form>
+  <button type="submit" form="user-form">Save changes</button>
+</div>
+</body></html>

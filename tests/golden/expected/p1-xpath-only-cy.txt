@@ -1,0 +1,49 @@
+# p1-xpath-only-cy
+Now at {base}/fixture/p1-xpath-only — "Compare" (HTTP 200). Browser: {browser}.
+Framework: Cypress v16 — from ./package.json (cypress). Override with framework: "…".
+Locators: page objects in cypress/pages/ (default — no specs found).
+
+"Compare" {base}/fixture/p1-xpath-only — 0 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
+
+--- cor_inspect {"selector":"div[data-product-id=\"live\"] table:nth-of-type(3) tr:nth-child(2) td:nth-child(4)"} (2786 chars)
+Recommended — parameterised by row and column: 1 rows × 4 columns; every row and column checked (5/5).
+  Proof: rendered from a checked template (every value checked in the page); Cypress 16.1.1 idioms conformance-tested.
+  featureList = "Priority Support"   (also: )
+  column = "Enterprise"   (also: "Feature List", "Team", "Team Ultimate")
+  const cell = (featureList, column) => {
+    const header = 'table.cmp__table tr:has(th) th, table.cmp__table tr:has(th) th span.toggle, table.cmp__table tr:has(th) th h3.plan, table.cmp__table tr:has(th) th span';
+    const key = 'table.cmp__table tr > :nth-child(1)';
+    const is = (text) => new RegExp(`^\\s*${Cypress._.escapeRegExp(text)}\\s*$`);
+    return cy.contains(header, is(column)).closest('th').invoke('index')
+      .then((i) => cy.contains(key, is(featureList)).closest('tr').children().eq(i));
+  };
+  When the test reads more than one cell, write one function taking featureList and column.
+
+For this one item alone there is no durable locator (best is Unstable) — a test attribute would fix that: <td data-testid="td-target">.
+Declined as the answer — the most durable single-item locator today:
+1. cy.get('div > section > table:nth-of-type(3) > tbody > tr > td:nth-of-type(3)')
+   1 Unstable · 1 match
+   ! Depends on element position — silently picks a different element when order changes
+   ! Traverses 5 levels of page structure — breaks on layout refactors
+   ! Unique only by position — matches whatever occupies that slot, not this element
+   ! Long selector (69 chars) — hard to read and usually over-specified
+
+Entry — place in cypress/pages/p1XpathOnly.page.js, member cellAt (cor_check reads the cor: id; keep the comment):
+  // COR cor:{id} · cellAt · helper, once per file (module scope)
+  const cell = (featureList, column) => {
+    const header = 'table.cmp__table tr:has(th) th, table.cmp__table tr:has(th) th span.toggle, table.cmp__table tr:has(th) th h3.plan, table.cmp__table tr:has(th) th span';
+    const key = 'table.cmp__table tr > :nth-child(1)';
+    const is = (text) => new RegExp(`^\\s*${Cypress._.escapeRegExp(text)}\\s*$`);
+    return cy.contains(header, is(column)).closest('th').invoke('index')
+      .then((i) => cy.contains(key, is(featureList)).closest('tr').children().eq(i));
+  };
+  // COR cor:{id} · cellAt
+  cellAt = (featureList, column) => cell(featureList, column);
+Facts:
+  • column headers are in a separate table above the rows
+Note: Cypress guidance prefers data-cy attributes and this page has none — ask for data-cy on the elements you test.
+Framework convention applied: cypress (published guidance).
+
+Durable — stays true while the locator string is unchanged. Place it beside the locator only if the user wants locator annotations:
+// COR: risk: depends on element position

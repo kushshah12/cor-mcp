@@ -1,0 +1,24 @@
+<!doctype html><html><head><title>COR Shop — Products</title><style>body{font-family:sans-serif;margin:0} header{display:flex;justify-content:space-between;padding:8px 16px;background:#eee} main{padding:16px} .card{list-style:none;display:inline-block;width:180px;margin:8px;padding:8px;border:1px solid #ccc} .badge{background:#c00;color:#fff;border-radius:8px;padding:0 6px} .rail{display:flex;gap:8px} .tile{border:1px dashed #999;padding:6px} table{border-collapse:collapse} td,th{border:1px solid #ccc;padding:4px}</style></head><body>
+<header><a href="inventory.html" class="logo">COR Shop</a><a id="cart-link" href="cart.html" aria-label="Cart, empty">Cart <span class="badge" data-test="cart-badge" hidden></span></a></header>
+<main><h1>Products</h1>
+<label for="sort">Sort</label><select id="sort" data-test="sort"><option value="name">Name</option><option value="price">Price</option></select>
+<ul data-test="inventory-list"></ul>
+<h2>Featured</h2>
+<!-- No test ids here: the SDET fallback (class scope, exact title). -->
+<div class="rail">
+  <div class="tile"><h4 class="tile__name">Sticker Pack</h4><a class="tile__go" href="#sticker">Details</a></div>
+  <div class="tile"><h4 class="tile__name">Tote Bag</h4><a class="tile__go" href="#tote">Details</a></div>
+  <div class="tile"><h4 class="tile__name">Water Bottle</h4><a class="tile__go" href="#bottle">Details</a></div>
+</div>
+<h2>Recent orders</h2>
+<table class="orders">
+  <thead><tr><th>Order</th><th>Status</th><th>Total</th></tr></thead>
+  <tbody>
+    <tr><td>A-1001</td><td>Shipped</td><td>$15</td></tr>
+    <tr><td>A-1002</td><td>Processing</td><td>$40</td></tr>
+    <tr><td>A-1003</td><td>Delivered</td><td>$3</td></tr>
+  </tbody>
+</table>
+<h2>Newsletter</h2><div id="newsletter"></div>
+</main>
+<script src="shop.js"></script><script>shop.inventory()</script></body></html>

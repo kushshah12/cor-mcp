@@ -1,0 +1,23 @@
+<!doctype html>
+<title>Toggles</title>
+<style>
+  .toggle input { position: absolute; opacity: 0; width: 0; height: 0; }
+  .toggle label { display: inline-block; padding: 6px 12px; border: 1px solid #888; cursor: pointer; }
+  .toggle input:checked + label { background: #333; color: #fff; }
+  .gone { display: none; }
+</style>
+<!-- BrowserStack pricing's plan-type switch: hidden radios, visible labels. -->
+<div class="toggle">
+  <input type="radio" id="t1" name="plan" value="teams"><label for="t1">For Teams</label>
+  <input type="radio" id="t2" name="plan" value="individuals" checked><label for="t2">For Individuals</label>
+</div>
+<!-- A switch-style checkbox wrapped by its label. -->
+<div class="toggle"><label><input type="checkbox" id="annual"> Bill annually</label></div>
+<!-- A plain visible radio stays listed the ordinary way. -->
+<label><input type="radio" name="size" value="s"> Small</label>
+<!-- Hidden input with a hidden label: not on screen at all. -->
+<div class="gone"><input type="radio" id="x" name="plan"><label for="x">For Enterprises</label></div>
+<p id="plan">individuals</p>
+<script>
+  for (const r of document.querySelectorAll('input[name="plan"]')) r.addEventListener('change', () => (document.getElementById('plan').textContent = r.value));
+</script>

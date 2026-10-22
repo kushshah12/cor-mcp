@@ -1,0 +1,232 @@
+// U9: cor_check — every locator in the changed test files must carry a COR id (R31, R43, R47). A typed or positional
+// one fails and comes back with COR's entry to paste (R32); a working one with no id is tied to its element's record
+// and gets the id to add (R44). Identity is the id, or the element a locator finds — never its text (R46).
+import { execFileSync } from 'node:child_process';
+import { existsSync, readFileSync, realpathSync } from 'node:fs';
+import { join, relative, resolve, sep } from 'node:path';
+import { z } from 'zod';
+import { scanLocators, scanYaml } from '../check-scan.js';
+import { walkFiles } from '../walk.js';
+import { parseGradable } from '../grade-parse.js';
+import { callPage } from '../page-runtime.js';
+import { ID_PATTERN, pageSlug, pathOf, recordPage } from '../records.js';
+import { verifyPages } from '../verify.js';
+import { bannedSelector, isIndexReason } from '../positional.js';
+
+const text = (value) => ({ content: [{ type: 'text', text: value }] });
+const CODE = /\.[cm]?[jt]sx?$/;
+const MAX_FILES = 2000;
+const MAX_FINDINGS = 15;
+// P8b: how long cor_check spends verifying every placed record on every recorded page; the rest is "not checked".
+export const CHECK_VERIFY_MS = 20_000;
+const posix = (p) => p.split(sep).join('/');
+
+// Review fix: a hung git must not block the MCP server.
+const git = (root, args) => execFileSync('git', args, { cwd: root, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'], timeout: 10_000, maxBuffer: 64 * 1024 * 1024 }).trim();
+
+/** Files changed on this branch, uncommitted, or untracked — absolute paths — or null outside a git repo. */
+export function changedFiles(root) {
+  let top;
+  try { top = git(root, ['rev-parse', '--show-toplevel']); } catch { return null; }
+  let base = null;
+  for (const ref of ['origin/HEAD', 'origin/main', 'origin/master', 'main', 'master']) {
+    try { base = git(root, ['merge-base', 'HEAD', ref]); break; } catch { /* next */ }
+  }
+  if (!base) return null; // no merge base (shallow clone, unusual default branch): the caller checks every file and says so
+  const names = new Set();
+  const add = (out) => out.split('\n').filter(Boolean).forEach((n) => names.add(resolve(top, n)));
+  try { add(git(root, ['diff', '--name-only', base])); } catch { /* no commits yet */ }
+  // Review fix: --full-name — without it ls-files prints paths relative to the cwd, and a project in a subfolder lost its new specs.
+  try { add(git(root, ['ls-files', '--others', '--exclude-standard', '--full-name'])); } catch { /* ignore */ }
+  // git reports real paths (macOS: /private/var/… for /var/…); answer in the root's own spelling.
+  const real = realpathSync(root);
+  return [...names].filter((f) => (f === real || f.startsWith(real + sep)) && existsSync(f)).map((f) => join(root, relative(real, f)));
+}
+
+/** Candidate files only (code, JSON, YAML), capped — `truncated` says when the cap cut the walk short. */
+const allFiles = (root) => walkFiles(root, { accept: (name) => CODE.test(name) || /\.(json|ya?ml)$/.test(name), maxFiles: MAX_FILES });
+
+export function checkTools(session, inspector, records = null) {
+  const MAX_FIXES = MAX_FINDINGS; // each fix runs an inspect and may write a record: only for findings that are shown
+  return [{
+    name: 'cor_check',
+    config: {
+      title: 'Check every locator in the test files carries a COR id',
+      description:
+        'Run before the tests. Scans the test and locator files changed on this branch (or all: true for the whole project) and fails any locator ' +
+        'without a COR id (the // COR cor:… comment an entry carries), any id COR did not issue here, and any positional pick (.first(), .nth(), .eq(), [n]). ' +
+        'With the locator\'s page open it returns the fix: COR\'s entry to paste, or the id to add for a locator COR already has a record of.',
+      inputSchema: {
+        files: z.array(z.string()).optional().describe('Files to check, relative to the project root. Default: changed files.'),
+        all: z.boolean().optional().describe('Check every file in the project instead of the changed ones.'),
+      },
+    },
+    handler: async ({ files, all = false }) => {
+      await session.prepare();
+      const root = session.root;
+      const changed = files?.length || all ? null : changedFiles(root);
+      if (changed && !changed.length) return text('cor_check: no test or locator files changed on this branch — nothing to check. Pass all: true to check every file.');
+      const listed = files?.length ? files.map((f) => resolve(root, f)) : changed ?? allFiles(root);
+      const scope = files?.length ? 'the given files' : changed ? 'files changed on this branch' : 'all project files';
+      const storeDir = posix(session.conventions.storeDir.value);
+      // Review fix: with capture off, committed records cannot be extended — ids are checked for presence only.
+      // P8a: an id COR issued is a record (placed) or a pending entry (shown, not yet in code).
+      const recordsOn = records?.enabled !== false && ['records', 'pending'].some((d) => existsSync(join(root, '.cor', d)));
+      const known = new Set(recordsOn && records ? [...records.list(), ...records.listPending()] : []);
+      const usedIn = new Map(); // P8a: id → the code locations found in this scan
+      const scanned = new Set();
+      let sidecar = {};
+      try { sidecar = JSON.parse(readFileSync(join(root, '.cor', 'ids.json'), 'utf8')); } catch { /* none */ }
+      const page = session.isOpen ? await session.getPage() : null;
+      const framework = session.resolveFramework() ?? null;
+
+      const findings = [];
+      const cited = []; // P1: a decline id — COR recorded that no durable locator exists here; reported, not failed
+      let fixes = 0;
+      let count = 0;
+      let filesWithLocators = 0;
+      for (const file of listed) {
+        const rel = posix(relative(root, file));
+        if (rel.startsWith('.cor/') || rel.startsWith('node_modules/') || rel.startsWith('../')) continue;
+        const inStore = storeDir === '.' || rel.startsWith(`${storeDir}/`);
+        let src;
+        try { src = readFileSync(file, 'utf8'); } catch { continue; }
+        scanned.add(rel);
+        let sites = [];
+        if (CODE.test(rel)) sites = scanLocators(src, framework);
+        else if (inStore && /\.ya?ml$/.test(rel)) sites = scanYaml(src, framework);
+        else if (inStore && rel.endsWith('.json')) {
+          let map = null;
+          try { map = JSON.parse(src); } catch { /* not ours */ }
+          if (map && typeof map === 'object') sites = Object.keys(map).map((key) => ({ line: 1, key, id: sidecar[`${rel}#${key}`] ?? null, statement: `${key}: ${JSON.stringify(map[key])}`, positional: bannedSelector(String(map[key]).replace(/^(?:css|xpath)=/, ''), framework) }));
+        }
+        if (!sites.length) continue;
+        filesWithLocators++;
+        for (const site of sites) {
+          count++;
+          const where = `${rel}:${site.line}`;
+          if (site.id && known.has(site.id)) usedIn.set(site.id, [...(usedIn.get(site.id) ?? []), { file: rel, line: site.line }]);
+          const shown = site.statement.split('\n')[0].slice(0, 100);
+          if (site.positional) {
+            const declined = site.id && known.has(site.id) ? records?.read(site.id)?.declined : null;
+            if (declined) { cited.push({ where, id: site.id, why: declined }); continue; }
+            findings.push({ where, what: `${shown} — ${site.positional}${isIndexReason(site.positional) ? '' : ' (COR never issues this shape)'}.`, fix: await fixFor(site) });
+          } else if (site.id && (known.has(site.id) || !recordsOn)) {
+            const declined = recordsOn ? records?.read(site.id)?.declined : null;
+            if (declined) { cited.push({ where, id: site.id, why: declined }); continue; }
+            // Review fix: an id copied onto another locator, or an entry extended with a typed step, finds a different
+            // element than its record — checked by element on the record's page (R46: never by comparing text).
+            const drift = recordsOn ? await elementDrift(site) : null;
+            if (drift) findings.push({ where, what: drift, fix: await fixFor(site) });
+            continue; // issued by COR (with records off, the id is all there is to check)
+          } else if (site.id) {
+            findings.push({ where, what: `cor:${site.id} is not a record COR issued in this project (copied from elsewhere, or edited?).`, fix: await fixFor(site) });
+          } else {
+            findings.push({ where, what: `${shown} — no COR id.`, fix: helperFix(site, src) ?? await fixFor(site) });
+          }
+        }
+      }
+
+      /** Review fix: an id on a locator that, on the record's own page, finds a different element than the one recorded. */
+      async function elementDrift(site) {
+        const record = records?.read(site.id);
+        if (site.label || !page || !site.expression || !record || pathOf(record.page) !== pathOf(recordPage(page.url()))) return null;
+        try {
+          const loc = parseGradable(site.expression).build(page);
+          if (await loc.count() !== 1) return null; // broken or ambiguous here: cor_grade / cor_heal territory, not identity
+          const handle = await loc.elementHandle();
+          const r = await callPage(page, 'inspect', { element: handle, framework: 'playwright', max: 1 }).finally(() => handle.dispose());
+          return r.capture?.elementKey && r.capture.elementKey !== record.elementKey
+            ? `cor:${site.id} was issued for another element on this page — the locator was edited after COR issued it.` : null;
+        } catch { return null; }
+      }
+
+      /**
+       * P3 (runs 92a3c7e6, 8cf9312a): a module-scope helper placed without its `// COR … · helper` line — the member that calls it
+       * carries the id, so say which line to add instead of "not readable" (the agent worked the ids out by hand).
+       */
+      function helperFix(site, src) {
+        const name = /^(?:export\s+)?const\s+(\w+)\s*=\s*(?:async\s*)?\(/.exec(site.statement)?.[1];
+        if (!name) return null;
+        // a `// COR cor:<id> · <member>` line whose member, on the next line, calls the helper
+        const lines = src.split('\n');
+        for (let i = 0; i + 1 < lines.length; i++) {
+          const c = /\/\/ COR cor:([0-9a-f]{6}) · (\w+)(?!.*· helper)/.exec(lines[i]);
+          if (c && known.has(c[1]) && new RegExp(`\\b${name}\\(`).test(lines[i + 1])) {
+            return [`This is the helper of ${c[2]} (cor:${c[1]}): add this line above it — no other change:`, `  // COR cor:${c[1]} · ${c[2]} · helper, once per file (module scope)`];
+          }
+        }
+        return null;
+      }
+
+      /** COR's fix for a site: run its locator on the open page; the element it finds gets an entry (or its existing id). */
+      async function fixFor(site) {
+        if (fixes++ >= MAX_FIXES) return ['Fix the ones above and run cor_check again for this one.'];
+        if (!page) return [`Open the page it targets (cor_open) and run cor_check again for COR's entry — or cor_inspect the element.`];
+        // b14ddae4: a step added to a member (items().locator(…)) cannot be run on its own — the page being open does not help.
+        if (!site.expression) return ['COR cannot run this locator on its own (it builds on another member) — cor_inspect the element (cor_snapshot within its region for a ref) and place its entry.'];
+        let parsed;
+        try { parsed = parseGradable(site.expression, { framework: session.resolveFramework() ?? undefined }); } catch (error) { return [`Not readable as a locator COR can run (${error.message}) — cor_inspect the element and place its entry.`]; }
+        let handle = null;
+        try {
+          const loc = parsed.build(page);
+          if (await loc.count() === 1) handle = await loc.elementHandle();
+        } catch { /* not on this page */ }
+        if (!handle) return ['It finds no single element on the open page — open the page it targets, or cor_inspect the element and place its entry.'];
+        const before = new Set(known);
+        let entry = null;
+        let declined = null;
+        try { ({ entry, declined } = await inspector({ element: handle, quiet: true })); } catch { /* page changed under us */ } finally { await handle.dispose().catch(() => {}); }
+        if (!entry) return ['COR has no durable locator for this element — cor_inspect it for the recommendation.'];
+        const id = ID_PATTERN.exec(entry.join('\n'))?.[1];
+        if (id) known.add(id);
+        // Review fix: the fix is for the element this locator finds on the OPEN page — say which page, in case it targets another.
+        const on = `On ${pathOf(page.url())} (if this locator targets another page, cor_open it and run cor_check again):`;
+        if (declined) return [on, ...entry.filter(Boolean).map((l) => `  ${l}`)];
+        if (!site.positional && id && before.has(id)) return [on, `COR already has a record of this element: add \`// COR cor:${id}\` on the line above it (keep the locator).`];
+        return [on, 'Replace it with COR\'s entry:', ...entry.filter(Boolean).map((l) => `  ${l}`)];
+      }
+
+      // P8a: ids found in code are placed — promoted out of pending with the elements their steps replay — and their code
+      // locations kept current. A full scan also sends records no code uses back to pending; old pending entries expire.
+      if (recordsOn && records?.enabled) {
+        const kept = new Set();
+        for (const [id, found] of usedIn) { records.promote(id, kept); records.place(id, found, scanned); }
+        if (all && !files?.length && !listed.truncated) for (const id of records.list()) if (!kept.has(id)) records.demote(id);
+        records.prune();
+      }
+
+      // P8b (R19): every placed record on every recorded page, verified in background tabs — a failure is reported at each
+      // code location that uses it. Only with a browser open: cor_check never launches one for this.
+      const scanFindings = findings.length;
+      let verifiedNote = '';
+      if (recordsOn && records?.enabled && page) {
+        const pages = records.listPages();
+        for (const id of records.list()) { const r = records.read(id); if (r?.usedIn?.length) pages[pageSlug(r.page)] ??= { page: r.page, reach: { open: pathOf(r.page) }, states: {} }; }
+        const results = await verifyPages({ context: page.context(), records, pages, slugs: Object.keys(pages), current: page.url(), capMs: CHECK_VERIFY_MS }).catch(() => new Map());
+        const used = [...results.values()].filter((r) => r.record.usedIn?.length);
+        const tally = (s) => used.filter((r) => r.status === s).length;
+        for (const r of used.filter((x) => ['heal', 'reinspect', 'unreached'].includes(x.status))) {
+          const { id, member } = r.record;
+          const what = r.status === 'unreached' ? `state not reached — ${r.why}` : `broken on ${pathOf(r.record.page)} — ${r.why}`;
+          const fix = r.status === 'heal' ? [`cor_heal cor:${id} (with ${pathOf(r.record.page)} open) proposes the replacement.`]
+            : r.status === 'reinspect' ? [`cor_open ${pathOf(r.record.page)}, cor_inspect the element and replace the entry.`] : ['Fix the step named above first.'];
+          for (const u of r.record.usedIn) findings.push({ where: `${u.file}:${u.line}`, what: `cor:${id}${member ? ` (${member})` : ''} ${what}.`, fix });
+        }
+        const rest = [tally('needs state') && `${tally('needs state')} need a state (cor_inspect them once)`, tally('not checked') && `${tally('not checked')} not checked (time cap)`, tally('unchecked') && `${tally('unchecked')} COR cannot check yet (cor_open their page for why)`].filter(Boolean);
+        if (used.length) verifiedNote = ` Records: ${tally('verified')} of ${used.length} verified on the live page${rest.length ? `, ${rest.join(', ')}` : ''}.`;
+      }
+
+      const cut = listed.truncated ? ` Scanned the first ${MAX_FILES} files only — pass files to check the rest.` : '';
+      const declinedNote = cited.length ? `, ${cited.length} declined (cited)` : '';
+      const head = `cor_check: ${count} locator${count === 1 ? '' : 's'} in ${filesWithLocators} file${filesWithLocators === 1 ? '' : 's'} (${scope}) — ${count - scanFindings - cited.length} carry a COR id${declinedNote}, ${findings.length} to fix.${cut}${verifiedNote}`;
+      const citedLines = cited.length ? ['', 'Declined, cited — COR found no durable locator; each needs a test attribute in the app:', ...cited.map((c) => `  ${c.where} cor:${c.id} — ${c.why}`)] : [];
+      if (listed.truncated && !findings.length) return text([head, ...citedLines].join('\n'), true);
+      if (!findings.length) return text(`${[head, ...citedLines].join('\n')}${recordsOn ? '' : '\nNo .cor/records/ in this project (records off): ids were checked for presence only.'}`);
+      const lines = [head, ...citedLines, ''];
+      for (const f of findings.slice(0, MAX_FINDINGS)) lines.push(`✗ ${f.where} — ${f.what}`, ...f.fix.map((l) => `  ${l}`), '');
+      if (findings.length > MAX_FINDINGS) lines.push(`… ${findings.length - MAX_FINDINGS} more — fix these and run cor_check again.`);
+      return { content: [{ type: 'text', text: lines.join('\n').trimEnd() }], isError: true };
+    },
+  }];
+}

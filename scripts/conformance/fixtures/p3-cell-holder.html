@@ -1,0 +1,19 @@
+<!doctype html>
+<title>P3 BrowserStack's comparison: names inside their cells</title>
+<style>.tip__body { display: none }</style>
+<!-- The row name is a span beside a tooltip; the column name an h3 (or a toggle label) above other text. A hidden product's
+     copy repeats some rows, so only some combinations are ambiguous unscoped. Cypress finds each name by its holder element. -->
+<div data-plan-type="teams">
+<table class="comparison">
+  <tr><th>Feature List</th><th><label class="toggle-label">Team</label><p>$150</p></th><th><h3 class="col-title">Team Ultimate</h3><p>$375</p></th><th><h3 class="col-title">Volume</h3></th></tr>
+  <tr><td><span class="feature-name">Bug Capture</span> <span class="tip">i<span class="tip__body">About Bug Capture</span></span></td><td></td><td><img alt="Feature included" class="tick" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="12" height="12"></td><td>Contact Sales</td></tr>
+  <tr><td><span class="feature-name">Geolocation Testing</span> <span class="tip">i<span class="tip__body">About Geolocation Testing</span></span></td><td><img alt="Feature included" class="tick" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="12" height="12"></td><td><img alt="Feature included" class="tick" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="12" height="12"></td><td>Contact Sales</td></tr>
+  <tr><td><span class="feature-name">Local Testing</span> <span class="tip">i<span class="tip__body">About Local Testing</span></span></td><td><img alt="Feature included" class="tick" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="12" height="12"></td><td></td><td></td></tr>
+</table>
+</div>
+<div data-plan-type="individuals" style="display:none">
+<table class="comparison">
+  <tr><th>Feature List</th><th><label class="toggle-label">Team</label></th><th><h3 class="col-title">Team Ultimate</h3></th><th><h3 class="col-title">Volume</h3></th></tr>
+  <tr><td><span class="feature-name">Bug Capture</span> <span class="tip">i<span class="tip__body">About Bug Capture</span></span></td><td><img alt="Feature included" class="tick" src="data:image/gif;base64,R0lGODlhAQABAAAAACw=" width="12" height="12"></td><td></td><td></td></tr>
+</table>
+</div>

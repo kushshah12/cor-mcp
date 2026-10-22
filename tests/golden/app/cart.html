@@ -1,0 +1,4 @@
+<!doctype html><html><head><title>COR Shop — Cart</title><style>body{font-family:sans-serif;margin:0} header{display:flex;justify-content:space-between;padding:8px 16px;background:#eee} main{padding:16px} .card{list-style:none;display:inline-block;width:180px;margin:8px;padding:8px;border:1px solid #ccc} .badge{background:#c00;color:#fff;border-radius:8px;padding:0 6px} .rail{display:flex;gap:8px} .tile{border:1px dashed #999;padding:6px} table{border-collapse:collapse} td,th{border:1px solid #ccc;padding:4px}</style></head><body>
+<header><a href="inventory.html" class="logo">COR Shop</a><a id="cart-link" href="cart.html" aria-label="Cart, empty">Cart <span class="badge" data-test="cart-badge" hidden></span></a></header>
+<main><h1>Your cart</h1><ul data-test="cart-list"></ul><p data-test="total"></p><button data-test="checkout">Checkout</button></main>
+<script src="shop.js"></script><script>shop.cart()</script></body></html>

@@ -1,0 +1,6 @@
+<!doctype html>
+<title>P3a radios whose name another control also answers to</title>
+<style>.pick input { position: absolute; opacity: 0; width: 0; height: 0 } .pick label { cursor: pointer; padding: 4px 8px; border: 1px solid #888 }</style>
+<!-- getByRole('radio', { name }) is exact about the role; aria/Alpha is not: it also finds the button -->
+<div class="pick"><input type="radio" id="a" name="mode" value="a" checked><label for="a">Alpha</label><input type="radio" id="b" name="mode" value="b"><label for="b">Beta</label></div>
+<button>Alpha</button>

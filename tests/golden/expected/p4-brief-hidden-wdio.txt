@@ -1,0 +1,18 @@
+# p4-brief-hidden-wdio
+Now at {base}/fixture/toggles — "Toggles" (HTTP 200). Browser: {browser}.
+Framework: WebdriverIO v9 — from ./package.json (@wdio/cli). Override with framework: "…".
+Locators: page objects in test/pageobjects/ (default — no specs found).
+
+"Toggles" {base}/fixture/toggles — 4 interactive elements
+Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>). [via label]: a hidden input shown by its label — click the label, check state on the input.
+
+- radio "For Teams" [ref=e1] [via label]
+- radio "For Individuals" [ref=e2] [checked] [via label]
+- checkbox "Bill annually" [ref=e3] [via label]
+- radio "Small" [ref=e4]
+--- cor_inspect {"selector":"#annual","detail":false} (345 chars)
+✓ billAnnuallyInput → test/pageobjects/toggles.page.js — 93 Excellent · 1 match
+  // COR cor:{id} · billAnnuallyInput
+  billAnnuallyInput = () => $('#annual');
+  // COR cor:{id} · billAnnuallyInputLabel · label — the input is hidden: click this, assert billAnnuallyInput's checked state
+  billAnnuallyInputLabel = () => $('label=Bill annually');
