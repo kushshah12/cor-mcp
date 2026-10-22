@@ -178,6 +178,18 @@ export function renderSnapshot(snapshot, { unstableIds = new Set() } = {}) {
   return [head, legend, ...framesNote(snapshot.frames), '', ...lines].join('\n');
 }
 
+/**
+ * U7: one iframe's controls, under the page outline. Same node rendering as the page; the refs are the frame's own,
+ * and each one resolves in that frame.
+ * @param {{ label: string, sameOrigin: boolean }} frame
+ * @param {{ count: number, tree: object[] }} snapshot  the frame's own snapshot
+ */
+export function renderFrameSection(frame, snapshot, { unstableIds = new Set() } = {}) {
+  const origin = frame.sameOrigin ? 'same origin' : 'another site';
+  const head = `Frame "${frame.label}" (${origin}) — ${snapshot.count} interactive element${snapshot.count === 1 ? '' : 's'}`;
+  return [head, ...renderNodes(snapshot.tree, 0, unstableIds, [], { groups: 0, runs: 0, total: snapshot.count })];
+}
+
 // ── region index (P2a) ──────────────────────────────────────────────────────
 // A large page's outline (BrowserStack pricing: 205 controls, 8.6k characters) is replaced by one line per region: its
 // name, how many controls it holds, and the named controls to act on first — toggles and fields, then buttons, then links.

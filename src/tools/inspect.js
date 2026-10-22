@@ -1,8 +1,8 @@
-import { frameHint } from '../frames.js';
+import { frameHint, frameLocatorPrefix, readFrames, targetFor } from '../frames.js';
 import { z } from 'zod';
 import { callPage } from '../page-runtime.js';
 import { inspectParts, renderBrief, renderInspect } from '../format.js';
-import { renderAmbiguousScope, renderIndex, renderScoped, renderSnapshot } from '../format-snapshot.js';
+import { renderAmbiguousScope, renderFrameSection, renderIndex, renderScoped, renderSnapshot } from '../format-snapshot.js';
 import { REF, checkRef, goneError } from './refs.js';
 import { applyIdVerdicts, checkIds, numberedIds } from '../id-stability.js';
 import { parseGradable } from '../grade-parse.js';
@@ -164,8 +164,22 @@ export async function pageOutline(session, page, { idCache = new Map(), full = f
   );
   const snapshot = await callPage(page, 'snapshot', { start: session.highestRef + 1 });
   session.issueRefs(snapshot.live);
-  const outline = renderSnapshot(snapshot, { unstableIds });
-  return full || outline.length <= INDEX_OVER ? outline : renderIndex(snapshot);
+  // U7: each visible iframe's controls follow the page outline. "Not listed" names only the frames that could not be read.
+  const { sections, unread } = await readFrames(session, page);
+  const withFrames = { ...snapshot, frames: unread.map((u) => ({ name: u.label === 'unnamed' ? null : u.label, sameOrigin: u.sameOrigin })) };
+  const outline = renderSnapshot(withFrames, { unstableIds });
+  const body = full || outline.length <= INDEX_OVER ? outline : renderIndex(withFrames);
+  if (!sections.length) return body;
+  return [body, ...sections.map((s) => renderFrameSection(s, s.snapshot, { unstableIds }).join('\n'))].join('\n\n');
+}
+
+/** U7: a frame control's locators read from the page: `page.getByRole(…)` becomes `page.frameLocator(…).getByRole(…)`. */
+function prefixFrameLocators(result, prefix) {
+  const fix = (code) => (typeof code === 'string' && code.startsWith('page.') ? prefix + code.slice('page.'.length) : code);
+  for (const l of result.locators ?? []) {
+    l.code = fix(l.code);
+    l.value = fix(l.value);
+  }
 }
 
 /**
@@ -255,8 +269,15 @@ export function createInspector(session, idCache = new Map(), records = null) {
   return async function inspect({ ref, selector, element, framework: asked, all = false, quiet = false, reuseId = null }) {
     const framework = session.resolveFramework(asked) ?? 'playwright';
     const page = await openPage();
-    let result = await callPage(page, 'inspect', { ref, selector, element, framework, max: 6, testIdAttribute: session.testIdAttribute, order: session.order });
+    // U7: a ref from an iframe resolves in that frame; its entries reach it through a frameLocator chain.
+    const target = ref ? targetFor(session, page, ref) : page;
+    const inFrame = target !== page;
+    if (inFrame && framework !== 'playwright') {
+      throw new Error(`"${ref}" is in an iframe. COR builds frame entries for Playwright only — pass framework: "playwright", or reach the frame in your ${framework} test yourself.`);
+    }
+    let result = await callPage(target, 'inspect', { ref, selector, element, framework, max: 6, testIdAttribute: session.testIdAttribute, order: session.order });
     if (result.error === 'unknown-ref' || result.error === 'detached') throw goneError(ref);
+    if (inFrame) prefixFrameLocators(result, await frameLocatorPrefix(target));
     if (result.error === 'invalid-selector') {
       // U21: not CSS — a Playwright selector (:text-is, >>, text=)? Playwright resolves it.
       const matches = page.locator(selector);
@@ -274,15 +295,18 @@ export function createInspector(session, idCache = new Map(), records = null) {
           : `"${selector}" matches ${result.count} elements — narrow it to one, or call cor_snapshot and pass a ref.`,
       );
     }
-    await verifyNumberedIds(page, result.locators, idCache);
-    await verifyTemplate(page, result.params);
+    // U7: the id and template checks read the top document, which does not hold a frame's controls; skipped for those.
+    if (!inFrame) {
+      await verifyNumberedIds(page, result.locators, idCache);
+      await verifyTemplate(page, result.params);
+    }
     await noteStartsOpen(page, result.params);
     const top = result.locators.reduce((a, b) => (b.score > a.score ? b : a), result.locators[0]);
     if (top?.volatileId && top !== result.locators[0]) {
       const [best] = result.locators;
       result.rankingNote = `Demoted ${top.value} (score ${top.score}) — its id changes on every page load (${top.volatileId.id} was ${top.volatileId.seen} on a fresh load). Ranked ${best.value} first.`;
     }
-    if (framework === 'playwright' && result.dialog) await scopeToDialog(page, result);
+    if (framework === 'playwright' && result.dialog && !inFrame) await scopeToDialog(page, result);
     sinkBanned(result, framework);
     const refsLive = Boolean(session.refs && !session.refs.staleBecause);
     // once per session: the note is about the page, not this element
