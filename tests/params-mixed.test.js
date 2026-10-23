@@ -11,7 +11,7 @@ import { createServer } from '../src/server.js';
 import { createSession } from '../src/session.js';
 import { callPage } from '../src/page-runtime.js';
 import { verifyTemplate } from '../src/tools/inspect.js';
-import { interpolateTemplate } from '../../client/src/interpolate.js';
+import { interpolateTemplate } from './helpers/interpolate.js';
 
 let base;
 const site = createHttpServer((req, res) => {

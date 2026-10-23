@@ -27,7 +27,7 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
   let queue = Promise.resolve();
   // What the last cor_snapshot issued. Refs name elements in one page state;
   // any navigation or act call ends that state and they must not be resolved.
-  let refs = null; // { issued: Set<ref>, staleBecause, dropped: { ref: reason } }
+  let refs = null; // { issued: Set<ref>, staleBecause, dropped: { ref: reason }, owners: Map<ref, Frame> }
   let navigations = 0; // main-frame navigations, so an act can tell it navigated
 
   async function launch() {
@@ -155,14 +155,25 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
     /** The refs the page now resolves — the whole set, after a full or scoped snapshot. */
     issueRefs(live, { expiredBefore = null } = {}) {
       note(live);
-      refs = { issued: new Set(live), staleBecause: null, dropped: {}, expiredBefore };
+      refs = { issued: new Set(live), staleBecause: null, dropped: {}, expiredBefore, owners: new Map() };
     },
+    /** U7: refs one iframe issued during the same full snapshot. `frame` is the Playwright Frame that resolves them. */
+    addFrameRefs(live, frame) {
+      if (!refs) return;
+      note(live);
+      refs.issued = new Set([...refs.issued, ...live]);
+      for (const r of live) refs.owners.set(r, frame);
+    },
+    /** U7: the frame that issued `ref`, or null when the top document did. */
+    frameFor(ref) { return refs?.owners?.get(ref) ?? null; },
     /** The highest ref number issued on any page so far: a new document numbers from here, so an old ref never names a new element. */
     get highestRef() { return highestRef; },
     /** After an act (U16): the page's re-checked live set, plus why any ref was dropped. */
     rebindRefs(live, dropped) {
       note(live);
-      refs = { issued: new Set(live), staleBecause: null, dropped: { ...(refs?.dropped ?? {}), ...dropped } };
+      // U7: frame refs are not re-checked by the top-document act check; they stay issued and fail at resolve time if gone.
+      const frameRefs = [...(refs?.owners?.keys() ?? [])];
+      refs = { issued: new Set([...live, ...frameRefs]), staleBecause: null, dropped: { ...(refs?.dropped ?? {}), ...dropped }, owners: refs?.owners ?? new Map() };
     },
     get navigations() { return navigations; },
     get refs() { return refs; },

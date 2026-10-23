@@ -110,7 +110,7 @@ test('P2a a large page: cor_open gives the region index (~1k) and points at cor_
   const opened = (await call('cor_open', { url: `${base}/p2a-large` })).text;
   const index = opened.slice(opened.indexOf('"Large pricing"'));
   assert.ok(index.length < 1500, `index is ${index.length} characters`);
-  assert.match(index, /114 interactive elements in \d+ regions \(index\)/);
+  assert.match(index, /274 interactive elements in \d+ regions \(index\)/);
   assert.match(index, /^- section "Plans" \(16\): radio "Monthly" \[ref=e\d+\] \[checked\], radio "Annual"/m, 'toggles first');
   assert.match(index, /items: .*"Team Pro"/, 'the cards are named');
   assert.match(index, /^- 5 link lists \(60 links\)/m, 'footer columns fold to one line');
@@ -119,5 +119,8 @@ test('P2a a large page: cor_open gives the region index (~1k) and points at cor_
   assert.equal(existsSync(join(dir, '.cor/snapshots')), false, 'every agent read the file whole with Bash: it is not written');
   const q = refOf(index, /button "Question 2\?" \[ref=(e\d+)\]/);
   assert.match((await call('cor_click', { ref: q })).text, /Answer 2\./, 'index refs are live');
-  assert.match((await call('cor_snapshot', { full: true })).text, /link "Link 5\.12" \[ref=e\d+\]/, 'full: true still lists every control');
+  const whole = (await call('cor_snapshot', { full: true })).text;
+  assert.match(whole, /button "Option 160" \[ref=e\d+\]/, 'full: true is the whole outline, not the index');
+  assert.match(whole, /footer: 60 links, folded/, 'a link list over half the page folds in full too (U20)');
+  assert.match((await call('cor_snapshot', { within: 'footer' })).text, /link "Link 5\.12" \[ref=e\d+\]/, 'the folded links are listed by their region');
 });

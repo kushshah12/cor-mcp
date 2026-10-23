@@ -9,7 +9,7 @@ import { InMemoryTransport } from '@modelcontextprotocol/sdk/inMemory.js';
 import { createServer } from '../src/server.js';
 import { createSession } from '../src/session.js';
 import { callPage } from '../src/page-runtime.js';
-import { interpolateTemplate } from '../../client/src/interpolate.js';
+import { interpolateTemplate } from './helpers/interpolate.js';
 import { expandGroups } from './helpers/outline.js';
 
 let base;

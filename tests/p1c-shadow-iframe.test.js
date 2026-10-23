@@ -118,19 +118,22 @@ test('P3: when the best candidate is usable it leads as before (light DOM)', asy
 });
 
 // ── iframes ──
-test('iframe check: the snapshot names the frames it cannot read', async () => {
+test('iframe check: the snapshot reads a same-origin frame as its own section (U7)', async () => {
   await open('/frames');
   const { text } = await call('cor_snapshot');
-  assert.match(text, /^Not listed: 1 iframe — "payment" \(same origin\)\. COR reads the top document only; controls inside a frame are not in this list and cannot be inspected or acted on yet\.$/m);
+  assert.match(text, /^Frame "payment" \(same origin\) — 1 interactive element$/m);
   assert.match(text, /button "Back"/, 'the top document is still listed');
-  assert.doesNotMatch(text, /Pay now/);
+  assert.match(text, /button "Pay now"/, 'the frame control is listed');
+  assert.doesNotMatch(text, /Not listed/);
 });
 
 test('iframe check: a sandboxed frame is another site; many frames are capped; hidden and zero-size ones are not reported', async () => {
   await open('/sandboxed');
-  assert.match((await call('cor_snapshot')).text, /^Not listed: 1 iframe — "ads" \(another site\)\./m);
+  assert.match((await call('cor_snapshot')).text, /^Frame "ads" \(another site\) — 1 interactive element$/m);
   await open('/manyframes');
-  assert.match((await call('cor_snapshot')).text, /^Not listed: 4 iframes — "f1" \(same origin\), "f2" \(same origin\), "f3" \(same origin\) and 1 more\./m);
+  const many = (await call('cor_snapshot')).text;
+  for (const n of [1, 2, 3, 4]) assert.match(many, new RegExp(`^Frame "f${n}" \\(same origin\\)`, 'm'));
+  assert.doesNotMatch(many, /Not listed/);
   await open('/hiddenframe');
   assert.doesNotMatch((await call('cor_snapshot')).text, /Not listed/);
   await open('/light');
@@ -143,7 +146,7 @@ test('iframe check: an element that is not found says a frame may hold it — fo
     const r = await call(tool, args);
     assert.equal(r.isError, true, tool);
     assert.match(r.text, /No element matches "#pay"/, tool);
-    assert.match(r.text, /Not listed: 1 iframe — "payment"/, tool);
+    assert.match(r.text, /Some controls are in iframes: pass a ref from cor_snapshot/, tool);
   }
   await open('/light');
   const plain = await call('cor_inspect', { selector: '#nothing' });
