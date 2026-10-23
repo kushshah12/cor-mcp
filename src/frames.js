@@ -81,15 +81,18 @@ export async function frameLocatorPrefix(frame) {
       index: [...e.ownerDocument.querySelectorAll('iframe,frame')].indexOf(e),
     }));
     await element.dispose();
-    steps.push(frameLocatorStep(attrs));
+    // No title, name, or usable id: the frame's host is stable across loads, so `src*=` on it beats a positional index.
+    const host = (() => { try { return new URL(f.url()).host; } catch { return null; } })();
+    steps.push(frameLocatorStep({ ...attrs, host }));
   }
   return `page.${steps.join('.')}.`;
 }
 
-function frameLocatorStep({ title, name, id, index }) {
+function frameLocatorStep({ title, name, id, index, host }) {
   const quote = (s) => `'${s.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
   if (title && !title.includes('"') && !title.includes(']')) return `frameLocator(${quote(`iframe[title="${title}"]`)})`;
   if (name && !name.includes('"') && !name.includes(']')) return `frameLocator(${quote(`iframe[name="${name}"]`)})`;
   if (id && /^[\w-]+$/.test(id)) return `frameLocator(${quote(`#${id}`)})`;
+  if (host && !host.includes('"') && !host.includes(']')) return `frameLocator(${quote(`iframe[src*="${host}"]`)})`;
   return `frameLocator('iframe').nth(${index})`;
 }

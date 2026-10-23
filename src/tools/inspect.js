@@ -173,13 +173,20 @@ export async function pageOutline(session, page, { idCache = new Map(), full = f
   return [body, ...sections.map((s) => renderFrameSection(s, s.snapshot, { unstableIds }).join('\n'))].join('\n\n');
 }
 
-/** U7: a frame control's locators read from the page: `page.getByRole(…)` becomes `page.frameLocator(…).getByRole(…)`. */
+/**
+ * U7: a frame control's code reads from the page: `page.getByRole(…)` becomes `page.frameLocator(…).getByRole(…)`. Covers the
+ * locator list and the parameterised template (its helper body is `params.code`), so a helper for a frame control keeps its frame.
+ */
 function prefixFrameLocators(result, prefix) {
   const fix = (code) => (typeof code === 'string' && code.startsWith('page.') ? prefix + code.slice('page.'.length) : code);
-  for (const l of result.locators ?? []) {
-    l.code = fix(l.code);
-    l.value = fix(l.value);
-  }
+  const walk = (node) => {
+    if (Array.isArray(node)) { for (const n of node) walk(n); return; }
+    if (!node || typeof node !== 'object') return;
+    for (const key of ['code', 'value']) if (typeof node[key] === 'string') node[key] = fix(node[key]);
+    for (const child of Object.values(node)) if (child && typeof child === 'object') walk(child);
+  };
+  walk(result.locators);
+  walk(result.params);
 }
 
 /**

@@ -19,6 +19,11 @@ const PAGES = {
     <iframe title="inner" src="/pay" style="width:300px;height:100px"></iframe>`,
   '/pay': `<title>Pay</title><button id="pay" onclick="this.textContent = 'Paid'">Pay now</button>`,
   '/light': '<title>Light</title><button id="plain">Plain</button>',
+  '/radios': '<title>Survey</title><h1>Survey</h1><iframe src="/survey" style="width:300px;height:160px"></iframe>',
+  '/survey': '<title>Form</title><fieldset><legend>Did you install it?</legend>'
+    + '<label><input type="radio" name="q" value="Yes">Yes</label>'
+    + '<label><input type="radio" name="q" value="No">No</label>'
+    + '<label><input type="radio" name="q" value="Installed Now">Installed Now</label></fieldset>',
 };
 const OTHER_PAGES = { '/ad': '<title>Ad</title><button id="buy">Buy now</button>' };
 
@@ -135,4 +140,14 @@ test('frames: a page without frames is unchanged — no frame sections, no Not l
   assert.doesNotMatch(text, /Frame "/);
   assert.doesNotMatch(text, /Not listed/);
   assert.match(text, /button "Plain"/);
+});
+
+test('frames: a parameterised helper for a control inside a frame keeps the frame (fix 1)', async () => {
+  const { text } = await open('/radios');
+  const yes = refFor(text, 'Yes');
+  const { text: entry, isError } = await call('cor_inspect', { ref: yes, framework: 'playwright' });
+  assert.equal(isError, false, entry);
+  // The detailed reply shows the helper's code as `page.frameLocator(…)…`; the frame must be in it.
+  assert.match(entry, /page\.frameLocator\('iframe\[src\*="127\.0\.0\.1:\d+"\]'\)\.getByRole\('radio', \{ name: q, exact: true \}\)/, 'the helper reads from the frame');
+  assert.doesNotMatch(entry, /(?:^|\n|= \(\w+\) => )\s*(?:this\.)?page\.getByRole\('radio'/, 'no helper reads from the top page');
 });
