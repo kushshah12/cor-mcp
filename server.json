@@ -1,0 +1,20 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "dev.corlabs/mcp",
+  "description": "Scored, maintainable locators from a live page for AI coding agents, with checks and repairs.",
+  "repository": {
+    "url": "https://github.com/kushshah12/cor-mcp",
+    "source": "github"
+  },
+  "version": "0.1.7",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "@corlabsdev/mcp",
+      "version": "0.1.7",
+      "transport": {
+        "type": "stdio"
+      }
+    }
+  ]
+}

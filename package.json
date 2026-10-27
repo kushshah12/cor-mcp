@@ -1,6 +1,6 @@
 {
   "name": "@corlabsdev/mcp",
-  "version": "0.1.4",
+  "version": "0.1.7",
   "description": "MCP server that gives AI coding agents scored, maintainable, parameterised locators from a live page, in the test framework your repo already uses, then checks and repairs them.",
   "homepage": "https://corlabs.dev",
   "keywords": [
@@ -58,5 +58,5 @@
     "type": "git",
     "url": "git+https://github.com/kushshah12/cor-mcp.git"
   },
-  "mcpName": "io.github.kushshah12/cor-mcp"
+  "mcpName": "dev.corlabs/mcp"
 }
