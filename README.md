@@ -4,6 +4,8 @@ An MCP server that lets a coding agent open a page, pick an element, and get ran
 
 More at [corlabs.dev](https://corlabs.dev).
 
+[![Corlabs MCP server](https://mcprush.com/badge/corlabs-mcp/card.svg)](https://mcprush.com/to/corlabs-mcp?ref=badge)
+
 ## Install
 
 Requires Node 18+ and Google Chrome (Microsoft Edge, or Playwright's Chromium, also work). Nothing is installed globally: your agent runs the server with `npx`.
