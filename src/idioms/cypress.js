@@ -3,7 +3,7 @@
 import { cellHelperName, helperName, js, plainValue, withinBar } from './shared.js';
 
 /** Idioms this renderer can emit (each has a conformance case, §10). */
-export const IDIOMS = ['item.attribute', 'item.label', 'item.either', 'leaf.css', 'leaf.css.shown', 'leaf.role', 'leaf.name', 'every', 'variant.click',
+export const IDIOMS = ['item.attribute', 'item.label', 'item.either', 'leaf.css', 'leaf.css.shown', 'leaf.role', 'leaf.name', 'leaf.text', 'every', 'variant.click',
   'group.role', 'group.label', 'group.label-click', 'group.tl', 'cell.css'];
 
 // The anchored, whitespace-tolerant name (a wrapping label puts spaces around the text — found by E1 in real Cypress 16).
@@ -36,6 +36,8 @@ export function leaf(model, from, { testingLibrary } = {}) {
   // P3: the item's name, whichever of its naming elements holds it — compared exactly, like the item helper.
   if (l?.nameSels) return { idiom: 'leaf.name', code: `${from}.contains(${js(l.nameSels)}, ${exactName(model.param)})` };
   if (l?.cy) return { idiom: l.cy.shown ? 'leaf.css.shown' : 'leaf.css', code: `${from}.find(${js(l.cy.css)})${l.cy.shown ? ".filter(':visible')" : ''}` };
+  // cwq-u7: by element type and exact text when no CSS names it in every item (anchored regex — a string is a substring match)
+  if (l?.cyText) return { idiom: 'leaf.text', code: `${from}.contains(${js(l.cyText.tag)}, /^\\s*${l.cyText.name.replace(/[.*+?^${}()|[\]\\/]/g, '\\$&')}\\s*$/)` };
   return null;
 }
 

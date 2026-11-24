@@ -6,7 +6,7 @@ Locators: page objects in cypress/pages/ (default — no specs found).
 "Nested heading" {base}/fixture/p1-nested-heading — 0 interactive elements
 Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
 
---- cor_inspect {"selector":"#checkout-root h3"} (1213 chars)
+--- cor_inspect {"selector":"#checkout-root h3"} (1227 chars)
 Best locator (cypress):
   cy.get('#checkout-root h3')
   Point-in-time — true on this page now: 71 Good · 1 match
@@ -24,7 +24,7 @@ Durable — stays true while the locator string is unchanged. Place it beside th
 // COR: scoped under a stable ancestor anchor; no known risk
 
 Alternatives:
-2. cy.contains('Live - Team Pro')
+2. cy.contains('h3', /^\s*Live - Team Pro\s*$/)
    61 Fair · 1 match
    ! Coupled to display copy — breaks on wording changes and localization (Live - Team Pro)
 (3 more alternatives not shown — cor_inspect with all: true lists every one.)

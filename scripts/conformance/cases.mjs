@@ -35,4 +35,7 @@ export const CASES = [
   // P6: <input type="submit" value="Choose"> per card (BrowserStack's shape) — named by value; WebdriverIO's aria/ finds it.
   { id: 'p6-submit-input', fixture: 'p6-submit-input.html', target: '.card:nth-child(2) input', idioms: ['leaf.aria'], cy: ['leaf.css'] },
   { id: 'u10-prefix-leaf', fixture: 'u10-slots.html', target: '[data-test="add-to-basket-pen"]', idioms: ['item.label', 'leaf.aria'], cy: ['item.label', 'leaf.css'] },
+  // cwq-u7: shadcn's row action — named by an sr-only span, beside a checkbox <button>, with only utility classes: no CSS names it
+  // in every row, so Cypress reaches it by element type and exact text (leaf.text).
+  { id: 'cwq-u7-row-text-leaf', fixture: 'cwq-u7-row-text-leaf.html', target: 'tbody tr:nth-child(2) td:last-child button', idioms: ['leaf.aria'], cy: ['leaf.text'] },
 ];

@@ -13,6 +13,19 @@ export default defineConfig([
     minify: true,
     clean: false,
   },
+  // cwq-u3: the `cor-aria` selector engine — ariaHits as one self-contained script, registered with Playwright by
+  // src/aria-engine.js so the grader counts WebdriverIO aria/ locators with the same semantics COR issues them by.
+  {
+    entry: { 'aria-engine': 'src/page/aria-engine.js' },
+    format: ['iife'],
+    globalName: '__corAria',
+    platform: 'browser',
+    target: 'es2020',
+    outDir: 'dist',
+    outExtension: () => ({ js: '.js' }),
+    minify: true,
+    clean: false,
+  },
   // The server: bin/ plus src/ as one minified file, so the published package
   // carries no readable source. `dependencies` (sdk, zod, playwright-core) stay
   // external — tsup's default. The engine only reaches the page bundle above.

@@ -6,9 +6,9 @@ Locators: page objects in cypress/pages/ (default — no specs found).
 "Split header" {base}/fixture/p1-split-header — 0 interactive elements
 Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act. "a › b": b inside a. ✓id: test attribute. +N hidden: invisible elements with the same role and name. [unstable id]: id changed on reload. clickable: no role, only cursor: pointer (a script-handled <div>).
 
---- cor_inspect {"selector":"table.body tr:nth-child(2) td:nth-child(3)"} (3045 chars)
+--- cor_inspect {"selector":"table.body tr:nth-child(2) td:nth-child(3)"} (3130 chars)
 Recommended — parameterised by row and column: 3 rows × 4 columns; every row and column checked (7/7).
-  Proof: rendered from a checked template (every value checked in the page); Cypress 16.1.1 idioms conformance-tested.
+  Proof: rendered from a checked template (every value checked in the page); Cypress 16.3.0 idioms conformance-tested.
   feature = "Bug capture"   (also: "Parallel tests", "Screenshots")
   column = "Team Pro"   (also: "Feature", "Team", "Enterprise")
   const cell = (feature, column) => {
@@ -40,6 +40,7 @@ Entry — place in cypress/pages/p1SplitHeader.page.js, member cellAt (cor_check
   cellAt = (feature, column) => cell(feature, column);
 Facts:
   • column headers are in a separate table above the rows
+  • a locator matching 2 elements: the run acts on the first match and does not fail
 Note: Cypress guidance prefers data-cy attributes and this page has none — ask for data-cy on the elements you test.
 
 Why this order: Demoted Yes (score 61) — Matches 2 elements — Cypress cy.contains() yields only the deepest match — the run continues against the wrong element. Ranked //tr[td[normalize-space()="Bug capture"]]/td[3] first because it resolves to exactly one element.
@@ -53,4 +54,4 @@ Alternatives:
    61 Fair · 2 matches
    ! Coupled to display copy — breaks on wording changes and localization (Yes)
    ! Matches 2 elements — may interact with the wrong one (matches 2 elements)
-(2 more alternatives not shown — cor_inspect with all: true lists every one.)
+(3 more alternatives not shown — cor_inspect with all: true lists every one.)

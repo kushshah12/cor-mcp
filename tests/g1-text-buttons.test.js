@@ -10,7 +10,8 @@ import { bannedIn } from '../src/positional.js';
 test('G1b Cypress: a button whose text is in a child span or an sr-only span gets cy.contains(\'button\', …), not a decline', async (t) => {
   const { call } = await connect(t, 'cypress');
   await call('cor_open', { url: `${baseUrl()}/g1-text-buttons` });
-  for (const [target, code] of [['button:has-text("Add User")', "cy.contains('button', 'Add User')"], ['button:has-text("Go to next page")', "cy.contains('button', 'Go to next page')"]]) {
+  // cwq-u7: the whole text, exactly (a plain string is a substring match in Cypress)
+  for (const [target, code] of [['button:has-text("Add User")', "cy.contains('button', /^\\s*Add User\\s*$/)"], ['button:has-text("Go to next page")', "cy.contains('button', /^\\s*Go to next page\\s*$/)"]]) {
     const reply = await call('cor_inspect', { selector: target });
     assert.doesNotMatch(reply, /declined/, reply);
     assert.ok(reply.includes(`= () => ${code};`), reply);

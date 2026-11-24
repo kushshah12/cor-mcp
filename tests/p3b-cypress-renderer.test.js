@@ -125,7 +125,7 @@ test('P3b: cor_inspect for Cypress leads with the helper, its proof line, no XPa
   assert.match(out, /^ {2}const plan = \(title\) =>$/m);
   assert.ok(out.includes(".contains('h3.plan__title, label', new RegExp(`^\\\\s*${Cypress._.escapeRegExp(title)}\\\\s*$`))"), 'the anchored regex');
   assert.match(out, /^ {2}plan\(title\)\.find\('button'\)\.filter\(':visible'\)$/m);
-  assert.match(out, /Proof: rendered from a checked template \(every value checked in the page\); Cypress 16\.1\.1 idioms conformance-tested\./);
+  assert.match(out, /Proof: rendered from a checked template \(every value checked in the page\); Cypress 16\.3\.0 idioms conformance-tested\./);
   assert.match(out, /Variants: "Team Pro" sits behind the "Team" item's toggle — the helper's last line clicks it/);
   assert.match(out, /^ {2}Every item \(2 now\): cy\.get\('div\.plan'\)\.filter\(':visible'\)/m);
   // the engine's own alternatives may still list a cy.xpath candidate (its generic template, not in P3b's scope): the helper block never does
@@ -266,7 +266,7 @@ test('P3b cell: a cell named by a heading inside it (BrowserStack comparison) ge
   const call = await connect(t, { deps: { cypress: '^16.1.0' } });
   await call('cor_open', { url: `${base}/p3a-compare.html` });
   const out = await call('cor_inspect', { selector: 'div[data-product-id="live"] table:nth-of-type(3) tr:nth-child(2) td:nth-child(4)' });
-  assert.match(out, /Proof: rendered from a checked template .* Cypress 16\.1\.1 idioms conformance-tested\./);
+  assert.match(out, /Proof: rendered from a checked template .* Cypress 16\.3\.0 idioms conformance-tested\./);
   assert.match(out, /return cy\.contains\(header, is\(column\)\)\.closest\('th'\)\.invoke\('index'\)/);
   assert.doesNotMatch(out, /cy\.xpath/);
 });

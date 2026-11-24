@@ -63,10 +63,20 @@ test('P4 notes ride along: the every-item loop for a template; a declined elemen
   assert.match(declined, /^fix: add a test attribute — <span data-testid=/m);
 });
 
-test('P4 a helper that reaches only the item is named for the item and says so (Cypress)', async (t) => {
+test('cwq-u7: Cypress reaches the Choose in a card by element type and exact text (leaf.text), not the card alone', async (t) => {
   const call = await connect(t);
   const opened = await call('cor_open', { url: `${base}/cards` });
   const out = await call('cor_inspect', { ref: refOf(opened, /button "Choose" \[ref=(e\d+)\] in "Team"/), framework: 'cypress' });
+  assert.match(out, /^✓ choose\(value\) → /);
+  assert.match(out, /card\(value\)\.contains\('button', \/\^\\s\*Choose\\s\*\$\/\)/);
+  assert.doesNotMatch(out, /finds the item, not the element you inspected/);
+});
+
+test('P4 a helper that reaches only the item is named for the item and says so (Cypress)', async (t) => {
+  const call = await connect(t);
+  // cwq-u7: a hidden twin per card — exact text is no longer unique in the card and no CSS names the shown one
+  await call('cor_open', { url: `${base}/cwq-u7-cards-twins` });
+  const out = await call('cor_inspect', { selector: '.card:first-child > button:not([style])', framework: 'cypress' });
   assert.match(out, /^✓ card\(value\) → /);
   assert.match(out, /^ {2}card = \(value\) => card\(value\);$/m);
   assert.match(out, /^note: card\(…\) finds the item, not the element you inspected/m);

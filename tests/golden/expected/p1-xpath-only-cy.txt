@@ -8,7 +8,7 @@ Pass a ref to cor_inspect or an act tool; refs expire on navigation and any act.
 
 --- cor_inspect {"selector":"div[data-product-id=\"live\"] table:nth-of-type(3) tr:nth-child(2) td:nth-child(4)"} (2786 chars)
 Recommended — parameterised by row and column: 1 rows × 4 columns; every row and column checked (5/5).
-  Proof: rendered from a checked template (every value checked in the page); Cypress 16.1.1 idioms conformance-tested.
+  Proof: rendered from a checked template (every value checked in the page); Cypress 16.3.0 idioms conformance-tested.
   featureList = "Priority Support"   (also: )
   column = "Enterprise"   (also: "Feature List", "Team", "Team Ultimate")
   const cell = (featureList, column) => {
