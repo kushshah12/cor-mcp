@@ -3,8 +3,8 @@
   "runs": [
     {
       "major": 16,
-      "version": "16.1.1",
-      "date": "2026-10-08",
+      "version": "16.3.0",
+      "date": "2026-11-24",
       "idioms": {
         "item.attribute": {
           "ok": true,
@@ -18,17 +18,17 @@
         },
         "every": {
           "ok": true,
-          "checks": 22,
+          "checks": 24,
           "failures": []
         },
         "item.label": {
           "ok": true,
-          "checks": 66,
+          "checks": 78,
           "failures": []
         },
         "every.leaf": {
           "ok": true,
-          "checks": 33,
+          "checks": 39,
           "failures": []
         },
         "item.either": {
@@ -71,9 +71,14 @@
           "checks": 8,
           "failures": []
         },
+        "leaf.text": {
+          "ok": true,
+          "checks": 3,
+          "failures": []
+        },
         "leaf.role": {
           "ok": true,
-          "checks": 27,
+          "checks": 30,
           "failures": []
         },
         "group.tl": {

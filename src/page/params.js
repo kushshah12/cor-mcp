@@ -161,6 +161,18 @@ function leafCss(target, item, items) {
  * the target (a Choose per toggle state) the selector must match every twin — a class that names one state's button would break
  * when the toggle changes — and the helper filters `:visible`. `shown` says that filter is needed.
  */
+/**
+ * cwq-u7: the target inside each item by its element type and exact text, for Cypress's `.contains(tag, /^\s*name\s*$/)` —
+ * when a control's accessible name is its whole text (shadcn's row "Open menu": an sr-only span, no aria-label, and only
+ * utility classes once variant classes stopped counting) and exactly one element of that type carries it in every item.
+ */
+function leafTextCy(target, items, name) {
+  const tag = target.tagName.toLowerCase();
+  if (!name || squash(target.textContent) !== name) return null;
+  const ok = items.every((it) => [...it.querySelectorAll(tag)].filter((el) => squash(el.textContent) === name).length === 1);
+  return ok ? { tag, name } : null;
+}
+
 function leafCssCy(target, item, items, named) {
   const tag = target.tagName.toLowerCase();
   const twinsIn = (it) => (named ? [...it.querySelectorAll('*')].filter((el) => isControl(el) && roleAndName(el).role === named.role && roleAndName(el).name === named.name).length : 1);
@@ -223,7 +235,7 @@ function innerOf(target, item, items) {
   // A css leaf is state-bound when the item holds twins of the target: the shown one changes with the toggle.
   const twins = hasRole && [...item.querySelectorAll('*')].some((el) => el !== target && isControl(el) && roleAndName(el).role === role && roleAndName(el).name === name);
   inner.leaf = { role: hasRole ? role : null, name: hasRole ? name : own, css: twins ? null : leafCss(target, item, items), aria: aria.ok, twins: aria.twins,
-    cy: leafCssCy(target, item, items, hasRole ? { role, name } : null) };
+    cy: leafCssCy(target, item, items, hasRole ? { role, name } : null), cyText: hasRole ? leafTextCy(target, items, name) : null };
   return inner;
 }
 
