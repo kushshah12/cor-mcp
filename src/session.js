@@ -1,4 +1,5 @@
 import { detectFramework, frameworkLine, LABELS } from './detect.js';
+import { registerAriaEngine } from './aria-engine.js';
 import { conventionsLines, loadCorConfig, resolveConventions } from './conventions.js';
 
 // One browser, one page per server process — created on first use, reused
@@ -98,7 +99,9 @@ export function createSession({ headless = false, idleMs = DEFAULT_IDLE_MS, laun
     if (!context) {
       // U3: getByTestId reads the project's testIdAttribute, as it does in the user's own test run.
       // ponytail: Playwright's selectors are process-wide, so every new context sets the attribute (back to the default too).
-      (await import('playwright-core')).selectors.setTestIdAttribute(api.testIdAttribute ?? 'data-testid');
+      const { selectors } = await import('playwright-core');
+      selectors.setTestIdAttribute(api.testIdAttribute ?? 'data-testid');
+      await registerAriaEngine(selectors); // cwq-u3: lets the grader count WebdriverIO aria/ locators
       context = await browser.newContext(storageState ? { storageState } : {});
       storageStatePath = storageState ?? null;
     }

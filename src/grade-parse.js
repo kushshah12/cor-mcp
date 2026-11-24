@@ -59,7 +59,21 @@ function wdioSelector(sel) {
       loose: partial ? { kind: 'partial-text', framework: 'webdriverio', selector: sel, text } : null,
     };
   }
-  if (/^aria\//.test(sel)) throw new NotGradable('aria/ selectors are not graded yet — cor_inspect the element for its locator');
+  // cwq-u3: aria/<name> is counted by the `cor-aria` engine — WebdriverIO's measured semantics (src/page/aria.js).
+  if (/^aria\//.test(sel)) {
+    const name = sel.slice(5);
+    if (!name.trim()) throw new NotGradable('aria/ needs a name after the slash');
+    if (name.includes('>>')) throw new NotGradable('an aria/ name containing ">>" cannot be counted here — cor_inspect the element for its locator');
+    const engine = `cor-aria=${name}`;
+    return {
+      framework: 'webdriverio',
+      // scored as the accessible-name anchor it is (the scorer reads Playwright forms)
+      scoreValue: `page.getByLabel('${name.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}')`,
+      note: "WebdriverIO's aria/ is counted here with its measured semantics (controls by accessible name, hidden ones too, and elements with a matching aria-label, title or placeholder), not run in WebdriverIO",
+      build: (page) => page.locator(engine),
+      inside: (page) => page.locator(engine),
+    };
+  }
   const xp = /^(?:xpath=)?(\(*\.?\/)/.test(sel) ? sel.replace(/^xpath=/, '') : null;
   return { framework: 'webdriverio', scoreValue: sel.replace(/^xpath=/, ''), build: (page) => page.locator(sel), inside: (page) => page.locator(xp ? `xpath=${relativeXpath(xp)}` : sel) };
 }

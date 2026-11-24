@@ -11,6 +11,7 @@
 // when every value passes — otherwise no template, and the reason.
 import { detectCSSFramework, isUnstableClass, isUnstableValue, cssEscape } from '@corlabs/engine/core';
 import { HEADING, INTERACTIVE, deepQueryAll, isControl, isShown, isVisible, roleAndName, squash, visibleLabelOf } from './dom.js';
+import { ariaHits } from './aria.js';
 
 const TEST_ATTRS = ['data-testid', 'data-test-id', 'data-test', 'data-cy', 'data-qa'];
 const NOT_A_SLOT = /^(id|class|style|href|src|srcset|tabindex|aria-.*|on.*|data-(v-|reactid|react|ng-).*)$/;
@@ -183,19 +184,6 @@ function leafCssCy(target, item, items, named) {
     if (ok && item.querySelector(sel) && [...item.querySelectorAll(sel)].filter(isVisible)[0] === target) return { css: sel, shown };
   }
   return null;
-}
-
-/**
- * The elements WebdriverIO's `aria/<name>` finds under `root` (measured on 9.32, scripts/conformance): controls answering to
- * the name — hidden ones too — and elements with a role of their own (a heading) or an aria-label / title / placeholder equal
- * to it. Plain text (<p>, <span>) is found only when no control answers, so it is not counted here.
- */
-function ariaHits(root, name) {
-  return [...root.querySelectorAll('*')].filter((el) => {
-    if (isControl(el)) return squash(roleAndName(el).name) === name;
-    const named = ['aria-label', 'title', 'placeholder'].some((a) => el.getAttribute(a) === name);
-    return named || ((el.matches(HEADING) || el.hasAttribute('role')) && squash(roleAndName(el).name) === name);
-  });
 }
 
 /**
