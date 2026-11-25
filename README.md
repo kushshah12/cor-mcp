@@ -5,6 +5,7 @@ An MCP server that lets a coding agent open a page, pick an element, and get ran
 More at [corlabs.dev](https://corlabs.dev).
 
 [![Corlabs MCP server](https://mcprush.com/badge/corlabs-mcp/card.svg)](https://mcprush.com/to/corlabs-mcp?ref=badge)
+[![kushshah12/cor-mcp MCP server](https://glama.ai/mcp/servers/kushshah12/cor-mcp/badges/score.svg)](https://glama.ai/mcp/servers/kushshah12/cor-mcp)
 
 ## Install
 
