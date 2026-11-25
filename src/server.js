@@ -8,7 +8,7 @@ import { checkTools } from './tools/check.js';
 import { healTools } from './tools/heal.js';
 import { createInspector, pageOutline } from './tools/inspect.js';
 import { exploreTools } from './tools/explore.js';
-import { createTelemetry, toolCalledEvent } from './telemetry.js';
+import { createTelemetry, toolCalledEvent, sessionStartedEvent, envFlags } from './telemetry.js';
 
 const { name, version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -53,10 +53,24 @@ export function createServer({
   records = null, // U8: .cor/records/ in the project is written only when the bin turns it on (bin/cor-mcp.js)
   tools = defaultTools(session, records),
   telemetry = createTelemetry(), // U2 (plan 2026-10-13-001): off unless the build injected a key
+  source, // U1 (plan 2026-11-24-002): the --source flag from the client config
+  env = process.env,
 } = {}) {
   const server = new McpServer({ name, version }, { instructions: INSTRUCTIONS });
   // The client going away must not leave a Chrome process behind.
   server.server.onclose = () => session.close().catch(() => {});
+  // U1 (plan 2026-11-24-002): client info exists only after the handshake, so a crawler that starts the process
+  // without connecting never sends this.
+  const previous = server.server.oninitialized;
+  server.server.oninitialized = () => {
+    try {
+      const client = server.server.getClientVersion() ?? {};
+      telemetry.track(sessionStartedEvent({ clientName: client.name, clientVersion: client.version, version, source, ...envFlags(env) }));
+    } catch {
+      // telemetry must never affect the session
+    }
+    previous?.();
+  };
   // ponytail: McpServer installs tools/list lazily on the first registerTool,
   // so with zero tools it would answer "method not found". Install it up front.
   server.setToolRequestHandlers();
