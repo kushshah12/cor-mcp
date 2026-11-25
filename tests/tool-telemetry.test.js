@@ -14,7 +14,8 @@ async function connect(t, server) {
 
 function recorder() {
   const events = [];
-  return { events, track: (built) => { if (built) events.push(built); } };
+  // U1 (plan 2026-11-24-002): the handshake also sends mcp_session_started; these tests count tool events only.
+  return { events, track: (built) => { if (built?.event === 'mcp_tool_called') events.push(built); } };
 }
 
 const ok = { content: [{ type: 'text', text: 'fine' }] };

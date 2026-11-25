@@ -6,18 +6,29 @@ import { createServer } from '../src/server.js';
 import { createSession, DEFAULT_IDLE_MS } from '../src/session.js';
 import { createRecordStore } from '../src/records.js';
 import { createTelemetry, announceFirstRun } from '../src/telemetry.js';
+import { runSetup } from '../src/setup.js';
 import { readFileSync } from 'node:fs';
 
 const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
-const { values } = parseArgs({
+const { values, positionals } = parseArgs({
+  allowPositionals: true,
   options: {
     headless: { type: 'boolean', default: false },
     'idle-minutes': { type: 'string' },
     'no-records': { type: 'boolean', default: false },
     'no-fingerprints': { type: 'boolean', default: false }, // the old name, kept as an alias
+    source: { type: 'string' }, // U1 (plan 2026-11-24-002): where the install came from
+    yes: { type: 'boolean', default: false }, // U2: setup without prompts
   },
 });
+
+// U2 (plan 2026-11-24-002): `cor-mcp setup` writes agent configs and exits. It runs before the session and the stdin
+// shutdown handler, so its prompts own stdin and stdout.
+if (positionals[0] === 'setup') {
+  await runSetup({ yes: values.yes, source: values.source, version });
+  process.exit(0);
+}
 const idleMinutes = Number(values['idle-minutes']);
 const session = createSession({
   headless: values.headless,
@@ -42,4 +53,4 @@ const records = createRecordStore({ enabled: capture, root: () => session.root }
 const telemetry = createTelemetry();
 announceFirstRun(telemetry, { version });
 
-await createServer({ session, records, telemetry }).connect(new StdioServerTransport());
+await createServer({ session, records, telemetry, source: values.source }).connect(new StdioServerTransport());

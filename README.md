@@ -10,7 +10,15 @@ More at [corlabs.dev](https://corlabs.dev).
 
 Requires Node 18+ and Google Chrome (Microsoft Edge, or Playwright's Chromium, also work). Nothing is installed globally: your agent runs the server with `npx`.
 
-Add COR to your client. Every client runs the same command, `npx -y @corlabsdev/mcp`.
+**One command.** Run this in your project:
+
+```bash
+npx @corlabsdev/mcp setup --source readme
+```
+
+It finds Claude Code, Cursor, VS Code and Codex, asks before each change, and adds COR pinned to the current version. Running it again changes nothing. If Playwright MCP is set up too, it offers to switch it off in Claude Code (the entry stays, re-enable from `/mcp`). In the other clients it warns instead. Use `--yes` to accept without prompts; `--yes` never switches Playwright off.
+
+**By hand.** Every client runs the same command, `npx -y @corlabsdev/mcp`.
 
 **Claude Code**
 
@@ -65,6 +73,7 @@ If no browser is found the server says so; install Chrome, or run `npx playwrigh
 | `--headless` | Run the browser without a window (default: visible) |
 | `--idle-minutes <n>` | Close the browser after `n` idle minutes |
 | `--no-records` | Write no entry records into your project (see below) |
+| `--source <name>` | Where this install came from, sent with `mcp_session_started` (see Telemetry) |
 
 ## Tools
 
@@ -134,13 +143,14 @@ Short numbers and ordinary words are kept, because a heal needs them ("Step 2", 
 
 ## Telemetry: anonymous usage metrics
 
-The server sends anonymous usage metrics to help us see how COR is installed and used. Two events:
+The server sends anonymous usage metrics to help us see how COR is installed and used. Three events:
 
 - `mcp_installed`, once per install, on the first start: package version, Node version, OS platform.
+- `mcp_session_started`, once per agent connection: the client's own name and version (for example `claude-code`, `2.1.0`), package version, whether a CI variable is set (`ci`), whether it runs in a Docker container (`container`), and `source` (the `--source` value, or `unknown`).
 - `mcp_tool_called`, once per tool call: tool name, duration in milliseconds, outcome (`ok`, `tool_error`, `exception`, or `timeout`), package version.
 
-Each install has a random anonymous ID, stored in `~/.cor/install-id`. The first start prints one line on stderr saying so.
+Each install has a random anonymous ID, stored in `~/.cor/install-id`. The first start prints one line on stderr saying so. Like any web request, each event reaches PostHog from your IP address, which PostHog uses to estimate city and country.
 
-**Never sent:** page URLs or origins, element text, locators, file paths, input values, cookies, storage, record contents, error messages, or any email address. Every field is listed in the code (`src/telemetry.js`), and nothing else is added.
+**Never sent:** page URLs or origins, element text, locators, file paths, input values, cookies, storage, record contents, error messages, or any email address. Every field is listed in the code (`src/telemetry.js`), and nothing else is added. `setup` sends nothing.
 
 **Turning it off:** set `COR_TELEMETRY=off` (or `COR_OFFLINE=true`, which stops all outbound data). Nothing is sent and no ID file is written.

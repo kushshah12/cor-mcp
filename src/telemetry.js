@@ -2,7 +2,7 @@
 // (tsup define, see tsup.config.js) and COR_TELEMETRY is not "off". Events are built from allow-lists only, and
 // sending never throws or blocks a tool call.
 import { randomUUID } from 'node:crypto';
-import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
@@ -50,6 +50,48 @@ export function toolCalledEvent({ tool, durationMs, outcome, version }, register
   if (!OUTCOMES.includes(outcome)) return null;
   if (!Number.isInteger(durationMs) || durationMs < 0) return null;
   return { event: 'mcp_tool_called', properties: { tool, duration_ms: durationMs, outcome, version } };
+}
+
+// U1 (plan 2026-11-24-002): where an install came from. Set by `--source` in the client config (setup, listings, Lens).
+export const SOURCES = ['setup', 'lens', 'smithery', 'glama', 'pulsemcp', 'cursor', 'mcpso', 'awesome', 'readme'];
+
+export function normalizeSource(value) {
+  if (typeof value !== 'string' || !value.trim()) return 'unknown';
+  const v = value.trim().toLowerCase();
+  return SOURCES.includes(v) ? v : 'other';
+}
+
+// U1: coarse booleans that let the funnel drop automated starts. No env values, hostnames or paths are sent.
+const CI_VARS = ['CI', 'GITHUB_ACTIONS', 'GITLAB_CI', 'BUILDKITE', 'JENKINS_URL'];
+
+export function envFlags(env = process.env, exists = existsSync) {
+  const ci = CI_VARS.some((k) => env[k] && env[k] !== 'false' && env[k] !== '0');
+  let container = false;
+  try {
+    container = exists('/.dockerenv');
+  } catch {
+    // unreadable: assume not a container
+  }
+  return { ci, container };
+}
+
+// Client-reported strings: printable ASCII only, at most 64 characters.
+function clean(value) {
+  return typeof value === 'string' ? value.replace(/[^\x20-\x7e]/g, '').slice(0, 64) : '';
+}
+
+export function sessionStartedEvent({ clientName, clientVersion, version, ci, container, source }) {
+  return {
+    event: 'mcp_session_started',
+    properties: {
+      client_name: clean(clientName),
+      client_version: clean(clientVersion),
+      version,
+      ci: ci === true,
+      container: container === true,
+      source: normalizeSource(source),
+    },
+  };
 }
 
 export const FIRST_RUN_NOTICE = 'COR sends anonymous usage metrics (tool names, timings, outcomes). Turn off with COR_TELEMETRY=off. Details: README.\n';
