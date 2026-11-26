@@ -51,6 +51,6 @@ const records = createRecordStore({ enabled: capture, root: () => session.root }
 
 // U3: the install event and first-run notice. Off with COR_TELEMETRY=off or COR_OFFLINE=true (no file written).
 const telemetry = createTelemetry();
-announceFirstRun(telemetry, { version });
+announceFirstRun(telemetry, { version, source: values.source });
 
 await createServer({ session, records, telemetry, source: values.source }).connect(new StdioServerTransport());

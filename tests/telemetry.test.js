@@ -69,7 +69,8 @@ test('builders return exactly the allow-listed fields', () => {
   assert.equal(tool.properties.$mcp_source, 'posthog_mcp_analytics');
   assert.equal(tool.properties.$mcp_is_error, false);
   const installed = installedEvent({ version: '0.1.4', node: 'v20.0.0', platform: 'darwin' });
-  assert.deepEqual(Object.keys(installed.properties).sort(), ['node', 'platform', 'version']);
+  assert.deepEqual(Object.keys(installed.properties).sort(), ['node', 'platform', 'source', 'version']);
+  assert.equal(installed.properties.source, 'unknown');
 });
 
 test('builder fields never carry a URL, an email or an error message', () => {
