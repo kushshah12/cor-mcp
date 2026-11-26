@@ -1,7 +1,7 @@
 // U1 (plan 2026-10-13-001): anonymous usage metrics. Off unless a PostHog key was injected at build time
 // (tsup define, see tsup.config.js) and COR_TELEMETRY is not "off". Events are built from allow-lists only, and
 // sending never throws or blocks a tool call.
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
@@ -45,11 +45,67 @@ export function installedEvent({ version, node = process.version, platform = pro
   return { event: 'mcp_installed', properties: { version, node, platform } };
 }
 
-export function toolCalledEvent({ tool, durationMs, outcome, version }, registeredNames) {
+// PostHog MCP Analytics schema (posthog.com/docs/mcp-analytics/installation/other-languages): `$mcp_source` must be
+// this value or the event is ignored. Parameters, responses and intent are never sent (R4).
+const MCP_SOURCE = 'posthog_mcp_analytics';
+export const SERVER_NAME = '@corlabsdev/mcp';
+const ERROR_TYPES = ['validation', 'missing_context', 'timeout', 'internal', 'Error'];
+
+/** `ses_<UUIDv7>`, the session id MCP Analytics expects for stdio servers. */
+export function sessionId(now = Date.now()) {
+  const b = randomBytes(16);
+  b.writeUIntBE(now, 0, 6);
+  b[6] = (b[6] & 0x0f) | 0x70;
+  b[8] = (b[8] & 0x3f) | 0x80;
+  const h = b.toString('hex');
+  return `ses_${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`;
+}
+
+/**
+ * Low-cardinality error label from a thrown error. The message is read here and never sent.
+ * ponytail: message regexes over COR's own error text; move to typed errors if the labels drift.
+ */
+export function errorType(err) {
+  if (err?.name === 'TimeoutError') return 'timeout';
+  const m = String(err?.message ?? '');
+  if (/no page is open|no snapshot is current|is stale/i.test(m)) return 'missing_context';
+  if (/^pass |not gradable|not a valid|exactly one of/i.test(m)) return 'validation';
+  return 'internal';
+}
+
+/** Session-wide properties shared by `$mcp_initialize` and every `$mcp_tool_call`. */
+function sessionProps(ctx = {}) {
+  return {
+    $session_id: ctx.sessionId,
+    $mcp_client_name: clean(ctx.clientName),
+    $mcp_client_version: clean(ctx.clientVersion),
+    source: normalizeSource(ctx.source),
+    ci: ctx.ci === true,
+    container: ctx.container === true,
+  };
+}
+
+export function toolCalledEvent({ tool, durationMs, outcome, version, error, ctx }, registeredNames) {
   if (!registeredNames.includes(tool)) return null;
   if (!OUTCOMES.includes(outcome)) return null;
   if (!Number.isInteger(durationMs) || durationMs < 0) return null;
-  return { event: 'mcp_tool_called', properties: { tool, duration_ms: durationMs, outcome, version } };
+  const properties = {
+    $mcp_source: MCP_SOURCE,
+    $mcp_tool_name: tool,
+    $mcp_is_error: outcome !== 'ok',
+    $mcp_duration_ms: durationMs,
+    $mcp_server_name: SERVER_NAME,
+    $mcp_server_version: version,
+    ...sessionProps(ctx),
+    outcome,
+    version,
+  };
+  if (outcome !== 'ok') {
+    const type = ERROR_TYPES.includes(error) ? error : outcome === 'tool_error' ? 'Error' : 'internal';
+    properties.$mcp_error_type = type;
+    properties.$mcp_error_message = type; // ponytail: the label, never the raw text (it can hold URLs and selectors)
+  }
+  return { event: '$mcp_tool_call', properties };
 }
 
 // U1 (plan 2026-11-24-002): where an install came from. Set by `--source` in the client config (setup, listings, Lens).
@@ -80,17 +136,10 @@ function clean(value) {
   return typeof value === 'string' ? value.replace(/[^\x20-\x7e]/g, '').slice(0, 64) : '';
 }
 
-export function sessionStartedEvent({ clientName, clientVersion, version, ci, container, source }) {
+export function sessionStartedEvent({ version, ...ctx }) {
   return {
-    event: 'mcp_session_started',
-    properties: {
-      client_name: clean(clientName),
-      client_version: clean(clientVersion),
-      version,
-      ci: ci === true,
-      container: container === true,
-      source: normalizeSource(source),
-    },
+    event: '$mcp_initialize',
+    properties: { $mcp_source: MCP_SOURCE, $mcp_server_name: SERVER_NAME, $mcp_server_version: version, ...sessionProps(ctx), version },
   };
 }
 
@@ -123,7 +172,7 @@ export function createTelemetry({ env = process.env, key, host, dir, fetchImpl =
         event: built.event,
         distinct_id: id,
         properties: built.properties,
-        timestamp: new Date().toISOString(),
+        timestamp: (built.timestamp ?? new Date()).toISOString(), // MCP Analytics: when the request started
       });
       fetchImpl(url, {
         method: 'POST',

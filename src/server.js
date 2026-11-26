@@ -8,7 +8,7 @@ import { checkTools } from './tools/check.js';
 import { healTools } from './tools/heal.js';
 import { createInspector, pageOutline } from './tools/inspect.js';
 import { exploreTools } from './tools/explore.js';
-import { createTelemetry, toolCalledEvent, sessionStartedEvent, envFlags } from './telemetry.js';
+import { createTelemetry, toolCalledEvent, sessionStartedEvent, envFlags, errorType, sessionId } from './telemetry.js';
 
 const { name, version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
@@ -61,11 +61,14 @@ export function createServer({
   server.server.onclose = () => session.close().catch(() => {});
   // U1 (plan 2026-11-24-002): client info exists only after the handshake, so a crawler that starts the process
   // without connecting never sends this.
+  // MCP Analytics: every event of this connection carries the same session, client and install source.
+  const ctx = { sessionId: sessionId(), source, ...envFlags(env) };
   const previous = server.server.oninitialized;
   server.server.oninitialized = () => {
     try {
       const client = server.server.getClientVersion() ?? {};
-      telemetry.track(sessionStartedEvent({ clientName: client.name, clientVersion: client.version, version, source, ...envFlags(env) }));
+      Object.assign(ctx, { clientName: client.name, clientVersion: client.version });
+      telemetry.track(sessionStartedEvent({ version, ...ctx }));
     } catch {
       // telemetry must never affect the session
     }
@@ -76,27 +79,35 @@ export function createServer({
   server.setToolRequestHandlers();
   const names = tools.map((t) => t.name);
   for (const { name: toolName, config, handler } of tools) {
-    server.registerTool(toolName, config, timed(toolName, handler, { telemetry, names }));
+    server.registerTool(toolName, config, timed(toolName, handler, { telemetry, names, ctx }));
   }
   return server;
 }
 
-// U2: one mcp_tool_called event per call. Names, schemas and results pass through unchanged. cor_explore runs the
+const SESSION_GAP_MS = 30 * 60 * 1000; // MCP Analytics: a stdio session restarts after 30 idle minutes
+
+// U2: one $mcp_tool_call event per call. Names, schemas and results pass through unchanged. cor_explore runs the
 // other tools' raw handlers, so its steps are not counted separately.
-function timed(tool, handler, { telemetry, names }) {
+function timed(tool, handler, { telemetry, names, ctx = {} }) {
   return async (...args) => {
+    const startedAt = new Date();
+    if (ctx.lastCallAt && startedAt - ctx.lastCallAt > SESSION_GAP_MS) ctx.sessionId = sessionId();
+    ctx.lastCallAt = startedAt;
     const started = performance.now();
     let outcome = 'ok';
+    let error;
     try {
       const result = await handler(...args);
       if (result?.isError) outcome = 'tool_error';
       return result;
     } catch (err) {
       outcome = err?.name === 'TimeoutError' ? 'timeout' : 'exception';
+      error = errorType(err);
       throw err;
     } finally {
       const durationMs = Math.round(performance.now() - started);
-      telemetry.track(toolCalledEvent({ tool, durationMs, outcome, version }, names));
+      const built = toolCalledEvent({ tool, durationMs, outcome, version, error, ctx }, names);
+      telemetry.track(built && { ...built, timestamp: startedAt });
     }
   };
 }
