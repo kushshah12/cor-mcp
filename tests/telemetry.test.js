@@ -49,11 +49,11 @@ test('installId with an unwritable directory returns an id and does not throw', 
   chmodSync(dir, 0o700);
 });
 
-test('mcp_tool_called rejects a tool name that is not registered', () => {
+test('$mcp_tool_call rejects a tool name that is not registered', () => {
   assert.equal(toolCalledEvent({ tool: 'cor_evil', durationMs: 5, outcome: 'ok', version: '0.1.4' }, REGISTERED), null);
 });
 
-test('mcp_tool_called rejects an unknown outcome or a bad duration', () => {
+test('$mcp_tool_call rejects an unknown outcome or a bad duration', () => {
   assert.equal(toolCalledEvent({ tool: 'cor_open', durationMs: 5, outcome: 'weird', version: 'x' }, REGISTERED), null);
   assert.equal(toolCalledEvent({ tool: 'cor_open', durationMs: -1, outcome: 'ok', version: 'x' }, REGISTERED), null);
   assert.equal(toolCalledEvent({ tool: 'cor_open', durationMs: 1.5, outcome: 'ok', version: 'x' }, REGISTERED), null);
@@ -61,7 +61,13 @@ test('mcp_tool_called rejects an unknown outcome or a bad duration', () => {
 
 test('builders return exactly the allow-listed fields', () => {
   const tool = toolCalledEvent({ tool: 'cor_open', durationMs: 42, outcome: 'ok', version: '0.1.4' }, REGISTERED);
-  assert.deepEqual(Object.keys(tool.properties).sort(), ['duration_ms', 'outcome', 'tool', 'version']);
+  assert.equal(tool.event, '$mcp_tool_call');
+  assert.deepEqual(Object.keys(tool.properties).sort(), [
+    '$mcp_client_name', '$mcp_client_version', '$mcp_duration_ms', '$mcp_is_error', '$mcp_server_name',
+    '$mcp_server_version', '$mcp_source', '$mcp_tool_name', '$session_id', 'ci', 'container', 'outcome', 'source', 'version',
+  ]);
+  assert.equal(tool.properties.$mcp_source, 'posthog_mcp_analytics');
+  assert.equal(tool.properties.$mcp_is_error, false);
   const installed = installedEvent({ version: '0.1.4', node: 'v20.0.0', platform: 'darwin' });
   assert.deepEqual(Object.keys(installed.properties).sort(), ['node', 'platform', 'version']);
 });
@@ -73,7 +79,7 @@ test('builder fields never carry a URL, an email or an error message', () => {
   ];
   const serialized = JSON.stringify(built);
   assert.doesNotMatch(serialized, /https?:\/\//);
-  assert.doesNotMatch(serialized, /@/);
+  assert.doesNotMatch(serialized, /[\w.+-]+@[\w-]+\.[a-z]/i); // an email; the server name '@corlabsdev/mcp' is fine
 });
 
 test('send posts the event to the capture endpoint with the install id', async () => {

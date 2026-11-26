@@ -1,4 +1,4 @@
-// U1 (plan 2026-11-24-002): mcp_session_started carries the connected client, CI/container flags and install source.
+// U1 (plan 2026-11-24-002): $mcp_initialize carries the connected client, CI/container flags and install source.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync } from 'node:fs';
@@ -15,9 +15,12 @@ const noDocker = () => false;
 
 test('U1: event carries exactly the allow-listed keys', () => {
   const built = sessionStartedEvent({ clientName: 'claude-code', clientVersion: '2.1.0', version: '0.2.0', ci: false, container: false, source: 'smithery', url: 'https://secret' });
-  assert.equal(built.event, 'mcp_session_started');
-  assert.deepEqual(Object.keys(built.properties).sort(), ['ci', 'client_name', 'client_version', 'container', 'source', 'version']);
-  assert.equal(built.properties.client_name, 'claude-code');
+  assert.equal(built.event, '$mcp_initialize');
+  assert.deepEqual(Object.keys(built.properties).sort(), [
+    '$mcp_client_name', '$mcp_client_version', '$mcp_server_name', '$mcp_server_version', '$mcp_source', '$session_id',
+    'ci', 'container', 'source', 'version',
+  ]);
+  assert.equal(built.properties.$mcp_client_name, 'claude-code');
   assert.equal(built.properties.source, 'smithery');
 });
 
@@ -40,8 +43,8 @@ test('U1: envFlags reads CI variables and /.dockerenv', () => {
 
 test('U1: client strings are truncated to 64 printable ASCII characters', () => {
   const built = sessionStartedEvent({ clientName: 'a\u0000b\nc' + 'x'.repeat(100), clientVersion: 7 });
-  assert.equal(built.properties.client_name, ('abc' + 'x'.repeat(100)).slice(0, 64));
-  assert.equal(built.properties.client_version, '');
+  assert.equal(built.properties.$mcp_client_name, ('abc' + 'x'.repeat(100)).slice(0, 64));
+  assert.equal(built.properties.$mcp_client_version, '');
 });
 
 async function connect({ env = {}, fetchImpl, source, clientName = 'claude-code' }) {
@@ -54,14 +57,14 @@ async function connect({ env = {}, fetchImpl, source, clientName = 'claude-code'
   return { client, server };
 }
 
-test('U1: the handshake sends one mcp_session_started with the client name and source', async () => {
+test('U1: the handshake sends one $mcp_initialize with the client name and source', async () => {
   const sent = [];
   const fetchImpl = async (_url, init) => { sent.push(JSON.parse(init.body)); return {}; };
   const { client } = await connect({ env: { CI: 'true' }, fetchImpl, source: 'lens' });
-  const sessions = sent.filter((b) => b.event === 'mcp_session_started');
+  const sessions = sent.filter((b) => b.event === '$mcp_initialize');
   assert.equal(sessions.length, 1);
-  assert.equal(sessions[0].properties.client_name, 'claude-code');
-  assert.equal(sessions[0].properties.client_version, '9.9.9');
+  assert.equal(sessions[0].properties.$mcp_client_name, 'claude-code');
+  assert.equal(sessions[0].properties.$mcp_client_version, '9.9.9');
   assert.equal(sessions[0].properties.source, 'lens');
   assert.equal(sessions[0].properties.ci, true);
   await client.close();
