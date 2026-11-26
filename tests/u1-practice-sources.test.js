@@ -18,7 +18,8 @@ test('U1: practice_ and site_ slugs pass through unchanged', () => {
 
 test('U1: malformed slugs map to other', () => {
   for (const s of ['practice_', 'site_', 'practice_XPath', 'Practice_xpath', 'practice_x y', 'practice_../etc', 'practice_x_y',
-    'practicexpath', 'other_xpath', 'xpractice_xpath', `practice_${'a'.repeat(49)}`]) {
+    'practicexpath', 'other_xpath', 'xpractice_xpath', `practice_${'a'.repeat(49)}`,
+    'practice_5551234567', 'site_order-123456']) {
     assert.equal(normalizeSource(s), 'other', JSON.stringify(s));
   }
   assert.equal(normalizeSource(`practice_${'a'.repeat(48)}`), `practice_${'a'.repeat(48)}`);

@@ -113,7 +113,8 @@ export const SOURCES = ['setup', 'lens', 'smithery', 'glama', 'pulsemcp', 'curso
 
 // U1 (plan 2026-11-26-001): practice pages and site placements add slugs without an MCP release.
 // Matched before lowercasing, so `practice_XPath` is `other`. ponytail: 48-char slug cap bounds cardinality.
-const SLUG_SOURCE = /^(practice|site)_[a-z0-9-]{1,48}$/;
+// A run of 6+ digits is rejected, matching record masking: a slug must never carry a phone or account number.
+const SLUG_SOURCE = /^(practice|site)_(?!.*\d{6})[a-z0-9-]{1,48}$/;
 
 export function normalizeSource(value) {
   if (typeof value !== 'string' || !value.trim()) return 'unknown';
