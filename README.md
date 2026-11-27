@@ -73,7 +73,7 @@ If no browser is found the server says so; install Chrome, or run `npx playwrigh
 | `--headless` | Run the browser without a window (default: visible) |
 | `--idle-minutes <n>` | Close the browser after `n` idle minutes |
 | `--no-records` | Write no entry records into your project (see below) |
-| `--source <name>` | Where this install came from, sent with `mcp_session_started` (see Telemetry) |
+| `--source <name>` | Where this install came from, sent with `mcp_installed`, `$mcp_initialize` and `$mcp_tool_call` (see Telemetry) |
 
 ## Tools
 
@@ -145,13 +145,15 @@ Short numbers and ordinary words are kept, because a heal needs them ("Step 2", 
 
 The server sends anonymous usage metrics to help us see how COR is installed and used. Three events:
 
-- `mcp_installed`, once per install, on the first start: package version, Node version, OS platform.
+- `mcp_installed`, once per install, on the first start: package version, Node version, OS platform, and `source`.
 - `$mcp_initialize`, once per agent connection: the client's own name and version (for example `claude-code`, `2.1.0`), the server name and version, a random session ID for this connection, whether a CI variable is set (`ci`), whether it runs in a Docker container (`container`), and `source` (the `--source` value, or `unknown`).
 - `$mcp_tool_call`, once per tool call: tool name, duration in milliseconds, outcome (`ok`, `tool_error`, `exception`, or `timeout`), whether it failed, and on failure a fixed error type (`validation`, `missing_context`, `timeout`, `internal`, or `Error`), plus the same session, client, server and source fields.
 
 The two `$mcp_` events follow [PostHog MCP Analytics](https://posthog.com/docs/mcp-analytics) naming. Tool arguments, tool results and the agent's reasoning are not sent. Versions before 0.1.9 sent `mcp_session_started` and `mcp_tool_called` instead.
 
 Each install has a random anonymous ID, stored in `~/.cor/install-id`. The first start prints one line on stderr saying so. Like any web request, each event reaches PostHog from your IP address, which PostHog uses to estimate city and country.
+
+`source` is the `--source` value when it is a known name (`setup`, `lens`, `readme`, a directory name) or a COR site slug of the form `practice_<page>` or `site_<placement>` (lowercase letters, digits and hyphens). Anything else is sent as `other`, and no flag as `unknown`.
 
 **Never sent:** page URLs or origins, element text, locators, file paths, input values, cookies, storage, record contents, tool arguments or results, error message text, or any email address. Every field is listed in the code (`src/telemetry.js`), and nothing else is added. `setup` sends nothing.
 

@@ -41,8 +41,8 @@ export function installId(dir = join(homedir(), '.cor')) {
 
 // Each builder returns { event, properties } with only the allow-listed fields, or null when the input is not allowed.
 
-export function installedEvent({ version, node = process.version, platform = process.platform }) {
-  return { event: 'mcp_installed', properties: { version, node, platform } };
+export function installedEvent({ version, node = process.version, platform = process.platform, source }) {
+  return { event: 'mcp_installed', properties: { version, node, platform, source: normalizeSource(source) } };
 }
 
 // PostHog MCP Analytics schema (posthog.com/docs/mcp-analytics/installation/other-languages): `$mcp_source` must be
@@ -111,8 +111,14 @@ export function toolCalledEvent({ tool, durationMs, outcome, version, error, ctx
 // U1 (plan 2026-11-24-002): where an install came from. Set by `--source` in the client config (setup, listings, Lens).
 export const SOURCES = ['setup', 'lens', 'smithery', 'glama', 'pulsemcp', 'cursor', 'mcpso', 'awesome', 'readme'];
 
+// U1 (plan 2026-11-26-001): practice pages and site placements add slugs without an MCP release.
+// Matched before lowercasing, so `practice_XPath` is `other`. ponytail: 48-char slug cap bounds cardinality.
+// A run of 6+ digits is rejected, matching record masking: a slug must never carry a phone or account number.
+const SLUG_SOURCE = /^(practice|site)_(?!.*\d{6})[a-z0-9-]{1,48}$/;
+
 export function normalizeSource(value) {
   if (typeof value !== 'string' || !value.trim()) return 'unknown';
+  if (SLUG_SOURCE.test(value.trim())) return value.trim();
   const v = value.trim().toLowerCase();
   return SOURCES.includes(v) ? v : 'other';
 }
@@ -149,9 +155,9 @@ export const FIRST_RUN_NOTICE = 'COR sends anonymous usage metrics (tool names, 
  * U3: on the first run of an install, send mcp_installed and say so on stderr (stdout carries the protocol).
  * Does nothing on later runs, or when telemetry is off (installCreated is only true when it is on).
  */
-export function announceFirstRun(telemetry, { version, stderr = process.stderr }) {
+export function announceFirstRun(telemetry, { version, source, stderr = process.stderr }) {
   if (!telemetry.installCreated) return;
-  telemetry.track(installedEvent({ version }));
+  telemetry.track(installedEvent({ version, source }));
   stderr.write(FIRST_RUN_NOTICE);
 }
 
