@@ -6,12 +6,12 @@
     "url": "https://github.com/kushshah12/cor-mcp",
     "source": "github"
   },
-  "version": "0.1.9",
+  "version": "1.0.0",
   "packages": [
     {
       "registryType": "npm",
       "identifier": "@corlabsdev/mcp",
-      "version": "0.1.9",
+      "version": "1.0.0",
       "transport": {
         "type": "stdio"
       }
